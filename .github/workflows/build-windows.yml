@@ -51,7 +51,8 @@ jobs:
         shell: bash
         run: |
           # Count releases already tagged vSERIES.* (e.g. v0.3.0, v0.3.1) and use the next number.
-          n=$(git ls-remote --tags origin "refs/tags/v${SERIES}.*" | grep -v '\^{}' | wc -l | tr -d ' ')
+          # (awk, not grep: grep exits 1 when nothing matches, which fails the step on the first release)
+          n=$(git ls-remote --tags origin "refs/tags/v${SERIES}.*" | awk '!/\^\{\}/' | wc -l | tr -d ' ')
           VERSION="${SERIES}.${n}"
           echo "Building version $VERSION"
           node -e "
