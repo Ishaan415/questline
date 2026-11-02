@@ -5,29 +5,6 @@ Q.sprites = (() => {
   const D = Q.SPRITE_DATA;
   const cache = new Map();
 
-  /* Companion growth overlays: [x, y, color] pixels drawn on top of the base sprite. */
-  const OVERLAYS = {
-    sprigg: {
-      2: [[8, 0, '#F48FB1'], [7, 1, '#F48FB1'], [9, 1, '#F48FB1'], [8, 1, '#F2C14E'], [8, 2, '#F48FB1'],
-          [3, 12, '#E8604C'], [4, 12, '#E8604C'], [11, 12, '#E8604C'], [12, 12, '#E8604C']],
-      3: [[1, 4, '#F2C14E'], [0, 5, '#F2C14E'], [1, 5, '#FFF1A8'], [2, 5, '#F2C14E'], [1, 6, '#F2C14E'],
-          [14, 9, '#F2C14E'], [13, 10, '#F2C14E'], [14, 10, '#FFF1A8'], [15, 10, '#F2C14E'], [14, 11, '#F2C14E'],
-          [6, 0, '#7CC66A'], [10, 0, '#7CC66A'], [5, 1, '#3A8C4E'], [11, 1, '#3A8C4E']],
-    },
-    coalby: {
-      2: [[6, 0, '#E8604C'], [8, 0, '#E8604C'], [7, 0, '#F2C14E'], [5, 2, '#E8604C'], [9, 2, '#E8604C'],
-          [4, 11, '#3C82C8'], [5, 11, '#3C82C8'], [10, 11, '#3C82C8'], [11, 11, '#3C82C8']],
-      3: [[7, 6, '#58D0F0'], [8, 6, '#58D0F0'], [7, 7, '#2FA58A'],
-          [1, 3, '#F2C14E'], [14, 4, '#F2C14E'], [0, 9, '#F2C14E'], [15, 12, '#F2C14E']],
-    },
-    drizzle: {
-      2: [[4, 0, '#E8604C'], [5, 0, '#F2C14E'], [10, 0, '#7CC66A'], [11, 0, '#3C82C8'],
-          [3, 1, '#E8604C'], [12, 1, '#3C82C8']],
-      3: [[13, 0, '#F2C14E'], [14, 0, '#F2C14E'], [14, 1, '#FFF1A8'], [15, 1, '#F2C14E'], [13, 1, '#F2C14E'], [14, 2, '#F2C14E'],
-          [1, 2, '#FFFFFF'], [0, 13, '#FFFFFF']],
-    },
-  };
-
   /* Trainer outfits are palette swaps of the base sprite. Unlocked in the shop. */
   const OUTFITS = {
     classic: { name: 'Classic', C: '#E8604C', c: '#B8432F', t: '#3C82C8', T: '#2A5F96', p: '#4A5A6A' },
@@ -37,19 +14,6 @@ Q.sprites = (() => {
     royal: { name: 'Champion', C: '#F2C14E', c: '#C99A2E', t: '#FFFFFF', T: '#D8E2EA', p: '#2F4858' },
     sakura: { name: 'Blossom', C: '#F48FB1', c: '#D0678C', t: '#FFFDF4', T: '#F0D8E0', p: '#5A6A8A' },
   };
-
-  const COMPANIONS = {
-    sprigg: { name: 'Sprigg', kind: 'Sprout critter', likes: 'sunny mornings', color: '#58B368' },
-    coalby: { name: 'Coalby', kind: 'Ember pebble', likes: 'finishing hard tasks', color: '#E8604C' },
-    drizzle: { name: 'Drizzle', kind: 'Cloud puff', likes: 'calm focus sessions', color: '#3C82C8' },
-  };
-
-  const BOSSES = [
-    { id: 'dustking', name: 'Dust Bunny King', taunt: 'Your shelves belong to ME now.' },
-    { id: 'snooze', name: 'Snooze Slime', taunt: 'Just five more minutes… forever.' },
-    { id: 'clutter', name: 'Clutter Golem', taunt: 'I am built from everything you put off.' },
-    { id: 'wisp', name: 'Deadline Wisp', taunt: 'Tick… tock… tick… tock.' },
-  ];
 
   function render(key, opts = {}) {
     const ck = key + JSON.stringify(opts);
@@ -78,11 +42,8 @@ Q.sprites = (() => {
   const img = (url, size, cls = '', alt = '') =>
     `<img class="px ${cls}" src="${url}" width="${size}" height="${size}" alt="${Q.util.esc(alt)}" draggable="false">`;
 
-  function companion(species, stage, size = 64, cls = '') {
-    const ov = OVERLAYS[species] || {};
-    const overlay = [].concat(stage >= 2 ? ov[2] || [] : [], stage >= 3 ? ov[3] || [] : []);
-    return img(render(species, { overlay }), size, `companion stage-${stage} ${cls}`, COMPANIONS[species]?.name);
-  }
+  /** The lead pal of your team (used wherever the old companion appeared). */
+  const companion = (size = 64, cls = '') => Q.pals.sprite(Q.pals.lead(), size, { cls: `companion ${cls}` });
 
   function trainer(outfit = 'classic', size = 64, cls = '') {
     const o = OUTFITS[outfit] || OUTFITS.classic;
@@ -90,7 +51,8 @@ Q.sprites = (() => {
     return img(render('trainer', { pal }), size, `trainer ${cls}`, 'Your trainer');
   }
 
-  const boss = (id, size = 96, cls = '') => img(render(id), size, `boss ${cls}`, id);
+  /** Hand-made 16px bosses come from SPRITE_DATA; newer ones are generated. */
+  const boss = (id, size = 96, cls = '') => (D[id] ? img(render(id), size, `boss ${cls}`, id) : img(Q.pals.url(id, 1), size, `boss boss-gen ${cls}`, id));
 
   /* -------- 8x8 mono icons, drawn with currentColor -------- */
   const ICONS = {
@@ -141,6 +103,9 @@ Q.sprites = (() => {
     up: ['...##...', '..####..', '.######.', '########', '...##...', '...##...', '...##...', '...##...'],
     down: ['...##...', '...##...', '...##...', '...##...', '########', '.######.', '..####..', '...##...'],
     left: ['...#....', '..##....', '.#######', '########', '########', '.#######', '..##....', '...#....'],
+    paw: ['.##..##.', '.##..##.', '........', '#..##..#', '#.####.#', '.######.', '.######.', '..####..'],
+    ticket: ['........', '########', '#.#....#', '..#.##..', '..#.##..', '#.#....#', '########', '........'],
+    capsule: ['..####..', '.######.', '########', '##.##.##', '#..##..#', '#......#', '.#....#.', '..####..'],
     right: ['....#...', '....##..', '#######.', '########', '########', '#######.', '....##..', '....#...'],
   };
   const svgCache = new Map();
@@ -166,5 +131,5 @@ Q.sprites = (() => {
     return `<svg class="ico ${cls}" viewBox="0 0 8 8" aria-hidden="true" shape-rendering="crispEdges"><path d="${path}" fill="currentColor"/></svg>`;
   }
 
-  return { render, companion, trainer, boss, icon, OUTFITS, COMPANIONS, BOSSES, ICONS };
+  return { render, companion, trainer, boss, icon, OUTFITS, ICONS };
 })();

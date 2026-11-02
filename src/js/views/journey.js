@@ -59,11 +59,9 @@ Q.views.journey = (() => {
   }
 
   function render(root) {
-    const st = S(); const h = st.hero; const c = st.companion;
+    const st = S(); const h = st.hero;
     const badges = G.ACH.filter((a) => a.badge);
     const days = Math.max(1, U.diffDays(new Date(), new Date(st.createdAt)) + 1);
-    const clvl = G.companionLevel(); const stage = G.companionStage();
-    const nextStage = stage === 1 ? 8 : stage === 2 ? 20 : null;
     root.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">Your progress</div><h1 class="page-title">Journey</h1></div></div>
       <div class="journey">
@@ -98,17 +96,9 @@ Q.views.journey = (() => {
         </section>
 
         <section class="panel comp-panel">
-          <div class="panel-title">${I('heart')} ${esc(c.name)}</div>
-          <div class="comp-body">
-            <div class="comp-sprite">${Q.sprites.companion(c.species, stage, 112)}</div>
-            <div>
-              <p><b>${Q.sprites.COMPANIONS[c.species].kind}</b> · Lv ${clvl} · ${G.STAGE_NAMES[stage]} form</p>
-              <p class="small muted">Loves ${Q.sprites.COMPANIONS[c.species].likes}. ${nextStage ? `Grows again at level ${nextStage}.` : 'Fully grown!'}</p>
-              <div class="hearts big" title="Friendship">${[0, 1, 2, 3, 4].map((i) => `<i class="${(c.friendship || 0) >= (i + 1) * 20 ? 'on' : ''}">${I('heart')}</i>`).join('')}</div>
-              <div class="row-btns"><button class="btn btn-small" data-act="use-item" data-item="berry" ${st.inventory.berry ? '' : 'disabled'}>${I('berry')} Feed (${st.inventory.berry})</button>
-              <button class="btn btn-small" data-act="rename-companion">${I('edit')} Rename</button></div>
-            </div>
-          </div>
+          <div class="panel-title">${I('paw')} Team <span class="small muted">${Q.pals.count()}/${Q.PALS.LINES.length} pals collected</span></div>
+          <div class="jt-team">${Q.pals.team().map((id) => `<button class="jt-pal" data-act="pal-open" data-id="${id}">${Q.pals.sprite(id, 72)}<b>${esc(Q.pals.name(id))}</b><span class="small muted">Lv ${Q.pals.level(id)}</span></button>`).join('')}</div>
+          <div class="row-btns"><button class="btn btn-small" data-act="go" data-view="pals">${I('paw')} Open Pals</button></div>
         </section>
 
         <section class="panel wide">
@@ -123,7 +113,7 @@ Q.views.journey = (() => {
         <section class="panel wide">
           <div class="panel-title">${I('trophy')} Achievements <span class="small muted">${Object.keys(st.achievements).length}/${G.ACH.length}</span></div>
           <div class="ach-grid">${G.ACH.map((a) => `<div class="ach ${st.achievements[a.id] ? 'got' : ''}">${a.badge ? Q.ui.badgeIcon(st.achievements[a.id] ? a : { badge: '#C9CCD6' }, 30) : `<span class="ach-ico">${I(st.achievements[a.id] ? 'star' : 'lock')}</span>`}
-            <div><b>${a.name}</b><p class="small muted">${a.desc}</p>${st.achievements[a.id] ? `<span class="small">${U.fmtDate(new Date(st.achievements[a.id]))}</span>` : ''}</div></div>`).join('')}</div>
+            <div><b>${a.name}</b><p class="small muted">${a.desc}</p>${a.reward ? `<span class="ach-reward small">${G.rewardText(a.reward)}</span>` : ''}${st.achievements[a.id] ? `<span class="small"> · ${U.fmtDate(new Date(st.achievements[a.id]))}</span>` : ''}</div></div>`).join('')}</div>
         </section>
 
         <section class="panel wide">
@@ -133,17 +123,7 @@ Q.views.journey = (() => {
       </div>`;
   }
 
-  function bind() {
-    Q.ui.on('rename-companion', () => {
-      const c = S().companion;
-      Q.ui.modal({
-        title: 'Rename companion', cls: 'modal-small modal-form',
-        body: `<form><label class="field"><span class="field-label">Name</span><input name="n" maxlength="16" value="${esc(c.name)}" required></label>
-          <div class="modal-actions"><span class="spacer"></span><button type="button" class="btn" data-close>Cancel</button><button class="btn btn-primary">Save</button></div></form>`,
-        onMount(m, close) { m.querySelector('form').onsubmit = (e) => { e.preventDefault(); c.name = m.querySelector('input').value.trim() || c.name; Q.store.commit('companion'); close(); }; },
-      });
-    });
-  }
+  function bind() {}
 
   return { render, bind };
 })();

@@ -16,6 +16,7 @@ Q.app = (() => {
     { k: 'calendar', name: 'Calendar', icon: 'calendar', hash: 'calendar' },
     { k: 'focus', name: 'Focus', icon: 'hourglass', hash: null },
     { k: 'shop', name: 'Shop', icon: 'bag', hash: 'shop' },
+    { k: 'pals', name: 'Pals', icon: 'paw', hash: 'pals' },
     { k: 'journey', name: 'Journey', icon: 'trophy', hash: 'journey' },
     { k: 'settings', name: 'Settings', icon: 'gear', hash: 'options' },
   ];
@@ -46,7 +47,7 @@ Q.app = (() => {
       <div class="shell">
         <nav class="sidebar" aria-label="Main">
           <div class="nav">${VIEWS.map((v, i) => `<button class="nav-btn" data-act="${v.k === 'focus' ? 'focus-open' : 'go'}" data-view="${v.k}" title="${v.name} (${i + 1})">${I(v.icon)}<span>${v.name}</span><kbd>${i + 1}</kbd></button>`).join('')}</div>
-          <div class="side-hud" id="side-hud" data-act="go" data-view="journey" role="button" tabindex="0" title="Open your Journey: stats, badges, companion"></div>
+          <div class="side-hud" id="side-hud" data-act="go" data-view="journey" role="button" tabindex="0" title="Open your Journey: stats, badges and progress"></div>
         </nav>
         <main id="view" class="view" tabindex="-1"></main>
       </div>`;
@@ -60,7 +61,7 @@ Q.app = (() => {
     el.innerHTML = `
       <div class="sh-top">${Q.sprites.trainer(st.profile.outfit, 40)}<div><b>${esc(st.profile.name)}</b><span class="small">Lv ${st.hero.level} ${G.title(st.hero.level)}</span></div></div>
       ${Q.comp.hpBar(true)}${Q.comp.xpBar(true)}
-      <div class="sh-row">${Q.comp.gold()}<span class="sh-items" title="Potions · Shields · Berries">${I('potion')}${st.inventory.potion} ${I('shield')}${st.inventory.shield} ${I('berry')}${st.inventory.berry}</span></div>
+      <div class="sh-row">${Q.comp.gold()}<span class="sh-items" title="Potions · Shields · Capsule Tickets">${I('potion')}${st.inventory.potion} ${I('shield')}${st.inventory.shield} ${I('ticket')}${st.inventory.ticket || 0}</span></div>
       ${st.settings.inn ? `<button class="inn-pill" data-act="toggle-inn">${I('moon')} Resting at the Inn</button>` : ''}`;
   }
 
@@ -147,7 +148,32 @@ Q.app = (() => {
     applySettings();
   }
 
+  /* Try a theme on without buying it. Any applySettings() call ends the preview. */
+  function previewSkin(key) {
+    const sk = G.SHOP.skins[key];
+    if (!sk) return;
+    const root = document.documentElement;
+    root.dataset.mode = sk.mode; root.dataset.skin = key;
+    let bar = document.getElementById('preview-bar');
+    if (!bar) { bar = document.createElement('div'); bar.id = 'preview-bar'; bar.className = 'preview-bar'; document.body.appendChild(bar); }
+    const owned = S().owned.skins.includes(key);
+    bar.innerHTML = `<span>${I(sk.mode === 'dark' ? 'moon' : 'sun')} Previewing <b>${esc(sk.name)}</b></span>
+      ${owned ? `<button class="btn btn-small btn-primary" data-pv="equip">Equip</button>` : `<button class="btn btn-small btn-primary" data-pv="buy" ${S().hero.gold < sk.price ? 'disabled' : ''}>${I('coin')} Buy · ${sk.price}</button>`}
+      <button class="btn btn-small" data-pv="exit">Exit preview</button>`;
+    bar.onclick = (e) => {
+      const b = e.target.closest('[data-pv]'); if (!b) return;
+      if (b.dataset.pv === 'buy') {
+        const r = G.buy('skins', key);
+        if (!r.ok) return Q.ui.toast(r.msg, { kind: 'error' });
+        Q.sfx.coin(); flushGame(); equipSkin(key); Q.ui.toast(`${sk.name} is yours!`, { kind: 'ok', icon: I('bag') });
+      } else if (b.dataset.pv === 'equip') equipSkin(key);
+      else applySettings();
+    };
+  }
+  function endPreview() { const bar = document.getElementById('preview-bar'); if (bar) bar.remove(); }
+
   function applySettings() {
+    endPreview();
     const s = S().settings;
     const mode = effectiveMode();
     const root = document.documentElement;
@@ -276,7 +302,7 @@ Q.app = (() => {
       title: 'Keyboard shortcuts', cls: 'modal-small',
       body: `<div class="keys keys-big">
         <div><kbd>N</kbd> Quick add (type naturally: “dentist fri 3pm”)</div><div><kbd>Ctrl</kbd>+<kbd>K</kbd> Command palette & search</div>
-        <div><kbd>1</kbd>–<kbd>8</kbd> Switch pages · <kbd>F</kbd> Focus mode</div><div><kbd>←</kbd> <kbd>→</kbd> <kbd>T</kbd> <kbd>M</kbd> <kbd>W</kbd> <kbd>A</kbd> Calendar navigation</div>
+        <div><kbd>1</kbd>–<kbd>9</kbd> Switch pages · <kbd>F</kbd> Focus mode</div><div><kbd>←</kbd> <kbd>→</kbd> <kbd>T</kbd> <kbd>M</kbd> <kbd>W</kbd> <kbd>A</kbd> Calendar navigation</div>
         <div><kbd>Space</kbd> Start/pause timer · <kbd>Esc</kbd> Leave focus</div>
         <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Q</kbd> Quick add from any app (desktop)</div></div>`,
     });
@@ -284,12 +310,13 @@ Q.app = (() => {
 
   function keys(e) {
     if (e.key === 'Escape' && Q.ui.closeTop()) { e.preventDefault(); return; }
+    if (e.key === 'Escape' && document.getElementById('preview-bar')) { e.preventDefault(); applySettings(); return; }
     if (Q.focus.isOpen()) { if (Q.focus.key(e)) e.preventDefault(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!Q.ui.modalOpen()) Q.ui.palette(); return; }
     if (Q.ui.modalOpen()) return;
     if (e.target.matches('input, textarea, select, [contenteditable]')) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (/^[1-8]$/.test(e.key)) { e.preventDefault(); go(VIEWS[+e.key - 1].k); return; }
+    if (/^[1-9]$/.test(e.key)) { e.preventDefault(); go(VIEWS[+e.key - 1].k); return; }
     if (e.key === 'n' || e.key === 'N') { e.preventDefault(); Q.ui.quickAdd(); return; }
     if (e.key === 'f' || e.key === 'F') { e.preventDefault(); Q.focus.open(); return; }
     if (e.key === '/') { e.preventDefault(); Q.ui.palette(); return; }
@@ -352,7 +379,7 @@ Q.app = (() => {
   }
 
   return {
-    boot, go, render, applySettings, equipSkin, toggleMode, effectiveMode, flushGame, useItem, toggleInn, pauseNotifications, exportData, toggleMini, onAlarm,
+    boot, go, render, applySettings, equipSkin, previewSkin, toggleMode, effectiveMode, flushGame, useItem, toggleInn, pauseNotifications, exportData, toggleMini, onAlarm,
     current: () => current,
   };
 })();

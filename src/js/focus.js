@@ -22,7 +22,7 @@ Q.focus = (() => {
      round in a row adds a bonus item. Reset, skipping a focus round, switching
      mode, or leaving focus mode between rounds starts the combo over. */
   const comboMult = (done) => Math.min(3, 1 + 0.25 * done);
-  const BONUS_ITEMS = ['berry', 'potion', 'shield'];
+  const BONUS_ITEMS = ['charm', 'potion', 'shield'];
   const bonusFor = (roundNo) => (roundNo % 4 === 0 ? BONUS_ITEMS[(roundNo / 4 - 1) % BONUS_ITEMS.length] : null);
   let raf = 0; let tickT = 0; let idleT = 0; let lastFrame = 0;
   let canvas, ctx, bg, particles = [];

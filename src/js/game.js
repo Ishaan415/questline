@@ -8,8 +8,10 @@
  *  - "Record yesterday" lets you tick off things you did but forgot to log
  *    before any damage lands.
  *  - Doing a timed daily on time pays a bonus, which ties the RPG to your clock.
- *  - A companion that grows with you is the emotional hook (Finch); a weekly
- *    boss gives a medium-term goal (Habitica quests, solo).
+ *  - A team of pals that grows with you is the emotional hook (Finch); a weekly
+ *    boss gives a medium-term goal (Habitica quests, solo). Pal logic: pals.js.
+ *  - Weekend mode: Sundays (or Sat + Sun) are rest days; missed dailies there
+ *    cost no HP and break no streaks.
  */
 
 Q.game = (() => {
@@ -42,9 +44,13 @@ Q.game = (() => {
   const title = (lvl) => TITLES.filter(([l]) => lvl >= l).pop()[1];
   const today = () => U.gameDate(new Date(), S().settings.dayStart);
 
-  const companionLevel = () => Math.floor(Math.sqrt((S().companion.xp || 0) / 20)) + 1;
-  const companionStage = () => { const l = companionLevel(); return l >= 20 ? 3 : l >= 8 ? 2 : 1; };
-  const STAGE_NAMES = { 1: 'Baby', 2: 'Teen', 3: 'Grown' };
+  /** Weekend mode: is this game day a rest day? */
+  function isRestDay(dateStr) {
+    const m = S().settings.weekendMode;
+    if (!m || m === 'off') return false;
+    const dow = U.parseYmd(dateStr).getDay();
+    return dow === 0 || (m === 'satsun' && dow === 6);
+  }
 
   /* ------------------------------------------------------------ schedule */
   function isScheduled(d, dateStr) {
@@ -104,29 +110,18 @@ Q.game = (() => {
     if (h.xp < 0) h.xp = 0;
   }
 
-  function companionGain(xp) {
-    const c = S().companion;
-    const before = companionStage();
-    c.xp = Math.max(0, (c.xp || 0) + xp);
-    const after = companionStage();
-    if (after > before) {
-      Q.store.log(`${c.name} grew into its ${STAGE_NAMES[after]} form!`, 'evolve');
-      push({ type: 'evolve', stage: after });
-    }
-  }
-
   function rollDrop() {
     const st = S();
     if (st.day.dropsDate !== today()) { st.day.dropsDate = today(); st.day.dropsToday = 0; }
     if (st.day.dropsToday >= 6) return null;
-    if (Math.random() > 0.11 + sl('spi') * 0.01) return null;
+    if (Math.random() > (0.11 + sl('spi') * 0.01) * (1 + Q.pals.fx().dropPct / 100)) return null;
     st.day.dropsToday++;
     st.counters.drops++;
     const r = Math.random();
-    if (r < 0.55) { st.inventory.berry++; return { item: 'berry', text: 'Found a Berry!' }; }
-    if (r < 0.72) { st.inventory.potion++; return { item: 'potion', text: 'Found a Potion!' }; }
-    if (r < 0.95) { const g = 12 + Math.floor(Math.random() * 18); st.hero.gold += g; return { item: 'gold', gold: g, text: `Found a gold pouch (+${g})!` }; }
-    st.inventory.shield++; return { item: 'shield', text: 'Found a Streak Shield!' };
+    if (r < 0.6) { const g = 12 + Math.floor(Math.random() * 18); st.hero.gold += g; return { item: 'gold', gold: g, text: `Found a gold pouch (+${g})!` }; }
+    if (r < 0.85) { st.inventory.potion++; return { item: 'potion', text: 'Found a Potion!' }; }
+    if (r < 0.985) { st.inventory.shield++; return { item: 'shield', text: 'Found a Streak Shield!' }; }
+    st.inventory.ticket = (st.inventory.ticket || 0) + 1; return { item: 'ticket', text: 'Found a Capsule Ticket!' };
   }
 
   function revertDrop(drop) {
@@ -137,26 +132,39 @@ Q.game = (() => {
   }
 
   /** Apply a reward and return the grant record (for undo). */
+  /** Extra reward % from team abilities for this kind of task at this hour. */
+  function palRewardPct(fx, kind) {
+    const h = new Date().getHours();
+    const byKind = { daily: fx.dailyPct, reminder: fx.reminderPct, habit: fx.habitPct, focus: fx.focusPct }[kind] || 0;
+    return byKind + (h < 10 ? fx.earlyPct : 0) + (h >= 20 ? fx.nightPct : 0);
+  }
+
   function grant({ base = 10, diff = 'easy', category = 'home', onTime = false, streak = 0, kind = 'task', drops = true }) {
     const st = S();
+    const fx = Q.pals.fx();
     const mult = (DIFF[diff] || DIFF.easy).mult;
     const streakB = 1 + Math.min(streak, 50) * 0.01;
     const onTimeB = onTime ? 1.2 : 1;
-    const xp = Math.max(1, Math.round(base * mult * streakB * onTimeB * bonusMult()));
+    const palB = 1 + palRewardPct(fx, kind) / 100;
+    const xp = Math.max(1, Math.round(base * mult * streakB * onTimeB * bonusMult() * palB * (1 + fx.xpPct / 100)));
     const variance = 0.85 + Math.random() * 0.3;
-    const gold = Math.max(1, Math.round(base * 0.4 * mult * (1 + sl('cha') * 0.02) * variance * onTimeB));
+    let gold = Math.max(1, Math.round(base * 0.4 * mult * (1 + sl('cha') * 0.02) * variance * onTimeB * palB * (1 + fx.goldPct / 100)));
+    const lucky = Math.random() * 100 < fx.critChance;
+    if (lucky) gold *= 2;
     const stat = (Q.store.CATEGORIES[category] || Q.store.CATEGORIES.home).stat;
-    const bossDmg = Math.round(xp * 0.9);
+    const adv = Q.pals.advantage(ensureBoss());
+    const bossDmg = Math.round(xp * 0.9 * (1 + (fx.bossPct + adv.pct) / 100));
 
     gainXp(xp);
     st.hero.gold += gold;
     st.stats[stat] = (st.stats[stat] || 0) + xp;
-    companionGain(Math.round(xp * 0.5));
+    // Every pal in the team gets the same EXP; pals in storage get none.
+    const pals = Q.pals.gain(xp * (1 + fx.palExpPct / 100));
     const hit = damageBoss(bossDmg);
     const drop = drops ? rollDrop() : null;
     if (drop) push({ type: 'drop', drop });
-    push({ type: 'reward', xp, gold, onTime, kind, bossDmg: hit });
-    return { xp, gold, stat, bossDmg: hit, drop, comp: Math.round(xp * 0.5) };
+    push({ type: 'reward', xp, gold, onTime, kind, bossDmg: hit, lucky, palExp: pals ? pals.amt : 0 });
+    return { xp, gold, stat, bossDmg: hit, drop, pals };
   }
 
   function revert(g) {
@@ -165,7 +173,7 @@ Q.game = (() => {
     gainXp(-g.xp);
     st.hero.gold = Math.max(0, st.hero.gold - g.gold);
     st.stats[g.stat] = Math.max(0, (st.stats[g.stat] || 0) - g.xp);
-    companionGain(-(g.comp || 0));
+    Q.pals.revertGain(g.pals);
     if (st.boss && !st.boss.defeated) st.boss.hp = Math.min(st.boss.maxHp, st.boss.hp + (g.bossDmg || 0));
     revertDrop(g.drop);
   }
@@ -295,7 +303,7 @@ Q.game = (() => {
   /* ---------------------------------------------------------------- damage */
   function damage(amount, reason) {
     const st = S();
-    const red = Math.min(0.45, sl('end') * 0.03);
+    const red = Math.min(0.6, Math.min(0.45, sl('end') * 0.03) + Q.pals.fx().dmgRed / 100);
     const dmg = Math.max(1, Math.round(amount * (1 - red) * 10) / 10);
     st.hero.hp = Math.round((st.hero.hp - dmg) * 10) / 10;
     Q.store.log(`${reason}: −${dmg} HP`, 'hurt');
@@ -309,7 +317,7 @@ Q.game = (() => {
     st.hero.gold -= lost;
     st.hero.hp = maxHp();
     st.counters.faints++;
-    Q.store.log(`You fainted and lost ${lost} gold. Your companion carried you back to the Inn.`, 'faint');
+    Q.store.log(`You fainted and lost ${lost} gold. ${Q.pals.name(Q.pals.lead())} carried you back to the Inn.`, 'faint');
     push({ type: 'faint', lost });
   }
 
@@ -331,9 +339,11 @@ Q.game = (() => {
       const ds = U.ymd(U.addDays(U.parseYmd(wk), i));
       expected += st.dailies.filter((d) => !d.archived && isScheduled(d, ds)).length;
     }
-    const pickB = Q.sprites.BOSSES[U.hash(wk) % Q.sprites.BOSSES.length];
+    const list = Q.PALS.BOSSES;
+    let pickB = list[U.hash(wk) % list.length];
+    if (st.boss && st.boss.id === pickB.id) pickB = list[(list.indexOf(pickB) + 1) % list.length];
     const maxHpB = U.clamp(Math.round(expected * 8 + 40), 80, 1200);
-    st.boss = { week: wk, id: pickB.id, name: pickB.name, taunt: pickB.taunt, maxHp: maxHpB, hp: maxHpB, defeated: false };
+    st.boss = { week: wk, id: pickB.id, name: pickB.name, taunt: pickB.taunt, type: pickB.type, maxHp: maxHpB, hp: maxHpB, defeated: false };
     return st.boss;
   }
 
@@ -351,8 +361,10 @@ Q.game = (() => {
       const item = items[U.hash(b.week + 'loot') % items.length];
       st.hero.gold += gold;
       st.inventory[item] = (st.inventory[item] || 0) + 1;
-      Q.store.log(`Defeated ${b.name}! +${gold} gold and a ${SHOP.items[item].name}`, 'boss');
-      push({ type: 'boss', name: b.name, gold, item });
+      st.inventory.ticket = (st.inventory.ticket || 0) + 1;
+      if (Q.pals.advantage(b).pals.length) st.counters.advantageWins = (st.counters.advantageWins || 0) + 1;
+      Q.store.log(`Defeated ${b.name}! +${gold} gold, a ${SHOP.items[item].name} and a Capsule Ticket`, 'boss');
+      push({ type: 'boss', name: b.name, gold, item, ticket: 1 });
       gainXp(40);
     }
     return hit;
@@ -389,17 +401,28 @@ Q.game = (() => {
     }
     const missed = review.missed.filter((d) => !tickedIds.includes(d.id));
     const inn = st.settings.inn;
+    const rest = isRestDay(day);
+    const fx = Q.pals.fx();
     let shieldUsed = false;
     let totalDmg = 0;
-    if (missed.length && !inn) {
+    const saved = [];
+    if (missed.length && rest && !inn) Q.store.log('Weekend rest day: missed dailies cost nothing and streaks are safe.', 'shield');
+    if (missed.length && !inn && !rest) {
       const needShield = missed.some((d) => (d.streak || 0) >= 3);
-      if (needShield && st.inventory.shield > 0) { st.inventory.shield--; shieldUsed = true; }
+      if (needShield && st.inventory.shield > 0) {
+        shieldUsed = true;
+        if (Math.random() * 100 < fx.shieldSave) Q.store.log('Your team kept the Streak Shield intact. It still protected your streaks.', 'shield');
+        else st.inventory.shield--;
+      }
       for (const d of missed) {
         const dd = st.dailies.find((x) => x.id === d.id);
         const done = (dd.checklist || []).filter((c) => c.done).length;
         const frac = dd.checklist && dd.checklist.length && dd.checkDate === day ? 1 - done / dd.checklist.length : 1;
         totalDmg += (DIFF[dd.difficulty] || DIFF.easy).dmg * frac;
-        if (!shieldUsed) dd.streak = 0;
+        if (!shieldUsed) {
+          if ((dd.streak || 0) > 0 && Math.random() * 100 < fx.streakGuard) saved.push(dd.title);
+          else dd.streak = 0;
+        }
         const b = ensureBoss();
         if (!b.defeated) b.hp = Math.min(b.maxHp, b.hp + 6);
       }
@@ -408,11 +431,13 @@ Q.game = (() => {
         push({ type: 'hurt', dmg: dealt, rollover: true });
       }
       if (shieldUsed) Q.store.log('A Streak Shield protected your streaks.', 'shield');
+      if (saved.length) Q.store.log(`Your team saved the streak on ${saved.join(', ')}.`, 'shield');
     }
-    // Days the app wasn't opened: streaks break, but no damage.
+    // Days the app wasn't opened: streaks break (except on rest days), but no damage.
     for (let x = U.addDays(U.parseYmd(day), 1); U.ymd(x) < t; x = U.addDays(x, 1)) {
       const ds = U.ymd(x);
       if (inn) break;
+      if (isRestDay(ds)) continue;
       for (const d of st.dailies) if (!d.archived && isScheduled(d, ds)) d.streak = 0;
     }
     // Day log for the heatmap.
@@ -427,10 +452,10 @@ Q.game = (() => {
     }
     st.day.last = t;
     st.day.dropsToday = 0; st.day.dropsDate = t;
-    st.hero.hp = Math.min(maxHp(), st.hero.hp + 2); // a good night's sleep
+    st.hero.hp = Math.min(maxHp(), st.hero.hp + 2 + fx.healDay); // a good night's sleep (+ team healing)
     ensureBoss();
     afterAction();
-    return { totalDmg, shieldUsed, missed: missed.length };
+    return { totalDmg, shieldUsed, missed: missed.length, rest, saved };
   }
 
   /* ------------------------------------------------------------------ focus */
@@ -457,10 +482,11 @@ Q.game = (() => {
 
   /** What a focus session of this length would pay right now (no random gold spread). */
   function focusPreview(minutes, mult = 1) {
-    const base = Math.round(minutes) * 0.8 * mult;
+    const fx = Q.pals.fx();
+    const base = Math.round(minutes) * 0.8 * mult * (1 + palRewardPct(fx, 'focus') / 100);
     return {
-      xp: Math.max(1, Math.round(base * bonusMult())),
-      gold: Math.max(1, Math.round(base * 0.4 * (1 + sl('cha') * 0.02))),
+      xp: Math.max(1, Math.round(base * bonusMult() * (1 + fx.xpPct / 100))),
+      gold: Math.max(1, Math.round(base * 0.4 * (1 + sl('cha') * 0.02) * (1 + fx.goldPct / 100))),
     };
   }
 
@@ -471,7 +497,6 @@ Q.game = (() => {
       maxpotion: { name: 'Max Potion', price: 70, desc: 'Restores all HP.', icon: 'potion', color: '#8E6BD1' },
       shield: { name: 'Streak Shield', price: 40, desc: 'Auto-used on a missed day. Keeps every streak alive.', icon: 'shield', color: '#3C82C8' },
       charm: { name: 'Lucky Charm', price: 60, desc: '1.5× XP for the next 2 hours.', icon: 'star', color: '#F2C14E' },
-      berry: { name: 'Berry', price: 10, desc: 'Feed your companion. It grows faster and loves you more.', icon: 'berry', color: '#E8604C' },
     },
     skins: {
       meadow: { mode: 'light', name: 'Meadow', price: 0, desc: 'Fresh greens and sky blue.', sw: ['#EAF4E4', '#58B368', '#3C82C8'] },
@@ -519,13 +544,7 @@ Q.game = (() => {
     if (key === 'potion') { if (st.hero.hp >= maxHp()) return { ok: false, msg: 'HP is already full' }; msg = `Restored ${heal(15)} HP`; }
     else if (key === 'maxpotion') { if (st.hero.hp >= maxHp()) return { ok: false, msg: 'HP is already full' }; msg = `Restored ${heal(999)} HP`; }
     else if (key === 'charm') { st.buffs.charmUntil = Math.max(Date.now(), st.buffs.charmUntil) + 2 * 3600000; msg = '1.5× XP for 2 hours'; }
-    else if (key === 'berry') {
-      const c = st.companion;
-      c.friendship = Math.min(100, (c.friendship || 0) + 8);
-      c.lastFed = Date.now();
-      companionGain(25);
-      msg = `${c.name} loved it!`;
-    } else return { ok: false, msg: 'Shields are used automatically.' };
+    else return { ok: false, msg: 'Shields are used automatically.' };
     st.inventory[key]--;
     Q.store.log(`Used ${SHOP.items[key].name}: ${msg}`, 'item');
     afterAction();
@@ -545,31 +564,57 @@ Q.game = (() => {
   }
 
   /* ---------------------------------------------------------- achievements */
+  // reward: { gold, ticket } paid when the achievement unlocks.
+  const P = () => Q.pals;
   const ACH = [
-    { id: 'first', name: 'First Steps', desc: 'Complete your first task.', test: (s) => s.counters.completions >= 1 },
-    { id: 'sprout', name: 'Sprout Badge', badge: '#58B368', desc: 'Complete 10 tasks.', test: (s) => s.counters.completions >= 10 },
-    { id: 'dawn', name: 'Dawn Badge', badge: '#F29A4E', desc: 'Reach a 7-day streak on any daily.', test: (s) => s.counters.maxStreak >= 7 },
-    { id: 'tide', name: 'Tide Badge', badge: '#3C82C8', desc: 'Have 5 perfect days.', test: (s) => s.counters.perfectDays >= 5 },
-    { id: 'lantern', name: 'Lantern Badge', badge: '#F2C14E', desc: 'Finish 10 focus sessions.', test: (s) => s.counters.focusSessions >= 10 },
-    { id: 'stone', name: 'Stone Badge', badge: '#7D8597', desc: 'Defeat a weekly boss.', test: (s) => s.counters.bossesDefeated >= 1 },
-    { id: 'ember', name: 'Ember Badge', badge: '#E8604C', desc: 'Reach a 30-day streak.', test: (s) => s.counters.maxStreak >= 30 },
-    { id: 'gale', name: 'Gale Badge', badge: '#2FA58A', desc: 'Complete 50 reminders.', test: (s) => s.counters.remindersDone >= 50 },
-    { id: 'crown', name: 'Crown Badge', badge: '#8E6BD1', desc: 'Reach level 25.', test: (s) => s.hero.level >= 25 },
-    { id: 'early', name: 'Early Bird', desc: 'Finish 5 timed dailies on time before 8 AM.', test: (s) => s.counters.earlyBird >= 5 },
-    { id: 'deep', name: 'Deep Diver', desc: 'Focus for 10 hours in total.', test: (s) => s.counters.focusMinutes >= 600 },
-    { id: 'grown', name: 'All Grown Up', desc: 'Help your companion reach its Teen form.', test: () => companionStage() >= 2 },
-    { id: 'hoard', name: 'Treasure Keeper', desc: 'Hold 500 gold at once.', test: (s) => s.hero.gold >= 500 },
-    { id: 'treat', name: 'Earned It', desc: 'Buy one of your own rewards.', test: (s) => (s.counters.rewardsBought || 0) >= 1 },
-    { id: 'century', name: 'Centurion', desc: 'Complete 100 tasks.', test: (s) => s.counters.completions >= 100 },
-    { id: 'phoenix', name: 'Back on Your Feet', desc: 'Faint once, and keep going.', test: (s) => s.counters.faints >= 1 },
+    { id: 'first', name: 'First Steps', desc: 'Complete your first task.', reward: { gold: 10 }, test: (s) => s.counters.completions >= 1 },
+    { id: 'sprout', name: 'Sprout Badge', badge: '#58B368', desc: 'Complete 10 tasks.', reward: { gold: 25 }, test: (s) => s.counters.completions >= 10 },
+    { id: 'dawn', name: 'Dawn Badge', badge: '#F29A4E', desc: 'Reach a 7-day streak on any daily.', reward: { gold: 40 }, test: (s) => s.counters.maxStreak >= 7 },
+    { id: 'tide', name: 'Tide Badge', badge: '#3C82C8', desc: 'Have 5 perfect days.', reward: { gold: 50 }, test: (s) => s.counters.perfectDays >= 5 },
+    { id: 'lantern', name: 'Lantern Badge', badge: '#F2C14E', desc: 'Finish 10 focus sessions.', reward: { gold: 40 }, test: (s) => s.counters.focusSessions >= 10 },
+    { id: 'stone', name: 'Stone Badge', badge: '#7D8597', desc: 'Defeat a weekly boss.', reward: { gold: 50 }, test: (s) => s.counters.bossesDefeated >= 1 },
+    { id: 'ember', name: 'Ember Badge', badge: '#E8604C', desc: 'Reach a 30-day streak.', reward: { gold: 100, ticket: 1 }, test: (s) => s.counters.maxStreak >= 30 },
+    { id: 'gale', name: 'Gale Badge', badge: '#2FA58A', desc: 'Complete 50 reminders.', reward: { gold: 60 }, test: (s) => s.counters.remindersDone >= 50 },
+    { id: 'crown', name: 'Crown Badge', badge: '#8E6BD1', desc: 'Reach level 25.', reward: { gold: 100, ticket: 1 }, test: (s) => s.hero.level >= 25 },
+    { id: 'early', name: 'Early Bird', desc: 'Finish 5 timed dailies on time before 8 AM.', reward: { gold: 40 }, test: (s) => s.counters.earlyBird >= 5 },
+    { id: 'deep', name: 'Deep Diver', desc: 'Focus for 10 hours in total.', reward: { gold: 60 }, test: (s) => s.counters.focusMinutes >= 600 },
+    { id: 'hoard', name: 'Treasure Keeper', desc: 'Hold 500 gold at once.', reward: { gold: 25 }, test: (s) => s.hero.gold >= 500 },
+    { id: 'treat', name: 'Earned It', desc: 'Buy one of your own rewards.', reward: { gold: 20 }, test: (s) => (s.counters.rewardsBought || 0) >= 1 },
+    { id: 'century', name: 'Centurion', desc: 'Complete 100 tasks.', reward: { gold: 75 }, test: (s) => s.counters.completions >= 100 },
+    { id: 'phoenix', name: 'Back on Your Feet', desc: 'Faint once, and keep going.', reward: { gold: 30 }, test: (s) => s.counters.faints >= 1 },
+    // Pals
+    { id: 'team3', pal: true, name: 'Full Party', desc: 'Fill all 3 team slots.', reward: { gold: 30 }, test: () => P().team().length >= 3 },
+    { id: 'pal5', pal: true, name: 'Pal Pals', desc: 'Collect 5 pals.', reward: { gold: 100 }, test: () => P().count() >= 5 },
+    { id: 'pal10', pal: true, name: 'Collector', desc: 'Collect 10 pals.', reward: { gold: 100, ticket: 1 }, test: () => P().count() >= 10 },
+    { id: 'pal20', pal: true, name: 'Pal Curator', desc: 'Collect 20 pals.', reward: { gold: 150, ticket: 1 }, test: () => P().count() >= 20 },
+    { id: 'pal35', pal: true, name: 'Living Paldex', desc: 'Collect 35 pals.', reward: { gold: 250, ticket: 1 }, test: () => P().count() >= 35 },
+    { id: 'pal50', pal: true, name: 'Completionist', desc: 'Collect all 50 pals.', reward: { gold: 1000 }, test: () => P().count() >= 50 },
+    { id: 'type9', pal: true, name: 'Rainbow Trainer', desc: 'Own a pal of every type.', reward: { gold: 100, ticket: 1 }, test: () => P().typesOwned() >= 9 },
+    { id: 'rare1', pal: true, name: 'Rare Find', desc: 'Get a Rare pal.', reward: { gold: 50 }, test: () => P().countBy((l) => l.r === 'R') >= 1 },
+    { id: 'epic1', pal: true, name: 'Epic Encounter', desc: 'Get an Epic pal.', reward: { gold: 50, ticket: 1 }, test: () => P().countBy((l) => l.r === 'E') >= 1 },
+    { id: 'leg1', pal: true, name: 'Legend Found', desc: 'Get a Legendary pal.', reward: { gold: 300 }, test: () => P().countBy((l) => l.r === 'L') >= 1 },
+    { id: 'leg3', pal: true, name: 'Myth Keeper', desc: 'Own all 3 Legendary pals.', reward: { gold: 500 }, test: () => P().countBy((l) => l.r === 'L') >= 3 },
+    { id: 'evo1', pal: true, name: 'First Evolution', desc: 'Evolve any pal.', reward: { gold: 50 }, test: (s) => (s.pals.evolutions || 0) >= 1 },
+    { id: 'grown', pal: true, name: 'All Grown Up', desc: 'A pal reaches its third stage.', reward: { gold: 75 }, test: () => P().ownedIds().some((id) => P().stage(id) >= 3) },
+    { id: 'evo10', pal: true, name: 'Evolution Expert', desc: 'Evolve pals 10 times.', reward: { gold: 100, ticket: 1 }, test: (s) => (s.pals.evolutions || 0) >= 10 },
+    { id: 'evo25', pal: true, name: 'Metamorphosis', desc: 'Evolve pals 25 times.', reward: { gold: 200, ticket: 1 }, test: (s) => (s.pals.evolutions || 0) >= 25 },
+    { id: 'final1', pal: true, name: 'Final Form', desc: 'A pal reaches its final evolution.', reward: { gold: 150, ticket: 1 }, test: () => P().finals() >= 1 },
+    { id: 'final5', pal: true, name: 'Apex Team', desc: '5 pals at their final evolution.', reward: { gold: 300, ticket: 1 }, test: () => P().finals() >= 5 },
+    { id: 'mono', pal: true, name: 'Type Specialist', desc: 'Field a team of 3 pals of one type.', reward: { gold: 50, ticket: 1 }, test: () => P().sameTypeTeam() },
+    { id: 'advantage', pal: true, name: 'Super Effective', desc: 'Defeat a boss with a type advantage in your team.', reward: { gold: 50, ticket: 1 }, test: (s) => (s.counters.advantageWins || 0) >= 1 },
   ];
+  const rewardText = (r) => (r ? [r.gold ? `+${r.gold} gold` : '', r.ticket ? `+${r.ticket} Capsule Ticket${r.ticket > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ') : '');
 
   function checkAchievements() {
     const st = S();
     for (const a of ACH) {
       if (!st.achievements[a.id] && a.test(st)) {
         st.achievements[a.id] = Date.now();
-        Q.store.log(`Unlocked: ${a.name}`, 'badge');
+        if (a.reward) {
+          st.hero.gold += a.reward.gold || 0;
+          st.inventory.ticket = (st.inventory.ticket || 0) + (a.reward.ticket || 0);
+        }
+        Q.store.log(`Unlocked: ${a.name}${a.reward ? ` (${rewardText(a.reward)})` : ''}`, 'badge');
         push({ type: 'badge', ach: a });
       }
     }
@@ -580,7 +625,7 @@ Q.game = (() => {
     Q.store.commit('game');
   }
 
-  /* ------------------------------------------------------------- companion */
+  /* ------------------------------------------------------- lead pal chatter */
   function companionMood() {
     const st = S();
     const list = todaysDailies();
@@ -597,12 +642,11 @@ Q.game = (() => {
 
   function companionLine() {
     const st = S();
-    const c = st.companion;
     const list = todaysDailies();
     const left = list.filter((d) => !isDone(d));
     const next = left.filter((d) => d.time).sort((a, b) => a.time.localeCompare(b.time))[0];
     const mood = companionMood();
-    const n = c.name;
+    const n = Q.pals.name(Q.pals.lead());
     const lines = {
       worried: [`${n} looks worried. Your HP is low. A Potion or an easy win would help.`, `${n} tugs your sleeve. Maybe tackle something small first?`],
       ecstatic: [`${n} is doing a happy dance! Every daily is done.`, `${n} beams at you. Perfect day so far!`],
@@ -617,16 +661,18 @@ Q.game = (() => {
       if (mins < 0 && mins > -180) line = `${n} reminds you: “${next.title}” was due ${U.rel(due)}.`;
       else if (mins >= 0 && mins < 60) line = `${n} perks up: “${next.title}” is due ${U.rel(due)}.`;
     }
+    if (isRestDay(today()) && mood !== 'ecstatic') line = `${n} is enjoying the weekend. Anything you do today is a bonus, and missed dailies won't count.`;
     if (st.settings.inn) line = `${n} is relaxing at the Inn with you. Dailies can't hurt you while you rest.`;
     return { line, mood };
   }
 
   return {
-    DIFF, STATS, SHOP, ACH, STAGE_NAMES,
+    DIFF, STATS, SHOP, ACH, rewardText, isRestDay,
     xpToNext, statLevel, maxHp, title, today, isScheduled, scheduleLabel, dueAt, isDone, todaysDailies,
     toggleDaily, toggleCheckItem, checklistState, habit, completeReminder, reopenReminder, nextOccurrence,
     checkRollover, finalizeDay, focusComplete, focusPreview, buy, useItem, buyReward, ensureBoss, heal,
-    companionLevel, companionStage, companionMood, companionLine, checkAchievements,
+    companionMood, companionLine, checkAchievements,
+    emit: push,
     flush: () => pending.splice(0, pending.length),
   };
 })();

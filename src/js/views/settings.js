@@ -79,7 +79,7 @@ Q.views.settings = (() => {
         <section class="panel">
           <div class="panel-title">${I('star')} Profile</div>
           <label class="field"><span class="field-label">Your name</span><input data-change="set" data-path="profile.name" value="${esc(st.profile.name)}" maxlength="24"></label>
-          <div class="row-btns"><button class="btn btn-small" data-act="rename-companion">${I('edit')} Rename ${esc(st.companion.name)}</button><button class="btn btn-small" data-act="go-shop-looks">${I('bag')} Change outfit</button></div>
+          <div class="row-btns"><button class="btn btn-small" data-act="go" data-view="pals">${I('paw')} Manage pals</button><button class="btn btn-small" data-act="go-shop-looks">${I('bag')} Change outfit</button></div>
         </section>
 
         <section class="panel">
@@ -87,6 +87,7 @@ Q.views.settings = (() => {
           ${select('settings.dayStart', 'New day starts at', [0, 1, 2, 3, 4, 5, 6].map((h) => [h, U.fmtTime(`${U.pad(h)}:00`)]), 'Night owl? Finish yesterday\'s dailies before this hour.')}
           ${toggle('settings.clock24', '24-hour clock')}
           ${select('settings.weekStart', 'Week starts on', [[1, 'Monday'], [0, 'Sunday']])}
+          ${select('settings.weekendMode', 'Weekend mode', [['off', 'Off'], ['sun', 'Sundays are rest days'], ['satsun', 'Saturdays and Sundays']], 'On rest days, missed dailies cost no HP and streaks are kept. Anything you do still counts.')}
           ${toggle('settings.inn', 'Rest at the Inn', 'Sick or travelling? Missed dailies won\'t hurt and streaks are kept.')}
         </section>
 
@@ -130,7 +131,7 @@ Q.views.settings = (() => {
           <div class="keys"><b>Shortcuts</b>
             <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Q</kbd> quick add from anywhere${P.isApp ? '' : ' (desktop app)'}</div>
             <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> focus mode · <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> show/hide</div>
-            <div><kbd>N</kbd> quick add · <kbd>Ctrl</kbd>+<kbd>K</kbd> command palette · <kbd>1</kbd>–<kbd>8</kbd> pages · <kbd>F</kbd> focus · <kbd>?</kbd> help</div>
+            <div><kbd>N</kbd> quick add · <kbd>Ctrl</kbd>+<kbd>K</kbd> command palette · <kbd>1</kbd>–<kbd>9</kbd> pages · <kbd>F</kbd> focus · <kbd>?</kbd> help</div>
           </div>
         </section>
 

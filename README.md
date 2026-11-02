@@ -5,15 +5,15 @@ full-page calendar synced with Google, a full-screen focus mode with ambient
 pixel scenes, and Spotify controls. It lives in the system tray and costs
 almost nothing to keep running.
 
-Finishing things earns XP, gold and badges; a companion grows with you; a new
-boss shows up every week. Missing things stings a little, never a lot.
+Finishing things earns XP, gold and badges; a team of pals grows and evolves with
+you; a new boss shows up every week. Missing things stings a little, never a lot.
 
 ---
 
 ## 1. Releases, updates and making changes
 
 Every push to `main` that touches the app (`src/`, `src-tauri/`, `package*.json`)
-builds a new signed version on GitHub (version `0.2.<run number>`) and publishes it
+builds a new signed version on GitHub (versions `0.3.0`, `0.3.1`, …) and publishes it
 as a **GitHub Release**. The installed app checks for it shortly after it starts and
 every 6 hours, then offers **Update now**. It downloads the installer, verifies its
 signature, and Questline closes, updates and reopens by itself. You can also check
@@ -21,6 +21,11 @@ from the tray menu, **Settings → Updates**, or `Ctrl+K → Check for updates`.
 
 Add `[skip ci]` to a commit message to push without releasing (e.g. while you're
 halfway through a change spread over several commits).
+
+**Version numbers.** `SERIES` at the top of `.github/workflows/build-windows.yml`
+sets the first two parts (currently `0.3`). Each release counts the existing
+`v0.3.*` tags and takes the next number, so the first build is `0.3.0`. For a big
+update, change `SERIES` to `0.4` and the next build becomes `0.4.0`.
 
 ### One-time setup
 
@@ -54,7 +59,7 @@ push an update to your PC.
    instead: set `owner`/`repo` on the `tauri-action` step, give it a personal access token
    with write access to that repo, and point the two URLs above at it.
 7. Run **Actions → Build and release → Run workflow**, then download
-   `Questline_0.2.x_x64-setup.exe` from the new release under **Releases** and install it
+   `Questline_0.3.x_x64-setup.exe` from the new release under **Releases** and install it
    once over your current version. From then on, updates arrive by themselves.
 
 ### Making changes
@@ -91,13 +96,14 @@ and the password variable); normally you let GitHub do release builds.
 
 | Area | What it does |
 |---|---|
-| **Home** | Trainer card (level, HP, XP, gold), companion with a dialog box, today's timeline merging timed dailies, reminders and events with a "now" line, weekly boss, Spotify player, what's coming up. |
+| **Home** | Trainer card (level, HP, XP, gold), your lead pal with a dialog box (teammates beside it), today's timeline merging timed dailies, reminders and events with a "now" line, weekly boss, Spotify player, what's coming up. |
 | **Dailies** | Recurring chores with an optional time of day, grouped Morning / Afternoon / Evening / Night. Schedules: every day, certain weekdays, every N days, monthly. Difficulty, category, checklist steps, heads-up notification, streaks. Habits (+/−) live here too. |
 | **Reminders** | One-off or repeating tasks with a date and time ("Book tickets for the show, Fri 10:00 AM"). Overdue / Today / Tomorrow / Next 7 days / Later / No date. Snooze 10 min, 1 hour, tonight, tomorrow, next week. |
 | **Calendar** | A full page, not a corner widget. Month, week (time grid) and agenda views; click a day for its details; click an empty hour in week view to add an event. Shows your events and reminders, **never dailies**. |
 | **Focus** | Full-screen Pomodoro, countdown timer or stopwatch over a slow pixel scene (meadow, rain, firefly camp, seaside, snow), optional soft rain sound, Spotify controls only. Controls fade out while it runs. Sessions earn XP. |
-| **Shop** | Your own real-life rewards priced in gold, items (Potions, Streak Shields, Lucky Charm, Berries), town themes, trainer outfits and focus scenes. |
-| **Journey** | Trainer card with 8 badges, five stats with perks, companion growth, 20-week heatmap, 14-day chart, 16 achievements, adventure log. |
+| **Shop** | Your own real-life rewards priced in gold, items (Potions, Streak Shields, Lucky Charm), town themes (preview any theme across the whole app before buying), trainer outfits and focus scenes. |
+| **Pals** | Your team of 3, team presets, the Capsule Machine, and the Paldex of all 50 pals (silhouettes for the ones you haven't caught). Click any pal for its evolution line, level, ability and lore. |
+| **Journey** | Trainer card with 8 badges, five stats with perks, your team, 20-week heatmap, 14-day chart, 34 achievements with rewards, adventure log. |
 
 ### Quality-of-life features
 
@@ -115,6 +121,9 @@ and the password variable); normally you let GitHub do release builds.
 - **Record yesterday**: when a new day starts you can tick off things you did but
   forgot to log, before any damage applies.
 - **Rest at the Inn**: pauses damage and keeps streaks while you're sick or away.
+- **Weekend mode** (Settings → Day & time): make Sundays, or Saturdays and Sundays,
+  rest days. Missed dailies on rest days cost no HP and keep their streaks; anything
+  you do still pays out.
 - **Custom day start** (default 4 AM) so late nights still count as "today".
 - Undo after completing or deleting, repeating reminders that roll forward,
   "move all overdue to tomorrow", starter packs, 12/24-hour clock, Monday/Sunday weeks,
@@ -130,7 +139,7 @@ and the password variable); normally you let GitHub do release builds.
 | `Ctrl+Alt+H` | Show / hide Questline |
 | `N` | Quick add |
 | `Ctrl+K` or `/` | Command palette |
-| `1`–`8` | Pages (5 is Focus) |
+| `1`–`9` | Pages (5 is Focus, 7 is Pals) |
 | `F` | Focus mode |
 | `←` `→` `T` `M` `W` `A` | Calendar: previous, next, today, month, week, agenda |
 | `Space` `R` `S` `Esc` | Focus: start/pause, reset, skip, exit |
@@ -142,7 +151,7 @@ and the password variable); normally you let GitHub do release builds.
 
 The design borrows what works from several apps and leaves out what makes
 people quit: Habitica's XP/gold/HP loop and "record yesterday", Finch's growing
-companion, Duolingo's streak freeze, and a solo version of Habitica's boss quests.
+companion (here: a collectable team), Duolingo's streak freeze, and a solo version of Habitica's boss quests.
 
 - **XP and gold** for every daily, reminder, habit (+) and focus session.
   Difficulty multiplies rewards (Trivial ½×, Easy 1×, Medium 1.5×, Hard 2×).
@@ -156,14 +165,30 @@ companion, Duolingo's streak freeze, and a solo version of Habitica's boss quest
 - **Stats**: each category trains a stat. Strength (Health) +2 max HP per level,
   Intellect (Study, Work) +2% XP, Endurance (Home) −3% damage, Charm (Errands, Social)
   +2% gold, Spirit (Self-care, Creative) +1% item finds.
-- **Companion** (Sprigg, Coalby or Drizzle) earns half your XP, loves Berries, and
-  grows into its Teen form at level 8 and Grown form at level 20. Its mood follows
-  your day.
+- **Pals**: 50 evolution lines across 9 types (Fire, Water, Grass, Ground, Flying,
+  Dark, Fairy, Ghost, Psychic), each with 4 or 5 forms. Rarities: 26 Common, 13 Rare,
+  8 Epic, 3 Legendary. You start with Sprigg, Coalby or Drizzle.
+  - **Team of 3**: every task, reminder, habit (+) or focus round gives each team pal
+    the same EXP as the XP you earned. Pals in storage get nothing.
+  - **Evolution** by level: 4-form lines evolve at Lv 8 / 18 / 30, 5-form lines at
+    Lv 7 / 15 / 26 / 40. Rarer pals need a bit more EXP per level.
+  - **Abilities**: one per evolution line (e.g. Coalby's *Stoke the Fire*: more boss
+    damage). Only team pals' abilities are active, and they grow stronger with each form.
+    Rarer pals have stronger abilities.
+  - **Synergy**: 3 pals of one type gives +15% pal EXP; 3 different types gives +6% gold.
+  - **Boss types**: each weekly boss has a type. Every team pal that is strong against
+    it adds +15% boss damage.
+  - **Capsule Machine**: pull with gold or a Capsule Ticket. It never repeats a pal you
+    own, and each new pal raises the price (80 gold, then +8 per pal). Tickets come from
+    weekly bosses, achievements and rare drops.
+  - **Presets**: save up to 3 teams (e.g. Focus team, Boss team) and swap in one click.
+  - Your lead pal's mood follows your day.
 - **Weekly boss**: HP is set from how many dailies you have scheduled that week.
   Every completion hits it; every miss heals it. Beat it by the end of the week for
   gold, XP and loot.
-- **Drops**: completing tasks sometimes finds Berries, Potions, gold pouches or a
-  shield (max 6 a day).
+- **Drops**: completing tasks sometimes finds gold pouches, Potions, a shield or, rarely,
+  a Capsule Ticket (max 6 a day).
+- **Achievements** pay gold and sometimes Capsule Tickets when they unlock.
 
 All sprites and creatures are original pixel art; the colour palettes are inspired
 by GBA/NDS-era handheld games.

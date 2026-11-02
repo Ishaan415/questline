@@ -3,7 +3,7 @@
 
 Q.store = (() => {
   const U = Q.util;
-  const VERSION = 1;
+  const VERSION = 2;
   const listeners = new Set();
   let state = null;
   let undoSnap = null;
@@ -29,7 +29,7 @@ Q.store = (() => {
       profile: { name: 'Trainer', outfit: 'classic', trainerId: String(10000 + Math.floor(Math.random() * 89999)) },
       hero: { level: 1, xp: 0, gold: 20, hp: 50, totalXp: 0 },
       stats: { str: 0, int: 0, end: 0, cha: 0, spi: 0 },
-      companion: { species: 'sprigg', name: 'Sprigg', xp: 0, friendship: 0, lastFed: null },
+      pals: { owned: {}, team: [null, null, null], presets: [null, null, null], pulls: 0, evolutions: 0 },
       dailies: [],
       habits: [],
       reminders: [],
@@ -39,7 +39,7 @@ Q.store = (() => {
         { id: U.uid(), title: 'Order a treat', cost: 100 },
         { id: U.uid(), title: 'Guilt-free gaming hour', cost: 60 },
       ],
-      inventory: { potion: 1, maxpotion: 0, shield: 1, charm: 0, berry: 2 },
+      inventory: { potion: 1, maxpotion: 0, shield: 1, charm: 0, ticket: 1 },
       owned: { skins: ['meadow', 'night'], scenes: ['meadow', 'rain'], outfits: ['classic'] },
       buffs: { charmUntil: 0, perfectDay: null },
       boss: null,
@@ -72,6 +72,7 @@ Q.store = (() => {
         themeMode: 'light',
         fontStyle: 'mixed',
         inn: false,
+        weekendMode: 'off',
         confirmDelete: true,
         autoUpdate: true,
         lastUpdateCheck: 0,
@@ -100,6 +101,32 @@ Q.store = (() => {
     for (const k of ['meadow', 'night']) if (!st.owned.skins.includes(k)) st.owned.skins.push(k);
     // v0.1 had one theme slot; "dusk" was its only dark theme.
     if (st.settings.skin === 'dusk') { st.settings.skin = 'meadow'; st.settings.darkSkin = 'dusk'; st.settings.themeMode = 'dark'; }
+    // v0.3: the single companion becomes your first pal; berries (feeding) are gone.
+    if (st.companion) {
+      const c = st.companion;
+      const species = Q.PALS.byId[c.species] ? c.species : 'sprigg';
+      const defName = Q.PALS.byId[species].names[0];
+      // companions earned half of your XP; pals earn all of it
+      st.pals.owned = { [species]: { exp: Math.round((c.xp || 0) * 2), nick: c.name && c.name !== defName ? c.name : '', got: st.createdAt || Date.now(), seen: Q.pals.stageAt(species, Q.pals.level(species, Math.round((c.xp || 0) * 2))) } };
+      st.pals.team = [species, null, null];
+      delete st.companion;
+    }
+    if (st.inventory.berry !== undefined) {
+      const refund = (st.inventory.berry || 0) * 10;
+      if (refund) { st.hero.gold += refund; st.log.unshift({ t: Date.now(), text: `Berries were retired: +${refund} gold refunded.`, kind: 'shop' }); }
+      delete st.inventory.berry;
+    }
+    if ((st.version || 1) < 2) {
+      // (the free ticket arrives through defaults: older saves had no `ticket` key)
+      st.log.unshift({ t: Date.now(), text: 'Pals have arrived! Here is a free Capsule Ticket.', kind: 'pal' });
+      st.version = 2;
+    }
+    // never leave the team empty
+    const ownedIds = Object.keys(st.pals.owned).filter((id) => Q.PALS.byId[id]);
+    if (!ownedIds.length) st.pals.owned.sprigg = { exp: 0, nick: '', got: Date.now(), seen: 1 };
+    st.pals.team = [0, 1, 2].map((i) => (st.pals.team[i] && st.pals.owned[st.pals.team[i]] ? st.pals.team[i] : null));
+    if (!st.pals.team.some(Boolean)) st.pals.team[0] = Object.keys(st.pals.owned)[0];
+    if (!Array.isArray(st.pals.presets) || st.pals.presets.length < 3) st.pals.presets = [0, 1, 2].map((i) => (st.pals.presets || [])[i] || null);
   }
 
   function emit(reason) { for (const fn of listeners) { try { fn(reason); } catch (e) { console.error(e); } } }

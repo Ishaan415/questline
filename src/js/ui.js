@@ -122,6 +122,8 @@ Q.ui = (() => {
           float(`+${e.xp} XP`, 'xp', p);
           setTimeout(() => float(`+${e.gold} G`, 'gold', { x: p.x + 46, y: p.y + 6 }), 120);
           if (e.onTime) setTimeout(() => float('On time!', 'ontime', { x: p.x - 10, y: p.y - 26 }), 200);
+          if (e.lucky) setTimeout(() => float('Lucky! 2× gold', 'ontime', { x: p.x + 30, y: p.y - 30 }), 260);
+          if (e.palExp) setTimeout(() => float(`+${e.palExp} pal EXP`, 'pal', { x: p.x + 8, y: p.y + 26 }), 180);
           floatY += 22;
           Q.sfx.complete(); setTimeout(Q.sfx.coin, 90);
           if (e.bossDmg) setTimeout(() => document.querySelectorAll('.boss-sprite').forEach((b) => { b.classList.remove('hit'); void b.offsetWidth; b.classList.add('hit'); }), 50);
@@ -130,7 +132,7 @@ Q.ui = (() => {
         case 'uncheck': Q.sfx.uncheck(); break;
         case 'hurt': Q.sfx.hurt(); shake(); if (!e.rollover) float(`−${e.dmg} HP`, 'hurt'); break;
         case 'drop':
-          setTimeout(() => { Q.sfx.drop(); toast(e.drop.text, { kind: 'drop', icon: I(e.drop.item === 'gold' ? 'coin' : Q.game.SHOP.items[e.drop.item].icon) }); }, 350);
+          setTimeout(() => { Q.sfx.drop(); toast(e.drop.text, { kind: 'drop', icon: I(e.drop.item === 'gold' ? 'coin' : e.drop.item === 'ticket' ? 'ticket' : Q.game.SHOP.items[e.drop.item].icon) }); }, 350);
           break;
         case 'perfect':
           setTimeout(() => toast('Every daily done today! Perfect-day bonus arrives tomorrow.', { kind: 'ok', icon: I('star') }), 400);
@@ -138,7 +140,7 @@ Q.ui = (() => {
         case 'badge':
           setTimeout(() => {
             Q.sfx.victory();
-            toast(`${e.ach.badge ? 'Badge earned' : 'Achievement'}: ${e.ach.name}`, { kind: 'badge', icon: badgeIcon(e.ach, 18), timeout: 6000 });
+            toast(`${e.ach.badge ? 'Badge earned' : 'Achievement'}: ${e.ach.name}${e.ach.reward ? ` · ${Q.game.rewardText(e.ach.reward)}` : ''}`, { kind: 'badge', icon: badgeIcon(e.ach, 18), timeout: 6500 });
           }, 700);
           break;
         case 'levelup':
@@ -156,19 +158,8 @@ Q.ui = (() => {
             });
           }, 500);
           break;
-        case 'evolve':
-          setTimeout(() => {
-            Q.sfx.victory();
-            const c = st.companion;
-            modal({
-              cls: 'modal-celebrate',
-              body: `<div class="celebrate">
-                <div class="evolve-stage">${Q.sprites.companion(c.species, e.stage - 1, 96, 'evolve-from')}${Q.sprites.companion(c.species, e.stage, 96, 'evolve-to')}</div>
-                <div class="big-title">What's this?</div>
-                <p><b>${U.esc(c.name)}</b> grew into its <b>${Q.game.STAGE_NAMES[e.stage]}</b> form!</p>
-                <button class="btn btn-primary" data-close>Amazing</button></div>`,
-            });
-          }, 900);
+        case 'palEvolve':
+          setTimeout(() => Q.views.pals.evolveScene(e), 900);
           break;
         case 'boss':
           setTimeout(() => {
@@ -178,7 +169,7 @@ Q.ui = (() => {
               body: `<div class="celebrate">${Q.sprites.boss(st.boss.id, 96, 'defeated')}
                 <div class="big-title">Victory!</div>
                 <p>You defeated <b>${U.esc(e.name)}</b>.</p>
-                <p class="muted">+${e.gold} gold · +40 XP · ${Q.game.SHOP.items[e.item].name}</p>
+                <p class="muted">+${e.gold} gold · +40 XP · ${Q.game.SHOP.items[e.item].name}${e.ticket ? ' · Capsule Ticket' : ''}</p>
                 <button class="btn btn-primary" data-close>Collect loot</button></div>`,
             });
           }, 600);
@@ -187,9 +178,9 @@ Q.ui = (() => {
           setTimeout(() => {
             modal({
               cls: 'modal-celebrate modal-faint', title: '',
-              body: `<div class="celebrate">${Q.sprites.companion(st.companion.species, Q.game.companionStage(), 80)}
+              body: `<div class="celebrate">${Q.sprites.companion(80)}
                 <div class="big-title faint-title">You fainted…</div>
-                <p>${U.esc(st.companion.name)} carried you back to the Inn. You dropped <b>${e.lost} gold</b> on the way, but your levels, streak records and items are safe.</p>
+                <p>${U.esc(Q.pals.name(Q.pals.lead()))} carried you back to the Inn. You dropped <b>${e.lost} gold</b> on the way, but your levels, streak records and items are safe.</p>
                 <p class="muted">Tip: fewer, realistic dailies beat a long list. You can also rest at the Inn when you're sick or travelling.</p>
                 <button class="btn btn-primary" data-close>Try again</button></div>`,
             });
@@ -261,13 +252,14 @@ Q.ui = (() => {
     const list = [
       ['Go to Home', 'home', go('home'), '1'], ['Go to Dailies', 'list', go('dailies'), '2'], ['Go to Reminders', 'bell', go('reminders'), '3'],
       ['Go to Calendar', 'calendar', go('calendar'), '4'], ['Open Focus mode', 'hourglass', () => Q.focus.open(), '5'], ['Go to Shop', 'bag', go('shop'), '6'],
-      ['Go to Journey', 'trophy', go('journey'), '7'], ['Go to Settings', 'gear', go('settings'), '8'],
+      ['Go to Pals', 'paw', go('pals'), '7'], ['Go to Journey', 'trophy', go('journey'), '8'], ['Go to Settings', 'gear', go('settings'), '9'],
+      ['Pull from the Capsule Machine', 'capsule', () => { Q.app.go('pals'); Q.views.pals.pull(false); }],
       ['Quick add…', 'plus', () => quickAdd(), 'N'], ['New daily', 'list', () => Q.editors.open('daily')], ['New reminder', 'bell', () => Q.editors.open('reminder')],
       ['New calendar event', 'calendar', () => Q.editors.open('event')], ['New habit', 'up', () => Q.editors.open('habit')],
       ['Start 25-minute focus', 'hourglass', () => Q.focus.open({ autostart: true })],
       [st.settings.inn ? 'Leave the Inn (resume dailies)' : 'Rest at the Inn (pause damage)', 'moon', () => Q.app.toggleInn()],
       ['Sync calendars now', 'sync', () => Q.sync.syncAll(true)],
-      ['Use a Potion', 'potion', () => Q.app.useItem('potion')], [`Feed ${st.companion.name} a Berry`, 'berry', () => Q.app.useItem('berry')],
+      ['Use a Potion', 'potion', () => Q.app.useItem('potion')],
       ['Mini window', 'mini', () => Q.app.toggleMini()],
       ['Pause notifications for 1 hour', 'snooze', () => Q.app.pauseNotifications(60)],
       ['Export backup', 'chest', () => Q.app.exportData()],

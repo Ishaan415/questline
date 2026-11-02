@@ -41,10 +41,13 @@ Q.views.shop = (() => {
       const owned = st.owned.skins.includes(k);
       const on = (mode === 'dark' ? st.settings.darkSkin : st.settings.skin) === k;
       return `<div class="look ${on ? 'equipped' : ''}">
-        <div class="look-swatch">${s.sw.map((c) => `<i style="background:${c}"></i>`).join('')}</div>
+        <button class="look-swatch look-preview" data-act="preview-skin" data-key="${k}" title="Preview ${s.name}">${s.sw.map((c) => `<i style="background:${c}"></i>`).join('')}<span class="lp-eye">${I('search')}</span></button>
         <b>${s.name}</b><p class="small muted">${s.desc}</p>
+        <div class="look-btns">
+        ${on ? '' : `<button class="btn btn-small" data-act="preview-skin" data-key="${k}">Preview</button>`}
         ${owned ? `<button class="btn btn-small" data-act="equip-skin" data-key="${k}" ${on ? 'disabled' : ''}>${on ? 'Equipped' : 'Equip'}</button>`
           : `<button class="btn btn-small btn-buy" data-act="buy" data-kind="skins" data-key="${k}" ${st.hero.gold < s.price ? 'disabled' : ''}>${I('coin')} ${s.price}</button>`}
+        </div>
       </div>`;
     }).join('');
     const outfits = Object.entries(G.SHOP.outfits).map(([k, o]) => {
@@ -63,7 +66,8 @@ Q.views.shop = (() => {
       return `<div class="look"><div class="look-scene scene-${k}"></div><b>${s.name}</b>
         ${owned ? '<span class="small muted">Owned · pick it in Focus</span>' : `<button class="btn btn-small btn-buy" data-act="buy" data-kind="scenes" data-key="${k}" ${st.hero.gold < s.price ? 'disabled' : ''}>${I('coin')} ${s.price}</button>`}</div>`;
     }).join('');
-    return `<h3 class="sub-title">${I('sun')} Light themes</h3><div class="looks-grid">${skinCards('light')}</div>
+    return `<p class="small muted pad-x">Click a theme's colours or Preview to try it on across the whole app before you buy.</p>
+      <h3 class="sub-title">${I('sun')} Light themes</h3><div class="looks-grid">${skinCards('light')}</div>
       <h3 class="sub-title">${I('moon')} Dark themes</h3><div class="looks-grid">${skinCards('dark')}</div>
       <h3 class="sub-title">Trainer outfits</h3><div class="looks-grid">${outfits}</div>
       <h3 class="sub-title">Focus scenes</h3><div class="looks-grid">${scenes}</div>`;
@@ -97,6 +101,7 @@ Q.views.shop = (() => {
       Q.sfx.coin(); Q.app.flushGame();
     });
     on('equip-skin', (el) => Q.app.equipSkin(el.dataset.key));
+    on('preview-skin', (el) => Q.app.previewSkin(el.dataset.key));
     on('equip-outfit', (el) => { S().profile.outfit = el.dataset.key; Q.store.commit('profile'); });
   }
 

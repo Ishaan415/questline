@@ -77,6 +77,8 @@ Q.onboarding = (() => {
   }
 
   /* ---------------------------------------------------------- onboarding */
+  const STARTERS = ['sprigg', 'coalby', 'drizzle'];
+
   function start() {
     let step = 0; let species = 'sprigg';
     const picks = new Set(['morning']);
@@ -92,9 +94,9 @@ Q.onboarding = (() => {
               <label class="field"><span class="field-label">Your name</span><input id="ob-name" maxlength="24" placeholder="Trainer" value="${esc(S().profile.name === 'Trainer' ? '' : S().profile.name)}"></label>
               <div class="modal-actions"><span class="spacer"></span><button class="btn btn-primary" data-next>Next</button></div>`;
           } else if (step === 1) {
-            box.innerHTML = `<div class="textbox"><p>Every trainer needs a partner. Your companion grows as you finish tasks and cheers you on. Pick one:</p></div>
-              <div class="starters">${Object.entries(Q.sprites.COMPANIONS).map(([k, c]) => `<button class="starter ${species === k ? 'on' : ''}" data-sp="${k}" style="--c:${c.color}">${Q.sprites.companion(k, 1, 80)}<b>${c.name}</b><span class="small muted">${c.kind}</span></button>`).join('')}</div>
-              <div class="modal-actions"><button class="btn" data-back>Back</button><span class="spacer"></span><button class="btn btn-primary" data-next>Choose ${Q.sprites.COMPANIONS[species].name}</button></div>`;
+            box.innerHTML = `<div class="textbox"><p>Every trainer needs a partner pal. Pals earn EXP from every task you finish and evolve as they grow. You can collect 49 more later. Pick your first:</p></div>
+              <div class="starters">${STARTERS.map((k) => { const l = Q.PALS.byId[k]; return `<button class="starter ${species === k ? 'on' : ''}" data-sp="${k}" style="--c:${Q.PALS.TYPES[l.type].color}">${Q.pals.sprite(k, 80, { reveal: true })}<b>${l.names[0]}</b><span class="small muted">${Q.PALS.TYPES[l.type].name} · ${esc(l.ab)}</span></button>`; }).join('')}</div>
+              <div class="modal-actions"><button class="btn" data-back>Back</button><span class="spacer"></span><button class="btn btn-primary" data-next>Choose ${Q.PALS.byId[species].names[0]}</button></div>`;
           } else if (step === 2) {
             box.innerHTML = `<div class="textbox"><p>Want some dailies to start with? Pick a pack or two. Keeping it to a handful at first is the secret.</p></div>
               <div class="packs">${Object.entries(PACKS).map(([k, p]) => `<label class="pack"><input type="checkbox" value="${k}" ${picks.has(k) ? 'checked' : ''}><div><b>${p.name}</b><span class="small muted">${p.desc}</span></div></label>`).join('')}</div>
@@ -111,14 +113,14 @@ Q.onboarding = (() => {
           if (step === 2) {
             box.querySelectorAll('input').forEach((i) => (i.checked ? picks.add(i.value) : picks.delete(i.value)));
             const st = S();
-            st.companion.species = species; st.companion.name = Q.sprites.COMPANIONS[species].name;
+            st.pals.owned = {}; Q.pals.give(species); st.pals.team = [species, null, null];
             for (const k of picks) addPack(k);
             st.onboarded = true;
             Q.game.ensureBoss();
             Q.store.commit('onboarded');
             close();
             Q.platform.askNotifyPermission();
-            Q.ui.toast(`${st.companion.name} joined your party!`, { kind: 'ok', icon: I('heart') });
+            Q.ui.toast(`${Q.PALS.byId[species].names[0]} joined your party! You also have a free Capsule Ticket in the Pals tab.`, { kind: 'ok', icon: I('paw'), timeout: 7000 });
             return;
           }
           step++; draw();
@@ -136,10 +138,10 @@ Q.onboarding = (() => {
     const dmg = U.sum(rv.missed, (x) => Q.game.DIFF[x.difficulty]?.dmg || 2);
     Q.ui.modal({
       title: '', cls: 'modal-review', dismissable: false,
-      body: `<div class="rv-head">${Q.sprites.companion(st.companion.species, Q.game.companionStage(), 64)}
+      body: `<div class="rv-head">${Q.sprites.companion(64)}
           <div class="textbox"><p>Welcome back! Before the new day starts: did you do any of these on <b>${U.DAYS_LONG[d.getDay()]}</b> and forget to tick them?</p></div></div>
         <div class="rv-list">${rv.missed.map((x) => `<label class="rv-item"><input type="checkbox" value="${x.id}"><span class="cbox">${I('check')}</span><span>${esc(x.title)}${x.time ? ` <span class="small muted">${U.fmtTime(x.time)}</span>` : ''}</span></label>`).join('')}</div>
-        <p class="small muted rv-note">${st.settings.inn ? 'You\'re resting at the Inn, so nothing here will hurt you.' : `Unticked ones cost about ${Math.round(dmg)} HP in total${st.inventory.shield ? ' (your Streak Shield will protect streaks)' : ''}.`}</p>
+        <p class="small muted rv-note">${st.settings.inn ? 'You\'re resting at the Inn, so nothing here will hurt you.' : Q.game.isRestDay(rv.date) ? 'That was a weekend rest day, so missed dailies cost nothing and streaks are safe. Ticking them still earns rewards.' : `Unticked ones cost about ${Math.round(dmg)} HP in total${st.inventory.shield ? ' (your Streak Shield will protect streaks)' : ''}.`}</p>
         <div class="modal-actions"><span class="spacer"></span><button class="btn btn-primary" data-go>Start today</button></div>`,
       onMount(m, close) {
         m.querySelector('[data-go]').onclick = () => {
@@ -147,7 +149,8 @@ Q.onboarding = (() => {
           const res = Q.game.finalizeDay(rv, ticked);
           close();
           Q.app.flushGame();
-          if (res.missed && !st.settings.inn) Q.ui.toast(`New day! Missed dailies cost ${Math.round(res.totalDmg * 10) / 10} HP${res.shieldUsed ? '; a shield saved your streaks' : ''}.`, { kind: 'info', timeout: 6000 });
+          if (res.missed && res.rest) Q.ui.toast('New day! Yesterday was a rest day, so nothing was lost.', { kind: 'ok' });
+          else if (res.missed && !st.settings.inn) Q.ui.toast(`New day! Missed dailies cost ${Math.round(res.totalDmg * 10) / 10} HP${res.shieldUsed ? '; a shield saved your streaks' : ''}.`, { kind: 'info', timeout: 6000 });
           else Q.ui.toast('A fresh day begins. Good luck!', { kind: 'ok' });
         };
       },
@@ -167,10 +170,13 @@ Q.onboarding = (() => {
     st.demo = true; st.onboarded = true;
     st.profile = { name: 'Ishaan', outfit: 'classic', trainerId: '04217' };
     st.createdAt = U.addDays(todayD, -62).getTime();
-    st.companion = { species: 'sprigg', name: 'Sprigg', xp: 1020, friendship: 64, lastFed: Date.now() - 86400000 };
+    st.pals = {
+      owned: { sprigg: { exp: 2600, nick: '', got: st.createdAt, seen: 2 }, emberkit: { exp: 1150, nick: 'Mochi', got: st.createdAt, seen: 2 }, peeplet: { exp: 640, nick: '', got: st.createdAt, seen: 2 }, boolet: { exp: 220, nick: '', got: st.createdAt, seen: 1 }, splotter: { exp: 90, nick: '', got: st.createdAt, seen: 1 }, pebbit: { exp: 0, nick: '', got: st.createdAt, seen: 1 } },
+      team: ['sprigg', 'emberkit', 'peeplet'], presets: [{ name: 'Focus team', team: ['sprigg', 'emberkit', 'peeplet'] }, null, null], pulls: 5, evolutions: 3,
+    };
     st.hero = { level: 7, xp: 212, gold: 186, hp: 41, totalXp: 2890 };
     st.stats = { str: 420, int: 690, end: 520, cha: 160, spi: 240 };
-    st.inventory = { potion: 2, maxpotion: 0, shield: 1, charm: 1, berry: 3 };
+    st.inventory = { potion: 2, maxpotion: 0, shield: 1, charm: 1, ticket: 1 };
     st.owned = { skins: ['meadow', 'ember'], scenes: ['meadow', 'rain', 'night'], outfits: ['classic', 'meadow'] };
     st.counters = { completions: 214, remindersDone: 23, focusSessions: 12, focusMinutes: 395, perfectDays: 6, bossesDefeated: 2, faints: 0, drops: 31, maxStreak: 19, earlyBird: 9, rewardsBought: 3 };
     st.settings.calShowReminders = true;

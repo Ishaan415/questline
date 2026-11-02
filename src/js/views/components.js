@@ -50,19 +50,31 @@ Q.comp = (() => {
     </section>`;
   }
 
+  /* ---------- pals ---------- */
+  const typeChip = (t, small = false) => { const T = Q.PALS.TYPES[t]; return `<span class="type-chip ${small ? 'tc-sm' : ''}" style="--c:${T.color}">${T.name}</span>`; };
+  const rarityChip = (r) => { const R = Q.PALS.RARITY[r]; return `<span class="rar-chip rar-${r}" style="--c:${R.color}">${R.name}</span>`; };
+  function palExpBar(id) {
+    const p = Q.pals.levelProgress(id);
+    return `<div class="bar bar-pal" title="${p.need ? `${p.cur}/${p.need} EXP to the next level` : 'Max level'}"><div class="bar-fill" style="width:${p.frac * 100}%"></div></div>`;
+  }
+
+  /** Home: your lead pal talks; the other two team members sit beside it. */
   function companionBox() {
-    const st = S(); const c = st.companion;
+    const P = Q.pals;
     const { line, mood } = G.companionLine();
-    const stage = G.companionStage(); const lvl = G.companionLevel();
+    const lead = P.lead();
+    const others = P.team().filter((id) => id !== lead);
+    const nxt = P.nextEvoLevel(lead);
     return `<section class="panel companion-box mood-${mood}">
-      <div class="cb-stage">
+      <div class="cb-stage" data-act="pal-open" data-id="${lead}" role="button" tabindex="0" title="Open ${esc(P.name(lead))}">
         <div class="cb-ground"></div>
-        ${Q.sprites.companion(c.species, stage, 80, `cb-sprite idle-${mood}`)}
-        <button class="cb-feed btn btn-small" data-act="use-item" data-item="berry" ${st.inventory.berry ? '' : 'disabled'} title="Feed a Berry">${I('berry')} ${st.inventory.berry}</button>
+        ${P.sprite(lead, 88, { cls: `cb-sprite idle-${mood}` })}
+        <div class="cb-team">${others.map((id) => `<span class="cb-mate" data-act="pal-open" data-id="${id}" title="${esc(P.name(id))} · Lv ${P.level(id)}">${P.sprite(id, 40)}</span>`).join('')}</div>
       </div>
-      <div class="cb-info"><b>${esc(c.name)}</b><span class="muted"> · Lv ${lvl} ${G.STAGE_NAMES[stage]}</span>
-        <span class="hearts" title="Friendship ${c.friendship || 0}/100">${[0, 1, 2, 3, 4].map((i) => `<i class="${(c.friendship || 0) >= (i + 1) * 20 ? 'on' : ''}">${I('heart')}</i>`).join('')}</span></div>
+      <div class="cb-info"><b>${esc(P.name(lead))}</b><span class="muted"> · Lv ${P.level(lead)}</span> ${typeChip(P.line(lead).type, true)}</div>
+      <div class="cb-exp">${palExpBar(lead)}<span class="small muted">${nxt ? `Evolves at Lv ${nxt}` : 'Final form'}</span></div>
       <div class="textbox"><p class="typewriter">${esc(line)}</p><span class="tb-arrow">▼</span></div>
+      <button class="btn btn-small cb-go" data-act="go" data-view="pals">${I('paw')} Pals</button>
     </section>`;
   }
 
@@ -71,6 +83,8 @@ Q.comp = (() => {
     const f = b.hp / b.maxHp;
     const wkEnd = U.addDays(U.parseYmd(b.week), 7);
     const left = U.diffDays(wkEnd, new Date());
+    const bt = Q.pals.bossType(b);
+    const adv = Q.pals.advantage(b);
     return `<section class="panel boss-card ${b.defeated ? 'defeated' : ''}">
       <div class="panel-title">${I('sword')} Weekly boss <span class="muted small">${b.defeated ? 'Defeated!' : `${left} ${left === 1 ? 'day' : 'days'} left`}</span></div>
       <div class="boss-body">
@@ -79,6 +93,8 @@ Q.comp = (() => {
           <div class="boss-name">${esc(b.name)}</div>
           <div class="bar-row"><span class="bar-tag tag-boss">HP</span><div class="bar bar-boss"><div class="bar-fill" style="width:${f * 100}%"></div></div></div>
           <div class="small muted">${b.defeated ? 'Loot collected. A new challenger arrives next week.' : `${Math.ceil(b.hp)} / ${b.maxHp} · every task you finish hits it`}</div>
+          ${bt ? `<div class="boss-type">${typeChip(bt, true)}<span class="small muted">Weak to ${Q.pals.strongVs(bt).map((t) => Q.PALS.TYPES[t].name).join(', ')}</span></div>` : ''}
+          ${adv.pals.length && !b.defeated ? `<div class="small boss-adv">${I('bolt')} ${adv.pals.map((id) => esc(Q.pals.name(id))).join(' & ')}: +${adv.pct}% damage</div>` : ''}
         </div>
       </div>
       ${b.defeated ? '' : `<div class="boss-taunt">“${esc(b.taunt)}”</div>`}
@@ -148,7 +164,7 @@ Q.comp = (() => {
     </div>`;
   }
 
-  const empty = (title, text, btn = '') => `<div class="empty"><div class="empty-art">${Q.sprites.companion(S().companion.species, G.companionStage(), 56)}</div><b>${title}</b><p>${text}</p>${btn}</div>`;
+  const empty = (title, text, btn = '') => `<div class="empty"><div class="empty-art">${Q.sprites.companion(56)}</div><b>${title}</b><p>${text}</p>${btn}</div>`;
 
-  return { hpBar, xpBar, gold, trainerCard, companionBox, bossCard, dailyRow, reminderRow, eventRow, dueChip, stars, catDot, empty };
+  return { hpBar, xpBar, gold, trainerCard, companionBox, bossCard, dailyRow, reminderRow, eventRow, dueChip, stars, catDot, empty, typeChip, rarityChip, palExpBar };
 })();
