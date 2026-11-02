@@ -1,0 +1,251 @@
+# Questline
+
+A cozy pixel-RPG planner for Windows. Daily chores with times, reminders, a
+full-page calendar synced with Google, a full-screen focus mode with ambient
+pixel scenes, and Spotify controls. It lives in the system tray and costs
+almost nothing to keep running.
+
+Finishing things earns XP, gold and badges; a companion grows with you; a new
+boss shows up every week. Missing things stings a little, never a lot.
+
+---
+
+## 1. Get the .exe
+
+### Option A: let GitHub build it (no installs on your PC)
+
+1. Create a new **private** repository on GitHub and upload this folder
+   (or `git init`, `git add .`, `git commit`, `git push`).
+2. Open the repo's **Actions** tab → **Build Windows app** → **Run workflow**.
+3. After about 10 minutes, open the finished run and download the
+   **Questline-windows** artifact. Inside:
+   - `Questline_0.1.0_x64-setup.exe` — installer (recommended)
+   - `Questline_0.1.0_x64_en-US.msi` — same thing as an MSI
+   - `questline.exe` — portable, runs without installing
+
+Pushing a tag such as `v0.1.0` also triggers a build.
+
+### Option B: build on your own PC
+
+One-time setup:
+
+1. **Microsoft C++ Build Tools**: install "Visual Studio Build Tools" and tick
+   **Desktop development with C++**.
+2. **Rust**: install from <https://rustup.rs> (default options).
+3. **Node.js 20+**: <https://nodejs.org>.
+4. WebView2 is already part of Windows 10 and 11.
+
+Then in this folder:
+
+```powershell
+npm install
+npm run dev     # run with live reload while you tinker
+npm run build   # produce the installer and exe
+```
+
+Results land in `src-tauri\target\release\bundle\nsis\` (installer) and
+`src-tauri\target\release\questline.exe` (portable).
+
+> Windows SmartScreen will warn about an unsigned app the first time. Click
+> **More info → Run anyway**. Code-signing certificates remove this but cost money.
+
+---
+
+## 2. What's inside
+
+| Area | What it does |
+|---|---|
+| **Home** | Trainer card (level, HP, XP, gold), companion with a dialog box, today's timeline merging timed dailies, reminders and events with a "now" line, weekly boss, Spotify player, what's coming up. |
+| **Dailies** | Recurring chores with an optional time of day, grouped Morning / Afternoon / Evening / Night. Schedules: every day, certain weekdays, every N days, monthly. Difficulty, category, checklist steps, heads-up notification, streaks. Habits (+/−) live here too. |
+| **Reminders** | One-off or repeating tasks with a date and time ("Book tickets for the show, Fri 10:00 AM"). Overdue / Today / Tomorrow / Next 7 days / Later / No date. Snooze 10 min, 1 hour, tonight, tomorrow, next week. |
+| **Calendar** | A full page, not a corner widget. Month, week (time grid) and agenda views; click a day for its details; click an empty hour in week view to add an event. Shows your events and reminders, **never dailies**. |
+| **Focus** | Full-screen Pomodoro, countdown timer or stopwatch over a slow pixel scene (meadow, rain, firefly camp, seaside, snow), optional soft rain sound, Spotify controls only. Controls fade out while it runs. Sessions earn XP. |
+| **Shop** | Your own real-life rewards priced in gold, items (Potions, Streak Shields, Lucky Charm, Berries), town themes, trainer outfits and focus scenes. |
+| **Journey** | Trainer card with 8 badges, five stats with perks, companion growth, 20-week heatmap, 14-day chart, 16 achievements, adventure log. |
+
+### Quality-of-life features
+
+- **Natural-language quick add** from anywhere with `Ctrl+Alt+Q`, or `N` inside the
+  app: `dentist fri 3pm`, `water plants every mon thu 8:30am`,
+  `event: project review thu 2-3pm`, `pay rent tomorrow 6pm !h #errands`,
+  `call the bank in 2 hours`, `12/11` (DD/MM) or `nov 12`. `Tab` switches the type.
+- **Command palette** `Ctrl+K`: jump anywhere, search tasks, use items, pause notifications.
+- **Tray icon** with quick add, focus, mini window, snooze last reminder, pause notifications.
+  Left-click toggles the window. Tooltip shows level, dailies left and the next alarm.
+- **Notifications keep working with the window closed** (a native alarm thread fires them).
+  Quiet hours, muting during focus, per-task heads-up.
+- **Mini window**: a small always-on-top view of today's list plus Spotify.
+- **Start with Windows** (starts hidden in the tray), single instance, close-to-tray.
+- **Record yesterday**: when a new day starts you can tick off things you did but
+  forgot to log, before any damage applies.
+- **Rest at the Inn**: pauses damage and keeps streaks while you're sick or away.
+- **Custom day start** (default 4 AM) so late nights still count as "today".
+- Undo after completing or deleting, repeating reminders that roll forward,
+  "move all overdue to tomorrow", starter packs, 12/24-hour clock, Monday/Sunday weeks,
+  six colour themes, interface size, reduced motion, sound volume.
+- **Backups**: saved atomically, a daily backup kept for 14 days, export/import JSON.
+
+### Keyboard
+
+| Keys | Action |
+|---|---|
+| `Ctrl+Alt+Q` | Quick add from any app |
+| `Ctrl+Alt+F` | Focus mode from any app |
+| `Ctrl+Alt+H` | Show / hide Questline |
+| `N` | Quick add |
+| `Ctrl+K` or `/` | Command palette |
+| `1`–`8` | Pages (5 is Focus) |
+| `F` | Focus mode |
+| `←` `→` `T` `M` `W` `A` | Calendar: previous, next, today, month, week, agenda |
+| `Space` `R` `S` `Esc` | Focus: start/pause, reset, skip, exit |
+| `?` | Shortcut help |
+
+---
+
+## 3. How the game works
+
+The design borrows what works from several apps and leaves out what makes
+people quit: Habitica's XP/gold/HP loop and "record yesterday", Finch's growing
+companion, Duolingo's streak freeze, and a solo version of Habitica's boss quests.
+
+- **XP and gold** for every daily, reminder, habit (+) and focus session.
+  Difficulty multiplies rewards (Trivial ½×, Easy 1×, Medium 1.5×, Hard 2×).
+- **On-time bonus**: finishing a timed daily or a reminder within 30 minutes of its
+  time pays +20%. Long streaks add up to +50%.
+- **HP**: unfinished dailies cost HP at the day reset, scaled by difficulty;
+  completed checklist steps reduce it. Habits (−) cost a little HP.
+- **Fainting** (HP 0) costs half your gold. Levels, items and records are safe.
+- **Streak Shield**: used automatically on a bad day, keeps every streak alive.
+- **Levels** fully heal you and pay gold. Titles change as you go (Rookie → Legend).
+- **Stats**: each category trains a stat. Strength (Health) +2 max HP per level,
+  Intellect (Study, Work) +2% XP, Endurance (Home) −3% damage, Charm (Errands, Social)
+  +2% gold, Spirit (Self-care, Creative) +1% item finds.
+- **Companion** (Sprigg, Coalby or Drizzle) earns half your XP, loves Berries, and
+  grows into its Teen form at level 8 and Grown form at level 20. Its mood follows
+  your day.
+- **Weekly boss**: HP is set from how many dailies you have scheduled that week.
+  Every completion hits it; every miss heals it. Beat it by the end of the week for
+  gold, XP and loot.
+- **Drops**: completing tasks sometimes finds Berries, Potions, gold pouches or a
+  shield (max 6 a day).
+
+All sprites and creatures are original pixel art; the colour palettes are inspired
+by GBA/NDS-era handheld games.
+
+---
+
+## 4. Google Calendar (two-way sync)
+
+Questline talks to Google directly from your PC. You need your own free OAuth
+client once (about 5 minutes):
+
+1. Go to <https://console.cloud.google.com>, create a project (any name).
+2. **APIs & Services → Library** → enable **Google Calendar API**.
+3. **APIs & Services → OAuth consent screen** → External → fill in the app name and
+   your email → add yourself under **Test users**.
+4. **APIs & Services → Credentials → Create credentials → OAuth client ID** →
+   Application type **Desktop app**. Copy the **Client ID** and **Client secret**.
+5. In Questline: **Settings → Google Calendar**, paste both, click **Connect**. Your
+   browser opens Google's sign-in; approve, then return to the app.
+
+What syncs:
+
+- Events from the calendars you tick appear on the Calendar page (refreshed every
+  10 minutes, or press the sync button). Events on calendars you can edit can be
+  edited or deleted from Questline.
+- Events you create in Questline are sent to the calendar you choose.
+- Reminders can be sent too, as 30-minute entries. A ✓ is added when you finish one.
+  Google's own alerts are turned off for these so you aren't notified twice.
+- Dailies are never sent.
+
+The sign-in token is encrypted with Windows DPAPI (tied to your Windows account) and
+stored in `%APPDATA%\com.questline.app\`. Google says desktop "client secrets" aren't
+truly secret, so keeping it in Settings is fine. While your OAuth app is in "Testing"
+mode Google may ask you to sign in again every 7 days; publishing the consent screen
+(no review needed for personal use with your own account) avoids that.
+
+### Other calendars (read-only)
+
+**Settings → Subscribed calendars** accepts any iCal link (`https://…` or `webcal://…`):
+Google's "Secret address in iCal format", Outlook's "Publish a calendar" link, iCloud
+public calendars, college timetables, holiday calendars.
+
+---
+
+## 5. Spotify
+
+Questline controls the **Spotify desktop app** through Windows' own media controls
+(the same ones behind the volume flyout and media keys). It only looks at Spotify's
+session, so a YouTube tab or another player never shows up.
+
+- Works with free and Premium accounts, no API keys, no login.
+- Shows title, artist, album art and progress; play/pause, next, previous, seek and
+  shuffle (if Spotify reports support).
+- If Spotify isn't running, the widget offers an **Open Spotify** button.
+
+The Spotify Web API was the other option, but its playback-control endpoints require
+Premium and a registered developer app, and they route through the internet.
+
+---
+
+## 6. Resource use
+
+- Built with **Tauri 2** (Rust + the WebView2 already in Windows) instead of
+  Electron, so the installer is a few MB rather than ~100 MB.
+- Expect roughly 60–120 MB of RAM, most of it the shared WebView2 runtime. Idle CPU
+  is ~0%: no polling while the window is hidden except a tiny alarm thread that checks
+  every 5 seconds.
+- Spotify is polled every 1.5 s only while a player is on screen. Focus scenes draw at
+  ~12 fps on a 240×135 canvas and stop when the window is hidden or reduced motion is on.
+
+---
+
+## 7. Where things live
+
+```
+src/                 the whole UI (plain HTML/CSS/JS, no build step)
+  index.html
+  css/app.css        design tokens and themes at the top
+  js/game.js         rules: rewards, streaks, rollover, boss, shop, achievements
+  js/nlp.js          quick-add parser
+  js/sync.js         Google Calendar + iCal
+  js/scheduler.js    builds the next 48 h of notifications
+  js/focus.js        focus mode and the pixel scenes
+  js/sprites.js      sprite renderer + 8×8 icon set (sprite-data.js has the pixels)
+  js/views/*.js      one file per page
+src-tauri/
+  src/lib.rs         tray, hotkeys, autostart, single instance, close-to-tray
+  src/alarms.rs      native notification thread
+  src/storage.rs     atomic save + daily backups
+  src/google.rs      OAuth (loopback + PKCE) and Calendar API proxy
+  src/media.rs       Spotify via Windows media sessions
+  src/secure.rs      DPAPI token encryption
+scripts/build-preview.mjs   bundles src/ into one HTML file for the web preview
+```
+
+Your data: `%APPDATA%\com.questline.app\questline-save.json`, plus `backups\`.
+**Settings → Open data folder** takes you there.
+
+### Tweaking it
+
+- **New theme**: copy a `[data-skin="…"]` block in `css/app.css`, then add it to
+  `SHOP.skins` in `js/game.js`.
+- **Balance**: XP curve, damage, drop rates and prices are all at the top of
+  `js/game.js`.
+- **New focus scene**: add an entry to `SCENES` in `js/focus.js` (`bake` draws the
+  static background once, `draw` animates on top) and to `SHOP.scenes`.
+- **Hotkeys**: change the `Shortcut::new(...)` lines in `src-tauri/src/lib.rs`.
+
+---
+
+## 8. Troubleshooting
+
+- **No notifications**: use the installer build (Windows ties notifications to the
+  installed app), check Windows **Focus assist / Do not disturb**, and check
+  Questline's quiet hours. **Settings → Send a test** checks the whole path.
+- **A global hotkey does nothing**: another app owns that combination. Change it in
+  `lib.rs` and rebuild.
+- **Spotify shows "isn't playing"**: start playback once in the Spotify app; Windows
+  only creates its media session after something plays.
+- **Google says "access blocked"**: add your Google account under **Test users** on
+  the OAuth consent screen.

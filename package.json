@@ -1,0 +1,16 @@
+{
+  "name": "questline",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A cozy pixel-RPG planner for dailies, reminders, calendar and focus.",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icons": "tauri icon app-icon.png",
+    "preview": "node scripts/build-preview.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.4"
+  }
+}
