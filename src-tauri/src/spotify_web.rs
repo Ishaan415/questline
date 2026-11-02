@@ -231,7 +231,14 @@ async fn api(app: &AppHandle, method: reqwest::Method, path: &str) -> Result<Opt
                 _ => format!("Spotify error {status}: {text}"),
             });
         }
-        return serde_json::from_str(&text).map(Some).map_err(|e| e.to_string());
+        // Control endpoints (play/pause/next/…) reply 2xx with a short body that
+        // isn't JSON. The command already succeeded, so don't parse it.
+        if method != reqwest::Method::GET {
+            return Ok(None);
+        }
+        return serde_json::from_str(&text)
+            .map(Some)
+            .map_err(|e| format!("Spotify sent an unexpected reply ({e})."));
     }
     Err("Spotify rejected the saved sign-in. Reconnect in Settings.".into())
 }
