@@ -15,7 +15,15 @@ Q.focus = (() => {
   const f = {
     open: false, mode: 'pomo', phase: 'work', round: 1, running: false,
     endAt: 0, remaining: 25 * 60, total: 25 * 60, swStart: 0, swAcc: 0, timerMin: 30, taskId: null,
+    combo: 0, // Pomodoro focus rounds finished in a row this session
   };
+
+  /* Combo: each finished round in a row pays 25% more (up to 3x). Every 4th
+     round in a row adds a bonus item. Reset, skipping a focus round, switching
+     mode, or leaving focus mode between rounds starts the combo over. */
+  const comboMult = (done) => Math.min(3, 1 + 0.25 * done);
+  const BONUS_ITEMS = ['berry', 'potion', 'shield'];
+  const bonusFor = (roundNo) => (roundNo % 4 === 0 ? BONUS_ITEMS[(roundNo / 4 - 1) % BONUS_ITEMS.length] : null);
   let raf = 0; let tickT = 0; let idleT = 0; let lastFrame = 0;
   let canvas, ctx, bg, particles = [];
 
@@ -203,13 +211,15 @@ Q.focus = (() => {
   }
   const clearExtraAlarm = () => Q.scheduler.setExtra([]);
 
-  function finishWork(minutes) {
-    const g = Q.game.focusComplete(minutes, f.taskId);
-    if (g) {
-      const ev = Q.game.flush();
-      Q.ui.present(ev.map((e) => (e.type === 'reward' ? Object.assign(e, {}) : e)));
-      Q.ui.toast(`Focus session complete: +${g.xp} XP, +${g.gold} gold`, { kind: 'ok', icon: I('hourglass') });
-    }
+  function finishWork(minutes, { mult = 1, bonus = null, roundNo = 0 } = {}) {
+    const g = Q.game.focusComplete(minutes, f.taskId, mult, bonus);
+    if (!g) return null;
+    Q.ui.present(Q.game.flush());
+    const head = roundNo ? `Round ${roundNo} in a row done!` : 'Focus session complete!';
+    const combo = mult > 1 ? ` · combo ×${mult.toFixed(2)}` : '';
+    Q.ui.toast(`${head} +${g.xp} XP, +${g.gold} gold${combo}`, { kind: 'ok', icon: I('hourglass'), timeout: 6000 });
+    if (bonus) setTimeout(() => { Q.sfx.drop(); Q.ui.toast(`Combo bonus: a ${Q.game.SHOP.items[bonus].name}!`, { kind: 'drop', icon: I(Q.game.SHOP.items[bonus].icon) }); }, 700);
+    return g;
   }
 
   function complete() {
@@ -217,7 +227,9 @@ Q.focus = (() => {
     Q.sfx.timer();
     if (f.mode === 'pomo') {
       if (f.phase === 'work') {
-        finishWork(S().focus.work);
+        const roundNo = f.combo + 1;
+        finishWork(S().focus.work, { mult: comboMult(f.combo), bonus: bonusFor(roundNo), roundNo });
+        f.combo = roundNo;
         f.phase = f.round % S().focus.rounds === 0 ? 'long' : 'short';
       } else {
         if (f.phase === 'long') f.round = 0;
@@ -244,6 +256,8 @@ Q.focus = (() => {
   function paintTime() {
     const root = document.getElementById('focus');
     const tEl = root.querySelector('.fx-time'); if (!tEl) return;
+    const nowEl = root.querySelector('.fx-now');
+    if (nowEl) { const d = new Date(); const txt = `${U.fmtTime(d)} · ${U.DAYS[d.getDay()]} ${d.getDate()} ${U.MONTHS[d.getMonth()]}`; if (nowEl.textContent !== txt) nowEl.textContent = txt; }
     const secs = f.mode === 'stop' ? elapsedSw() : f.remaining;
     tEl.textContent = U.fmtClock(secs);
     const frac = f.mode === 'stop' ? (secs % 3600) / 3600 : 1 - f.remaining / Math.max(1, f.total);
@@ -254,6 +268,19 @@ Q.focus = (() => {
   }
 
   /* ---------------------------------------------------------- render */
+  function comboHtml() {
+    const done = f.combo;
+    const mult = comboMult(done);
+    const p = Q.game.focusPreview(S().focus.work, mult);
+    const nextBonus = bonusFor(done + 1);
+    const toBonus = 4 - (done % 4);
+    return `<div class="fx-combo">
+      <div class="fx-combo-top"><span class="fx-pips" aria-label="${done % 4} of 4 rounds toward a bonus">${[0, 1, 2, 3].map((i) => `<i class="${i < done % 4 ? 'on' : ''}"></i>`).join('')}</span>
+        <b>${done ? `Combo ×${mult.toFixed(2)}` : 'No combo yet'}</b><span class="fx-streak">${done} in a row</span></div>
+      <div class="fx-next">Next round: <b>+${p.xp} XP · +${p.gold} gold</b>${nextBonus ? ` <span class="fx-bonus">+ ${Q.game.SHOP.items[nextBonus].name}</span>` : ` <span class="muted-fx">· bonus item in ${toBonus}</span>`}</div>
+    </div>`;
+  }
+
   function taskOptions() {
     const st = S();
     const opts = ['<option value="">No specific task</option>'];
@@ -280,9 +307,11 @@ Q.focus = (() => {
       </div>
       <div class="fx-card ${f.mode === 'pomo' && f.phase !== 'work' ? 'is-break' : ''}">
         <div class="seg seg-small fx-modes">${[['pomo', 'Pomodoro'], ['timer', 'Timer'], ['stop', 'Stopwatch']].map(([k, n]) => `<button class="seg-btn ${f.mode === k ? 'on' : ''}" data-act="fx-mode" data-m="${k}" ${f.running ? 'disabled' : ''}>${n}</button>`).join('')}</div>
+        <div class="fx-now" title="Current time"></div>
         <div class="fx-phase">${phaseName}${f.mode === 'pomo' ? ` <span>· round ${f.round} of ${fs.rounds}</span>` : ''}</div>
         <div class="fx-time" aria-live="off">00:00</div>
         <div class="fx-bar">${Array.from({ length: 24 }, () => '<i class="fx-cell"></i>').join('')}</div>
+        ${f.mode === 'pomo' ? comboHtml() : ''}
         <select class="fx-task" data-change="fx-task" aria-label="What are you focusing on?">${taskOptions()}</select>
         <div class="fx-ctrl">
           <button class="btn" data-act="fx-reset" title="Reset (R)">Reset</button>
@@ -336,6 +365,7 @@ Q.focus = (() => {
     if (!f.open) return;
     const root = document.getElementById('focus');
     f.open = false;
+    if (!f.running) f.combo = 0;
     cancelAnimationFrame(raf); clearInterval(tickT); clearTimeout(idleT);
     root.hidden = true; root.innerHTML = '';
     Q.platform.win.setFullscreen(false);
@@ -352,10 +382,21 @@ Q.focus = (() => {
     on('focus-open', () => open());
     on('fx-close', close);
     on('fx-toggle', () => (f.running ? pause() : start()));
-    on('fx-reset', () => { if (f.mode === 'pomo') { f.phase = 'work'; f.round = 1; } resetPhase(); render(); });
-    on('fx-skip', () => { if (f.mode === 'timer') { const done = (f.total - f.remaining) / 60; f.running = false; clearExtraAlarm(); if (done >= 5) finishWork(done); resetPhase(); render(); } else complete(); });
+    on('fx-reset', () => { if (f.mode === 'pomo') { f.phase = 'work'; f.round = 1; f.combo = 0; } resetPhase(); render(); });
+    on('fx-skip', () => {
+      if (f.mode === 'pomo' && f.phase === 'work') {
+        // Skipping a focus round pays nothing and breaks the combo.
+        const had = f.combo;
+        f.combo = 0; f.running = false; clearExtraAlarm();
+        f.phase = f.round % S().focus.rounds === 0 ? 'long' : 'short';
+        f.total = f.remaining = lengths()[f.phase];
+        if (had) Q.ui.toast('Round skipped: combo reset.');
+        render();
+        return;
+      }
+      if (f.mode === 'timer') { const done = (f.total - f.remaining) / 60; f.running = false; clearExtraAlarm(); if (done >= 5) finishWork(done); resetPhase(); render(); } else complete(); });
     on('fx-finish', () => { const min = elapsedSw() / 60; f.running = false; if (min >= 5) finishWork(min); else Q.ui.toast('Sessions under 5 minutes don\'t earn XP.'); f.swAcc = 0; render(); });
-    on('fx-mode', (el) => { f.mode = el.dataset.m; f.phase = 'work'; f.round = 1; resetPhase(); render(); });
+    on('fx-mode', (el) => { f.mode = el.dataset.m; f.phase = 'work'; f.round = 1; f.combo = 0; resetPhase(); render(); });
     on('fx-tmin', (el) => { f.timerMin = +el.dataset.m; resetPhase(); render(); });
     on('fx-scene', (el) => { S().focus.scene = el.dataset.k; Q.store.commit('focus-scene'); setScene(el.dataset.k); render(); if (S().settings.reducedMotion) { ctx.drawImage(bg, 0, 0); f.scene.draw(ctx, 0, 0); } });
     on('fx-rain', () => { const st = S(); st.focus.rain = !st.focus.rain; Q.sfx.ambientRain(st.focus.rain); Q.store.commit('focus'); render(); });

@@ -37,12 +37,13 @@ Q.views.shop = (() => {
   function looks() {
     const st = S();
     const lvl = st.hero.level;
-    const skins = Object.entries(G.SHOP.skins).map(([k, s]) => {
+    const skinCards = (mode) => Object.entries(G.SHOP.skins).filter(([, s]) => s.mode === mode).map(([k, s]) => {
       const owned = st.owned.skins.includes(k);
-      return `<div class="look ${st.settings.skin === k ? 'equipped' : ''}">
+      const on = (mode === 'dark' ? st.settings.darkSkin : st.settings.skin) === k;
+      return `<div class="look ${on ? 'equipped' : ''}">
         <div class="look-swatch">${s.sw.map((c) => `<i style="background:${c}"></i>`).join('')}</div>
         <b>${s.name}</b><p class="small muted">${s.desc}</p>
-        ${owned ? `<button class="btn btn-small" data-act="equip-skin" data-key="${k}" ${st.settings.skin === k ? 'disabled' : ''}>${st.settings.skin === k ? 'Equipped' : 'Equip'}</button>`
+        ${owned ? `<button class="btn btn-small" data-act="equip-skin" data-key="${k}" ${on ? 'disabled' : ''}>${on ? 'Equipped' : 'Equip'}</button>`
           : `<button class="btn btn-small btn-buy" data-act="buy" data-kind="skins" data-key="${k}" ${st.hero.gold < s.price ? 'disabled' : ''}>${I('coin')} ${s.price}</button>`}
       </div>`;
     }).join('');
@@ -62,7 +63,8 @@ Q.views.shop = (() => {
       return `<div class="look"><div class="look-scene scene-${k}"></div><b>${s.name}</b>
         ${owned ? '<span class="small muted">Owned · pick it in Focus</span>' : `<button class="btn btn-small btn-buy" data-act="buy" data-kind="scenes" data-key="${k}" ${st.hero.gold < s.price ? 'disabled' : ''}>${I('coin')} ${s.price}</button>`}</div>`;
     }).join('');
-    return `<h3 class="sub-title">Town themes</h3><div class="looks-grid">${skins}</div>
+    return `<h3 class="sub-title">${I('sun')} Light themes</h3><div class="looks-grid">${skinCards('light')}</div>
+      <h3 class="sub-title">${I('moon')} Dark themes</h3><div class="looks-grid">${skinCards('dark')}</div>
       <h3 class="sub-title">Trainer outfits</h3><div class="looks-grid">${outfits}</div>
       <h3 class="sub-title">Focus scenes</h3><div class="looks-grid">${scenes}</div>`;
   }
@@ -94,7 +96,7 @@ Q.views.shop = (() => {
       if (!res.ok) return Q.ui.toast(res.msg, { kind: 'error' });
       Q.sfx.coin(); Q.app.flushGame();
     });
-    on('equip-skin', (el) => { S().settings.skin = el.dataset.key; Q.store.commit('settings'); Q.app.applySettings(); });
+    on('equip-skin', (el) => Q.app.equipSkin(el.dataset.key));
     on('equip-outfit', (el) => { S().profile.outfit = el.dataset.key; Q.store.commit('profile'); });
   }
 

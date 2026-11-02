@@ -6,13 +6,15 @@
 //!   * a tiny alarm thread so notifications fire even while the window is hidden
 //!   * file storage with daily rolling backups
 //!   * Google Calendar OAuth (loopback + PKCE) and a scoped API proxy
-//!   * Spotify control through Windows' system media sessions (GSMTC)
+//!   * Spotify control through Windows' system media sessions (GSMTC), with the
+//!     Spotify Web API as a fallback for other players (Spotifast, phone…)
 //!   * self-updates from GitHub Releases (signed)
 
 mod alarms;
 mod google;
 mod media;
 mod secure;
+mod spotify_web;
 mod storage;
 mod updater;
 
@@ -236,6 +238,12 @@ pub fn run() {
             media::spotify_state,
             media::spotify_art,
             media::spotify_control,
+            spotify_web::spotify_web_connect,
+            spotify_web::spotify_web_status,
+            spotify_web::spotify_web_disconnect,
+            spotify_web::spotify_web_state,
+            spotify_web::spotify_web_art,
+            spotify_web::spotify_web_control,
             updater::update_check,
             updater::update_install,
         ])

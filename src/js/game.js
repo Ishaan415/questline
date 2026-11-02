@@ -434,19 +434,34 @@ Q.game = (() => {
   }
 
   /* ------------------------------------------------------------------ focus */
-  function focusComplete(minutes, taskId) {
+  /** Focus rewards: 0.8 base per minute, times the Pomodoro combo multiplier. */
+  function focusComplete(minutes, taskId, mult = 1, bonusItem = null) {
     const st = S();
     minutes = Math.round(minutes);
     if (minutes < 5) return null;
     const linked = taskId && (st.dailies.find((d) => d.id === taskId) || st.reminders.find((r) => r.id === taskId));
-    const g = grant({ base: minutes * 0.8, diff: 'easy', category: linked ? linked.category : 'study', kind: 'focus' });
+    const g = grant({ base: minutes * 0.8 * mult, diff: 'easy', category: linked ? linked.category : 'study', kind: 'focus' });
+    if (bonusItem) {
+      st.inventory[bonusItem] = (st.inventory[bonusItem] || 0) + 1;
+      g.bonusItem = bonusItem;
+    }
     st.counters.focusSessions++;
     st.counters.focusMinutes += minutes;
     const day = today();
     st.dayLog[day] = Object.assign(st.dayLog[day] || {}, { f: ((st.dayLog[day] || {}).f || 0) + minutes });
-    Q.store.log(`Focused for ${minutes} min${linked ? ` on ${linked.title}` : ''}`, 'focus', { xp: g.xp, gold: g.gold });
+    const comboTxt = mult > 1 ? ` (combo ×${mult.toFixed(2)})` : '';
+    Q.store.log(`Focused for ${minutes} min${linked ? ` on ${linked.title}` : ''}${comboTxt}`, 'focus', { xp: g.xp, gold: g.gold });
     afterAction();
     return g;
+  }
+
+  /** What a focus session of this length would pay right now (no random gold spread). */
+  function focusPreview(minutes, mult = 1) {
+    const base = Math.round(minutes) * 0.8 * mult;
+    return {
+      xp: Math.max(1, Math.round(base * bonusMult())),
+      gold: Math.max(1, Math.round(base * 0.4 * (1 + sl('cha') * 0.02))),
+    };
   }
 
   /* ------------------------------------------------------------------- shop */
@@ -459,12 +474,16 @@ Q.game = (() => {
       berry: { name: 'Berry', price: 10, desc: 'Feed your companion. It grows faster and loves you more.', icon: 'berry', color: '#E8604C' },
     },
     skins: {
-      meadow: { name: 'Meadow', price: 0, desc: 'Fresh greens and sky blue.', sw: ['#EAF4E4', '#58B368', '#3C82C8'] },
-      ember: { name: 'Ember Town', price: 150, desc: 'Warm brick reds and cream.', sw: ['#FBEFE6', '#E8604C', '#F2C14E'] },
-      emerald: { name: 'Emerald Coast', price: 150, desc: 'Teal greens with a gold trim.', sw: ['#E4F4EE', '#2FA58A', '#F2C14E'] },
-      tide: { name: 'Tide Route', price: 150, desc: 'Ocean blues and sea-foam.', sw: ['#E6F0FA', '#3C82C8', '#2FA58A'] },
-      sakura: { name: 'Blossom Lane', price: 200, desc: 'Cherry pinks with leaf green.', sw: ['#FBEFF3', '#E879A8', '#58B368'] },
-      dusk: { name: 'Dusk Village', price: 200, desc: 'Evening blues for late nights. Still cozy.', sw: ['#2A3550', '#8E6BD1', '#F2C14E'] },
+      meadow: { mode: 'light', name: 'Meadow', price: 0, desc: 'Fresh greens and sky blue.', sw: ['#EAF4E4', '#58B368', '#3C82C8'] },
+      ember: { mode: 'light', name: 'Ember Town', price: 150, desc: 'Warm brick reds and cream.', sw: ['#FBEFE6', '#E8604C', '#F2C14E'] },
+      emerald: { mode: 'light', name: 'Emerald Coast', price: 150, desc: 'Teal greens with a gold trim.', sw: ['#E4F4EE', '#2FA58A', '#F2C14E'] },
+      tide: { mode: 'light', name: 'Tide Route', price: 150, desc: 'Ocean blues and sea-foam.', sw: ['#E6F0FA', '#3C82C8', '#2FA58A'] },
+      sakura: { mode: 'light', name: 'Blossom Lane', price: 200, desc: 'Cherry pinks with leaf green.', sw: ['#FBEFF3', '#E879A8', '#58B368'] },
+      night: { mode: 'dark', name: 'Night Meadow', price: 0, desc: 'Meadow after sunset: mossy greens.', sw: ['#1C2724', '#6CCB7F', '#74B9F0'] },
+      dusk: { mode: 'dark', name: 'Dusk Village', price: 200, desc: 'Twilight purples with lantern gold.', sw: ['#232B44', '#A68BE8', '#F2C14E'] },
+      lava: { mode: 'dark', name: 'Lava Cave', price: 200, desc: 'Warm embers glowing in the dark.', sw: ['#271D1C', '#F2826A', '#F2C14E'] },
+      deepsea: { mode: 'dark', name: 'Deep Sea', price: 200, desc: 'Midnight navy with bioluminescent teal.', sw: ['#15212E', '#5DB8EC', '#52D3B3'] },
+      moonblossom: { mode: 'dark', name: 'Moonlit Blossom', price: 250, desc: 'Plum night with cherry-pink glow.', sw: ['#261E2C', '#F293BC', '#8ED69C'] },
     },
     scenes: {
       meadow: { name: 'Sunny Meadow', price: 0 },
@@ -606,7 +625,7 @@ Q.game = (() => {
     DIFF, STATS, SHOP, ACH, STAGE_NAMES,
     xpToNext, statLevel, maxHp, title, today, isScheduled, scheduleLabel, dueAt, isDone, todaysDailies,
     toggleDaily, toggleCheckItem, checklistState, habit, completeReminder, reopenReminder, nextOccurrence,
-    checkRollover, finalizeDay, focusComplete, buy, useItem, buyReward, ensureBoss, heal,
+    checkRollover, finalizeDay, focusComplete, focusPreview, buy, useItem, buyReward, ensureBoss, heal,
     companionLevel, companionStage, companionMood, companionLine, checkAchievements,
     flush: () => pending.splice(0, pending.length),
   };

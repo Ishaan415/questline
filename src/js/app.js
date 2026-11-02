@@ -35,6 +35,7 @@ Q.app = (() => {
         <div class="tb-actions">
           <button class="tb-btn" data-act="quick-add" title="Quick add (N)" aria-label="Quick add">${I('plus')}</button>
           <button class="tb-btn" data-act="palette" title="Command palette (Ctrl+K)" aria-label="Command palette">${I('search')}</button>
+          <button class="tb-btn" data-act="toggle-mode" id="tb-mode" title="Switch light / dark (D)" aria-label="Switch light or dark mode">${I('moon')}</button>
           <button class="tb-btn" data-act="mini-toggle" title="Mini window" aria-label="Mini window">${I('mini')}</button>
           ${P.isApp ? `<span class="tb-sep"></span>
           <button class="tb-btn" data-act="win-min" aria-label="Minimize">${I('min')}</button>
@@ -45,7 +46,7 @@ Q.app = (() => {
       <div class="shell">
         <nav class="sidebar" aria-label="Main">
           <div class="nav">${VIEWS.map((v, i) => `<button class="nav-btn" data-act="${v.k === 'focus' ? 'focus-open' : 'go'}" data-view="${v.k}" title="${v.name} (${i + 1})">${I(v.icon)}<span>${v.name}</span><kbd>${i + 1}</kbd></button>`).join('')}</div>
-          <div class="side-hud" id="side-hud"></div>
+          <div class="side-hud" id="side-hud" data-act="go" data-view="journey" role="button" tabindex="0" title="Open your Journey: stats, badges, companion"></div>
         </nav>
         <main id="view" class="view" tabindex="-1"></main>
       </div>`;
@@ -121,9 +122,40 @@ Q.app = (() => {
   }
 
   /* ---------------------------------------------------------- settings */
+  /* ---------------------------------------------------------- themes */
+  const darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function effectiveMode() {
+    const m = S().settings.themeMode;
+    if (m === 'auto') return darkQuery && darkQuery.matches ? 'dark' : 'light';
+    return m === 'dark' ? 'dark' : 'light';
+  }
+  function toggleMode() {
+    const s = S().settings;
+    s.themeMode = effectiveMode() === 'dark' ? 'light' : 'dark';
+    Q.store.commit('settings');
+    applySettings();
+  }
+  /** Equip a theme into its light or dark slot, and show it. */
+  function equipSkin(key) {
+    const s = S().settings;
+    const sk = G.SHOP.skins[key];
+    if (!sk) return;
+    if (sk.mode === 'dark') s.darkSkin = key; else s.skin = key;
+    if (s.themeMode !== 'auto') s.themeMode = sk.mode;
+    else if (effectiveMode() !== sk.mode) Q.ui.toast(`${sk.name} will show when Windows is in ${sk.mode} mode.`);
+    Q.store.commit('settings');
+    applySettings();
+  }
+
   function applySettings() {
     const s = S().settings;
-    document.documentElement.dataset.skin = s.skin;
+    const mode = effectiveMode();
+    const root = document.documentElement;
+    root.dataset.mode = mode;
+    root.dataset.skin = mode === 'dark' ? (s.darkSkin || 'night') : (s.skin || 'meadow');
+    root.dataset.font = s.fontStyle || 'mixed';
+    const btn = document.getElementById('tb-mode');
+    if (btn) btn.innerHTML = I(mode === 'dark' ? 'sun' : 'moon');
     document.documentElement.style.setProperty('--ui-scale', (s.uiScale || 100) / 100);
     document.body.classList.toggle('reduced-motion', !!s.reducedMotion);
     P.setCloseToTray(s.closeToTray);
@@ -227,6 +259,7 @@ Q.app = (() => {
     on('habit', (el) => { G.habit(el.dataset.id, +el.dataset.dir); flushGame(); });
     on('use-item', (el) => useItem(el.dataset.item));
     on('toggle-inn', toggleInn);
+    on('toggle-mode', toggleMode);
     on('starter-packs', () => Q.onboarding.packsModal());
     on('mini-toggle', toggleMini);
     on('win-min', () => P.win.minimize());
@@ -261,6 +294,7 @@ Q.app = (() => {
     if (e.key === 'f' || e.key === 'F') { e.preventDefault(); Q.focus.open(); return; }
     if (e.key === '/') { e.preventDefault(); Q.ui.palette(); return; }
     if (e.key === '?') { e.preventDefault(); helpModal(); return; }
+    if (e.key === 'd' || e.key === 'D') { if (current !== 'calendar') { e.preventDefault(); toggleMode(); return; } }
     if (current === 'calendar' && !mini && Q.views.calendar.key(e)) e.preventDefault();
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][data-act]')) { e.preventDefault(); e.target.click(); }
   }
@@ -275,6 +309,7 @@ Q.app = (() => {
     Q.ui.initDelegation();
     bindActions();
     document.addEventListener('keydown', keys);
+    if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener('change', () => { if (S().settings.themeMode === 'auto') applySettings(); });
     Q.store.on((reason) => { queueRender(); if (reason !== 'sync-start') Q.scheduler.refresh(); });
 
     const fromHash = VIEWS.find((v) => v.hash && `#${v.hash}` === location.hash);
@@ -317,7 +352,7 @@ Q.app = (() => {
   }
 
   return {
-    boot, go, render, applySettings, flushGame, useItem, toggleInn, pauseNotifications, exportData, toggleMini, onAlarm,
+    boot, go, render, applySettings, equipSkin, toggleMode, effectiveMode, flushGame, useItem, toggleInn, pauseNotifications, exportData, toggleMini, onAlarm,
     current: () => current,
   };
 })();

@@ -40,7 +40,7 @@ Q.store = (() => {
         { id: U.uid(), title: 'Guilt-free gaming hour', cost: 60 },
       ],
       inventory: { potion: 1, maxpotion: 0, shield: 1, charm: 0, berry: 2 },
-      owned: { skins: ['meadow'], scenes: ['meadow', 'rain'], outfits: ['classic'] },
+      owned: { skins: ['meadow', 'night'], scenes: ['meadow', 'rain'], outfits: ['classic'] },
       buffs: { charmUntil: 0, perfectDay: null },
       boss: null,
       achievements: {},
@@ -68,6 +68,9 @@ Q.store = (() => {
         reducedMotion: false,
         uiScale: 100,
         skin: 'meadow',
+        darkSkin: 'night',
+        themeMode: 'light',
+        fontStyle: 'mixed',
         inn: false,
         confirmDelete: true,
         autoUpdate: true,
@@ -77,6 +80,7 @@ Q.store = (() => {
         calShowReminders: true,
         google: { clientId: '', clientSecret: '', connected: false, calendars: [], writeCalendar: 'primary', pushReminders: true, pushEvents: true },
         ics: [],
+        spotify: { clientId: '', webConnected: false },
       },
     };
   }
@@ -89,6 +93,13 @@ Q.store = (() => {
       out[k] = (k in base) ? merge(base[k], saved[k]) : saved[k];
     }
     return out;
+  }
+
+  /** Bring older saves up to date. */
+  function migrate(st) {
+    for (const k of ['meadow', 'night']) if (!st.owned.skins.includes(k)) st.owned.skins.push(k);
+    // v0.1 had one theme slot; "dusk" was its only dark theme.
+    if (st.settings.skin === 'dusk') { st.settings.skin = 'meadow'; st.settings.darkSkin = 'dusk'; st.settings.themeMode = 'dark'; }
   }
 
   function emit(reason) { for (const fn of listeners) { try { fn(reason); } catch (e) { console.error(e); } } }
@@ -106,6 +117,7 @@ Q.store = (() => {
     } else {
       state = defaults();
     }
+    migrate(state);
     return state;
   }
 
@@ -118,7 +130,7 @@ Q.store = (() => {
     /** Call after mutating state. */
     commit(reason = 'change') { persist(); emit(reason); },
     saveNow() { Q.platform.save(JSON.stringify(state), U.ymd(new Date())); },
-    replace(next) { state = merge(defaults(), next); persist(); emit('replace'); },
+    replace(next) { state = merge(defaults(), next); migrate(state); persist(); emit('replace'); },
     snapshot() { undoSnap = JSON.stringify(state); },
     undo() {
       if (!undoSnap) return false;

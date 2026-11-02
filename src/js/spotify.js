@@ -1,8 +1,12 @@
 'use strict';
 /*
- * Spotify widget. Desktop app: reads and controls the Spotify desktop app via
- * Windows media sessions (Rust side). Browser preview: a demo player.
- * Polls only while a widget is on screen and the window is visible.
+ * Spotify widget, hybrid:
+ *  1. "local": the official Spotify desktop app via Windows media sessions.
+ *     Instant, offline, no login. Used whenever it is the one playing.
+ *  2. "web": the Spotify Web API (optional sign-in, Premium). Sees whatever
+ *     your account plays anywhere: Spotifast, phone, web player. Used when the
+ *     desktop app isn't playing.
+ * Browser preview: a demo player. Polls only while a widget is visible.
  */
 
 Q.spotify = (() => {
@@ -14,6 +18,11 @@ Q.spotify = (() => {
   let pollTimer = null;
   let tickTimer = null;
   let lastFetch = 0;
+  let source = 'local';       // which backend the widget is showing
+  let webState = null;        // last Web API answer
+  let lastWeb = 0;            // when we last asked the Web API
+  const WEB_EVERY = 2400;     // ms between Web API calls (rate-limit friendly)
+  const webOn = () => P.isApp && Q.store.state.settings.spotify && Q.store.state.settings.spotify.webConnected;
 
   /* ---------- demo player (preview only) ---------- */
   const DEMO = [
@@ -52,20 +61,36 @@ Q.spotify = (() => {
   }
 
   /* ---------- polling ---------- */
-  async function fetchState() {
+  async function fetchState(forceWeb = false) {
     lastFetch = Date.now();
-    if (!P.isApp) { state = demoState(); }
+    if (!P.isApp) { state = demoState(); source = 'demo'; }
     else {
-      try { state = await P.invoke('spotify_state'); } catch (e) { state = { available: false }; }
+      let local;
+      try { local = await P.invoke('spotify_state'); } catch (e) { local = { available: false }; }
+      if (local.available && local.playing) {
+        state = local; source = 'local';
+      } else if (webOn()) {
+        if (forceWeb || source !== 'web' || Date.now() - lastWeb >= WEB_EVERY) {
+          lastWeb = Date.now();
+          try { webState = await P.invoke('spotify_web_state'); } catch (e) { webState = { available: false, error: String(e) }; }
+        }
+        // Prefer the account-wide view if something is playing there, or if the desktop app isn't open.
+        if (webState && webState.available && (webState.playing || !local.available)) { state = webState; source = 'web'; }
+        else { state = local; source = 'local'; }
+      } else {
+        state = local; source = 'local';
+      }
     }
-    if (state.available && state.art_key !== artKey) {
-      artKey = state.art_key;
+    const key = `${source}|${state.art_key}`;
+    if (state.available && key !== artKey) {
+      artKey = key;
       if (!P.isApp) art = demoArt(DEMO[demo.i]);
-      else { try { art = await P.invoke('spotify_art'); } catch (e) { art = null; } }
+      else { try { art = await P.invoke(source === 'web' ? 'spotify_web_art' : 'spotify_art'); } catch (e) { art = null; } }
     }
     render();
   }
 
+  const positionNow = () => position();
   const position = () => {
     if (!state.available) return 0;
     let p = state.position_ms || 0;
@@ -84,7 +109,15 @@ Q.spotify = (() => {
   async function control(action, value) {
     Q.sfx.click();
     if (!P.isApp) demoControl(action, value);
-    else {
+    else if (source === 'web') {
+      const a = action === 'toggle' ? (state.playing ? 'pause' : 'play') : action;
+      // Show the change right away; the next poll confirms it.
+      if (a === 'pause' || a === 'play') { const pos = positionNow(); state.position_ms = pos; state.updated_ms = Date.now(); state.playing = a === 'play'; render(); }
+      try { await P.invoke('spotify_web_control', { action: a, value: value ?? null }); }
+      catch (e) { Q.ui.toast(String(e), { kind: 'error' }); }
+      setTimeout(() => fetchState(true), 450);
+      return;
+    } else {
       try { await P.invoke('spotify_control', { action, value: value ?? null }); }
       catch (e) { Q.ui.toast(String(e), { kind: 'error' }); }
     }
@@ -104,13 +137,13 @@ Q.spotify = (() => {
         el.innerHTML = `
           <div class="sp-empty">
             <div class="sp-art sp-art-empty">${Q.sprites.icon('note')}</div>
-            <div class="sp-meta"><div class="sp-title">Spotify isn't playing</div>
-            <div class="sp-artist">${P.isApp ? 'Open the Spotify app and press play.' : 'Spotify control works in the desktop app.'}</div></div>
+            <div class="sp-meta"><div class="sp-title">Nothing playing</div>
+            <div class="sp-artist">${!P.isApp ? 'Spotify control works in the desktop app.' : webOn() ? 'Press play in Spotify, Spotifast or on your phone.' : 'Press play in the Spotify app. Using Spotifast or your phone? Connect your account in Settings.'}</div></div>
             <button class="btn btn-small" data-act="sp-open">Open Spotify</button>
           </div>`;
         return;
       }
-      const key = `${state.art_key}|${state.playing}|${state.shuffle}|${size}`;
+      const key = `${source}|${state.art_key}|${state.playing}|${state.shuffle}|${state.device}|${size}`;
       if (el.dataset.key === key) return tickOne(el);
       el.dataset.key = key;
       el.innerHTML = `
@@ -130,6 +163,7 @@ Q.spotify = (() => {
             <button class="icon-btn sp-play" data-act="sp-toggle" title="${state.playing ? 'Pause' : 'Play'}" aria-label="${state.playing ? 'Pause' : 'Play'}">${Q.sprites.icon(state.playing ? 'pause' : 'play')}</button>
             <button class="icon-btn" data-act="sp-next" title="Next" aria-label="Next">${Q.sprites.icon('next')}</button>
             ${state.demo && size !== 'mini' ? '<span class="sp-demo">Demo</span>' : ''}
+            ${source === 'web' && state.device && size !== 'mini' ? `<span class="sp-device" title="Playing through your Spotify account">on ${U.esc(state.device)}</span>` : ''}
           </div>
         </div>`;
       tickOne(el);

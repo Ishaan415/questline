@@ -37,6 +37,30 @@ Q.views.settings = (() => {
       <p class="small muted">Your browser opens Google's sign-in. The token is stored encrypted with your Windows account and never leaves this PC except to talk to Google.</p>`;
   }
 
+  let spWebLinked = null;
+  function spotifyPanel() {
+    const sp = S().settings.spotify;
+    if (!P.isApp) return '<p class="small muted">The desktop app shows the official Spotify app automatically, and can also follow Spotifast or your phone after you connect your account.</p>';
+    if (spWebLinked === null) P.invoke('spotify_web_status').then((v) => { spWebLinked = !!v; if (sp.webConnected !== spWebLinked) { sp.webConnected = spWebLinked; Q.store.commit('settings'); } Q.app.render(); }).catch(() => { spWebLinked = false; });
+    const intro = '<p class="small">The <b>official Spotify app</b> is picked up automatically, instantly and offline. To also see and control <b>Spotifast, your phone or the web player</b>, connect your Spotify account (Premium). Questline switches between the two by itself.</p>';
+    if (sp.webConnected) {
+      return `${intro}<div class="sync-ok">${I('check')} Spotify account connected</div>
+        <p class="small muted">When the desktop app isn't playing, Questline follows whatever your account plays and shows the device, like "on Spotifast".</p>
+        <div class="row-btns"><button class="btn btn-small btn-danger-ghost" data-act="sp-web-disconnect">Disconnect</button></div>`;
+    }
+    const redirect = 'http://127.0.0.1:43821/callback';
+    return `${intro}
+      <ol class="small steps">
+        <li>Open <button class="link" data-act="sp-dashboard">developer.spotify.com/dashboard</button> and log in with your Spotify account.</li>
+        <li><b>Create app</b>: any name (e.g. Questline) and description. Under <b>Redirect URIs</b> add exactly:
+          <span class="copy-line"><code>${redirect}</code><button class="btn btn-small" data-act="sp-copy" data-text="${redirect}">Copy</button></span>
+          Tick <b>Web API</b>, accept the terms, and save.</li>
+        <li>Open the app's <b>Settings</b>, copy the <b>Client ID</b> and paste it below. No secret needed.</li>
+      </ol>
+      <label class="field"><span class="field-label">Client ID</span><input data-change="set" data-path="settings.spotify.clientId" value="${esc(sp.clientId)}" placeholder="32 letters and numbers" spellcheck="false"></label>
+      <button class="btn btn-primary" data-act="sp-web-connect" ${sp.clientId ? '' : 'disabled'}>${I('note')} Connect Spotify account</button>`;
+  }
+
   function ics() {
     const st = S();
     return `${st.settings.ics.map((f, i) => `<div class="feed"><i class="dot" style="--c:${f.color}"></i><div class="feed-main"><b>${esc(f.name)}</b><span class="small muted">${esc(f.url.replace(/^(https?|webcal):\/\//, '').slice(0, 48))}…</span>${f.error ? `<span class="small err">${esc(f.error)}</span>` : ''}</div>
@@ -86,8 +110,12 @@ Q.views.settings = (() => {
 
         <section class="panel">
           <div class="panel-title">${I('sun')} Look & sound</div>
-          <div class="skin-row">${st.owned.skins.map((k) => { const sk = Q.game.SHOP.skins[k]; return `<button class="skin-pick ${s.skin === k ? 'on' : ''}" data-act="equip-skin" data-key="${k}" title="${sk.name}">${sk.sw.map((c) => `<i style="background:${c}"></i>`).join('')}<span>${sk.name}</span></button>`; }).join('')}
-            <button class="skin-pick more" data-act="go-shop-looks">${I('bag')}<span>More in Shop</span></button></div>
+          <div class="mode-row"><span><b>Mode</b><span class="small muted">Press <kbd>D</kbd> or the moon/sun button in the title bar to switch quickly</span></span>
+            <div class="seg seg-small" role="radiogroup" aria-label="Light or dark mode">${[['light', 'Light'], ['dark', 'Dark'], ['auto', 'Match Windows']].map(([k, n]) => `<button class="seg-btn ${s.themeMode === k ? 'on' : ''}" data-act="set-mode" data-mode="${k}">${n}</button>`).join('')}</div></div>
+          ${['light', 'dark'].map((mode) => `<div class="theme-group"><span class="field-label">${mode === 'light' ? 'Light theme' : 'Dark theme'}</span>
+            <div class="skin-row">${st.owned.skins.filter((k) => Q.game.SHOP.skins[k] && Q.game.SHOP.skins[k].mode === mode).map((k) => { const sk = Q.game.SHOP.skins[k]; const on = (mode === 'dark' ? s.darkSkin : s.skin) === k; return `<button class="skin-pick ${on ? 'on' : ''}" data-act="equip-skin" data-key="${k}" title="${sk.name}">${sk.sw.map((c) => `<i style="background:${c}"></i>`).join('')}<span>${sk.name}</span></button>`; }).join('')}
+              <button class="skin-pick more" data-act="go-shop-looks">${I('bag')}<span>More in Shop</span></button></div></div>`).join('')}
+          ${select('settings.fontStyle', 'Font style', [['mixed', 'Pixel titles'], ['pixel', 'All pixel'], ['rounded', 'Rounded'], ['clean', 'Clean']], 'Pixel titles keeps the retro look for headings and numbers but uses a clean font for small text')}
           ${select('settings.uiScale', 'Interface size', [[90, 'Compact (90%)'], [100, 'Normal'], [110, 'Large (110%)'], [125, 'Extra large (125%)']])}
           ${toggle('settings.reducedMotion', 'Reduce motion', 'Calmer animations, static focus scenes')}
           ${toggle('settings.sounds', 'Sound effects')}
@@ -104,6 +132,11 @@ Q.views.settings = (() => {
             <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> focus mode · <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> show/hide</div>
             <div><kbd>N</kbd> quick add · <kbd>Ctrl</kbd>+<kbd>K</kbd> command palette · <kbd>1</kbd>–<kbd>8</kbd> pages · <kbd>F</kbd> focus · <kbd>?</kbd> help</div>
           </div>
+        </section>
+
+        <section class="panel" id="spotify">
+          <div class="panel-title">${I('note')} Spotify</div>
+          ${spotifyPanel()}
         </section>
 
         <section class="panel" id="updates">
@@ -179,8 +212,31 @@ Q.views.settings = (() => {
       Q.scheduler.setExtra([{ id: `test:${Date.now()}`, at: Date.now() + 3000, title: 'Questline test', body: 'Notifications are working. Nice!', silent: false }]);
       Q.ui.toast('A test notification arrives in a few seconds');
     });
+    on('sp-dashboard', () => P.openExternal('https://developer.spotify.com/dashboard'));
+    on('sp-copy', (el) => {
+      const t = el.dataset.text;
+      navigator.clipboard.writeText(t).then(() => Q.ui.toast('Copied', { kind: 'ok' })).catch(() => Q.ui.toast(t));
+    });
+    on('sp-web-connect', async (el) => {
+      const sp = S().settings.spotify;
+      el.disabled = true; el.textContent = 'Waiting for Spotify sign-in…';
+      try {
+        await P.invoke('spotify_web_connect', { clientId: sp.clientId });
+        sp.webConnected = true; spWebLinked = true; Q.store.commit('settings');
+        Q.ui.toast('Spotify account connected', { kind: 'ok' });
+        Q.spotify.refresh();
+      } catch (e) { Q.ui.toast(String(e), { kind: 'error', timeout: 10000 }); }
+      Q.app.render();
+    });
+    on('sp-web-disconnect', async () => {
+      if (!(await Q.ui.confirm('Disconnect your Spotify account? The official Spotify app keeps working without it.', { ok: 'Disconnect', danger: true }))) return;
+      try { await P.invoke('spotify_web_disconnect'); } catch (e) { /* already gone */ }
+      S().settings.spotify.webConnected = false; spWebLinked = false; Q.store.commit('settings');
+      Q.spotify.refresh();
+    });
     on('export', () => Q.app.exportData());
     on('open-data', () => P.invoke('open_data_dir').catch((e) => Q.ui.toast(String(e), { kind: 'error' })));
+    on('set-mode', (el) => { S().settings.themeMode = el.dataset.mode; Q.store.commit('settings'); Q.app.applySettings(); });
     on('go-shop-looks', () => { Q.views.shop.setTab('looks'); Q.app.go('shop'); });
     on('reset-all', async () => {
       if (!(await Q.ui.confirm('Erase all dailies, reminders, events and progress? A backup is exported first.', { ok: 'Erase everything', danger: true }))) return;

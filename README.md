@@ -210,17 +210,29 @@ public calendars, college timetables, holiday calendars.
 
 ## 5. Spotify
 
-Questline controls the **Spotify desktop app** through Windows' own media controls
-(the same ones behind the volume flyout and media keys). It only looks at Spotify's
-session, so a YouTube tab or another player never shows up.
+Questline uses two connections and switches between them by itself:
 
-- Works with free and Premium accounts, no API keys, no login.
-- Shows title, artist, album art and progress; play/pause, next, previous, seek and
-  shuffle (if Spotify reports support).
-- If Spotify isn't running, the widget offers an **Open Spotify** button.
+1. **Official Spotify desktop app → Windows media controls.** Instant, works offline,
+   no login, works on free accounts. Used whenever the desktop app is the one playing.
+2. **Your Spotify account → Spotify Web API** (optional, Premium). Sees and controls
+   whatever your account plays anywhere: **Spotifast**, your phone, the web player.
+   Used when the desktop app isn't playing; the player then shows the device
+   ("on Spotifast"). Checks every ~2.4 s while the player is on screen.
 
-The Spotify Web API was the other option, but its playback-control endpoints require
-Premium and a registered developer app, and they route through the internet.
+Why both: Spotifast plays through librespot and doesn't publish Windows media
+controls, but it is a Spotify Connect device, so the account-wide Web API can see it.
+
+### Connecting your account (once, ~5 minutes)
+
+1. Go to <https://developer.spotify.com/dashboard> and log in.
+2. **Create app**: any name and description. **Redirect URIs**: add exactly
+   `http://127.0.0.1:43821/callback`. Tick **Web API**, accept the terms, save.
+3. Open the app's **Settings**, copy the **Client ID** (no secret needed: Questline uses PKCE).
+4. Questline → **Settings → Spotify** → paste → **Connect Spotify account** → approve in the browser.
+
+Spotify's 2026 rules for personal (development-mode) apps require Premium on the
+owner's account and allow up to 5 users, which is fine for personal use. The sign-in
+token is encrypted with Windows DPAPI in `%APPDATA%\com.questline.app\spotify-token.bin`.
 
 ---
 
@@ -255,7 +267,8 @@ src-tauri/
   src/alarms.rs      native notification thread
   src/storage.rs     atomic save + daily backups
   src/google.rs      OAuth (loopback + PKCE) and Calendar API proxy
-  src/media.rs       Spotify via Windows media sessions
+  src/media.rs       Spotify desktop app via Windows media sessions
+  src/spotify_web.rs Spotify Web API (Spotifast, phone…), PKCE sign-in
   src/secure.rs      DPAPI token encryption
   src/updater.rs     self-update from GitHub Releases
 scripts/build-preview.mjs   bundles src/ into one HTML file for the web preview

@@ -28,6 +28,9 @@ pub struct MediaState {
     pub can_prev: bool,
     pub can_seek: bool,
     pub shuffle: Option<bool>,
+    /// Where it's playing (Web API only), e.g. "Spotifast" or "iPhone".
+    #[serde(default)]
+    pub device: String,
 }
 
 #[tauri::command]

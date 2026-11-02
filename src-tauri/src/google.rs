@@ -50,7 +50,7 @@ struct TokenResponse {
 
 static CACHE: Mutex<Option<Tokens>> = Mutex::new(None);
 
-fn http() -> &'static reqwest::Client {
+pub(crate) fn http() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
@@ -61,7 +61,7 @@ fn http() -> &'static reqwest::Client {
     })
 }
 
-fn now_s() -> u64 {
+pub(crate) fn now_s() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -97,7 +97,7 @@ fn load_tokens(app: &AppHandle) -> Option<Tokens> {
     Some(t)
 }
 
-fn random_string(len: usize) -> String {
+pub(crate) fn random_string(len: usize) -> String {
     rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(len)
@@ -121,7 +121,7 @@ async fn post_token(form: &[(&str, &str)]) -> Result<TokenResponse, String> {
 }
 
 /// Reads one HTTP request from the loopback socket and returns its path.
-async fn read_request_path(stream: &mut tokio::net::TcpStream) -> Option<String> {
+pub(crate) async fn read_request_path(stream: &mut tokio::net::TcpStream) -> Option<String> {
     let mut buf = vec![0u8; 8192];
     let mut len = 0;
     while len < buf.len() {
