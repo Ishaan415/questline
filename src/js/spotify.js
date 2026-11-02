@@ -151,7 +151,8 @@ Q.spotify = (() => {
         <div class="sp-main">
           <div class="sp-meta">
             <div class="sp-title" title="${U.esc(state.title)}">${U.esc(state.title || 'Unknown track')}</div>
-            <div class="sp-artist">${U.esc(state.artist || '')}${size === 'full' && state.album ? ` · ${U.esc(state.album)}` : ''}</div>
+            <div class="sp-artist">${U.esc(state.artist || '')}${size === 'full' && state.album && !(source === 'web' && state.device) ? ` · ${U.esc(state.album)}` : ''}</div>
+            ${source === 'web' && state.device ? `<div class="sp-device" title="Playing through your Spotify account">${Q.sprites.icon('note')} on ${U.esc(state.device)}</div>` : ''}
           </div>
           <div class="sp-progress ${state.can_seek ? 'seekable' : ''}" data-act="sp-seek" role="slider" aria-label="Track position">
             <div class="sp-bar"><div class="sp-fill"></div></div>
@@ -163,7 +164,6 @@ Q.spotify = (() => {
             <button class="icon-btn sp-play" data-act="sp-toggle" title="${state.playing ? 'Pause' : 'Play'}" aria-label="${state.playing ? 'Pause' : 'Play'}">${Q.sprites.icon(state.playing ? 'pause' : 'play')}</button>
             <button class="icon-btn" data-act="sp-next" title="Next" aria-label="Next">${Q.sprites.icon('next')}</button>
             ${state.demo && size !== 'mini' ? '<span class="sp-demo">Demo</span>' : ''}
-            ${source === 'web' && state.device && size !== 'mini' ? `<span class="sp-device" title="Playing through your Spotify account">on ${U.esc(state.device)}</span>` : ''}
           </div>
         </div>`;
       tickOne(el);
