@@ -31,6 +31,9 @@ pub struct MediaState {
     /// Where it's playing (Web API only), e.g. "Spotifast" or "iPhone".
     #[serde(default)]
     pub device: String,
+    /// Device volume 0-100 when it can be changed (Web API only); None hides the slider.
+    #[serde(default)]
+    pub volume: Option<u8>,
 }
 
 #[tauri::command]

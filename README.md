@@ -243,6 +243,8 @@ Questline uses two connections and switches between them by itself:
    whatever your account plays anywhere: **Spotifast**, your phone, the web player.
    Used when the desktop app isn't playing; the player then shows the device
    ("on Spotifast"). Checks every ~2.4 s while the player is on screen.
+   This mode also shows a **volume slider** with a mute button, for devices that allow
+   remote volume (most do; some speakers and TVs don't).
 
 Why both: Spotifast plays through librespot and doesn't publish Windows media
 controls, but it is a Spotify Connect device, so the account-wide Web API can see it.

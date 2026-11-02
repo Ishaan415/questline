@@ -1,0 +1,16 @@
+# Dependencies and build output (rebuilt automatically, never commit)
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+dist/
+
+# Web preview build (scripts/build-preview.mjs)
+questline-preview.html
+
+# Signing keys: the private key must never be in the repo
+*.key
+
+# Editor and OS clutter
+.vscode/
+.DS_Store
+Thumbs.db

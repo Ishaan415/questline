@@ -822,8 +822,12 @@ form.readonly input, form.readonly textarea { background: var(--panel-2); }
 .sp-fill { height: 100%; background: #1DB954; }
 .sp-times { display: flex; justify-content: space-between; font-family: var(--f-ui); font-weight: var(--w-ui); font-size: 11px; color: var(--ink-soft); }
 .sp-controls { display: flex; align-items: center; gap: 4px; }
-.sp-play { background: var(--line); color: var(--panel); border-radius: 50%; width: 36px; height: 36px; }
-.sp-play:hover { background: var(--line); filter: brightness(1.2); }
+.sp-play { background: var(--sel-bg); color: var(--sel-ink); border: 2px solid var(--line); border-radius: 50%; width: 36px; height: 36px; display: grid; place-items: center; padding: 0; }
+.sp-play:hover { background: var(--sel-bg); filter: brightness(1.15); }
+.sp-controls:has(.sp-vol) { flex-wrap: wrap; row-gap: 2px; }
+.sp-vol { margin-left: auto; flex: 1 1 110px; min-width: 110px; max-width: 200px; display: flex; align-items: center; gap: 2px; }
+.sp-vol input[type="range"] { flex: 1; width: auto; min-width: 0; accent-color: #1DB954; cursor: pointer; }
+.sp-vol .icon-btn { flex: none; }
 .sp-demo { margin-left: auto; font-size: 11px; font-weight: 800; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .06em; }
 .sp-empty { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; width: 100%; }
 .sp-empty .sp-meta { flex: 1; min-width: 120px; }

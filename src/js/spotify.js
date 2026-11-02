@@ -22,6 +22,10 @@ Q.spotify = (() => {
   let webState = null;        // last Web API answer
   let lastWeb = 0;            // when we last asked the Web API
   const WEB_EVERY = 2400;     // ms between Web API calls (rate-limit friendly)
+  let volHold = 0;            // until then, keep the volume you just set (polls may still report the old one)
+  let volWanted = null;
+  let volTimer = null;
+  let lastVol = 60;           // restored when you un-mute
   const webOn = () => P.isApp && Q.store.state.settings.spotify && Q.store.state.settings.spotify.webConnected;
 
   /* ---------- demo player (preview only) ---------- */
@@ -31,7 +35,7 @@ Q.spotify = (() => {
     { title: 'Campfire Keys', artist: 'Moss & Ember', album: 'Night Camp', dur: 214000, hue: 265 },
     { title: 'Morning Market', artist: 'Pixel Pines', album: 'Overworld Tapes', dur: 158000, hue: 125 },
   ];
-  const demo = { i: 0, playing: false, pos: 42000, at: Date.now(), shuffle: false };
+  const demo = { i: 0, playing: false, pos: 42000, at: Date.now(), shuffle: false, volume: 70 };
   function demoArt(t) {
     const c = document.createElement('canvas'); c.width = 8; c.height = 8;
     const g = c.getContext('2d');
@@ -48,7 +52,7 @@ Q.spotify = (() => {
     const t = DEMO[demo.i];
     let pos = demo.pos + (demo.playing ? Date.now() - demo.at : 0);
     if (pos >= t.dur) { demo.i = (demo.i + 1) % DEMO.length; demo.pos = 0; demo.at = Date.now(); return demoState(); }
-    return { available: true, demo: true, playing: demo.playing, title: t.title, artist: t.artist, album: t.album, position_ms: pos, duration_ms: t.dur, updated_ms: Date.now(), art_key: t.title, can_next: true, can_prev: true, can_seek: true, shuffle: demo.shuffle };
+    return { available: true, demo: true, playing: demo.playing, title: t.title, artist: t.artist, album: t.album, position_ms: pos, duration_ms: t.dur, updated_ms: Date.now(), art_key: t.title, can_next: true, can_prev: true, can_seek: true, shuffle: demo.shuffle, volume: demo.volume };
   }
   function demoControl(action, value) {
     const cur = demoState();
@@ -58,6 +62,7 @@ Q.spotify = (() => {
     if (action === 'prev') { if (cur.position_ms > 3000) demo.pos = 0; else { demo.i = (demo.i + DEMO.length - 1) % DEMO.length; demo.pos = 0; } }
     if (action === 'seek') demo.pos = value;
     if (action === 'shuffle') demo.shuffle = !!value;
+    if (action === 'volume') demo.volume = value;
   }
 
   /* ---------- polling ---------- */
@@ -81,6 +86,7 @@ Q.spotify = (() => {
         state = local; source = 'local';
       }
     }
+    if (Date.now() < volHold && volWanted !== null && state.available) state.volume = volWanted;
     const key = `${source}|${state.art_key}`;
     if (state.available && key !== artKey) {
       artKey = key;
@@ -105,6 +111,22 @@ Q.spotify = (() => {
     tickTimer = setInterval(tickProgress, 500);
   }
   function stop() { clearInterval(pollTimer); clearInterval(tickTimer); pollTimer = tickTimer = null; }
+
+  /** Volume changes while dragging: show at once, send at most every 250 ms. */
+  function setVolume(v, now = false) {
+    v = Math.max(0, Math.min(100, Math.round(v)));
+    volWanted = v; volHold = Date.now() + 4000;
+    state.volume = v;
+    document.querySelectorAll('[data-spotify]').forEach(tickOne);
+    clearTimeout(volTimer);
+    const send = async () => {
+      if (!P.isApp) return demoControl('volume', v);
+      try { await P.invoke('spotify_web_control', { action: 'volume', value: v }); }
+      catch (e) { Q.ui.toast(String(e), { kind: 'error' }); }
+    };
+    if (now) send(); else volTimer = setTimeout(send, 250);
+  }
+  const hasVolume = () => state.available && typeof state.volume === 'number' && (source === 'web' || source === 'demo');
 
   async function control(action, value) {
     Q.sfx.click();
@@ -143,7 +165,7 @@ Q.spotify = (() => {
           </div>`;
         return;
       }
-      const key = `${source}|${state.art_key}|${state.playing}|${state.shuffle}|${state.device}|${size}`;
+      const key = `${source}|${state.art_key}|${state.playing}|${state.shuffle}|${state.device}|${hasVolume()}|${size}`;
       if (el.dataset.key === key) return tickOne(el);
       el.dataset.key = key;
       el.innerHTML = `
@@ -163,7 +185,10 @@ Q.spotify = (() => {
             <button class="icon-btn" data-act="sp-prev" title="Previous" aria-label="Previous">${Q.sprites.icon('prev')}</button>
             <button class="icon-btn sp-play" data-act="sp-toggle" title="${state.playing ? 'Pause' : 'Play'}" aria-label="${state.playing ? 'Pause' : 'Play'}">${Q.sprites.icon(state.playing ? 'pause' : 'play')}</button>
             <button class="icon-btn" data-act="sp-next" title="Next" aria-label="Next">${Q.sprites.icon('next')}</button>
-            ${state.demo && size !== 'mini' ? '<span class="sp-demo">Demo</span>' : ''}
+            ${hasVolume() && size !== 'mini' ? `<div class="sp-vol" title="Volume on ${U.esc(state.device || 'Spotify')}">
+              <button class="icon-btn sp-mute" data-act="sp-mute" aria-label="Mute or unmute">${Q.sprites.icon(state.volume > 0 ? 'vol' : 'mute')}</button>
+              <input type="range" min="0" max="100" step="1" value="${state.volume}" data-change="sp-vol" data-live aria-label="Volume"></div>` : ''}
+            ${state.demo && size !== 'mini' && !hasVolume() ? '<span class="sp-demo">Demo</span>' : ''}
           </div>
         </div>`;
       tickOne(el);
@@ -175,6 +200,14 @@ Q.spotify = (() => {
     const p = position();
     fill.style.width = `${state.duration_ms ? (p / state.duration_ms) * 100 : 0}%`;
     pos.textContent = U.fmtClock(p / 1000);
+    // Keep the volume slider in step with Spotify, but never fight a drag.
+    const vol = el.querySelector('[data-change="sp-vol"]');
+    if (vol && typeof state.volume === 'number') {
+      if (document.activeElement !== vol && +vol.value !== state.volume) vol.value = state.volume;
+      const ic = el.querySelector('.sp-mute');
+      const want = state.volume > 0 ? 'vol' : 'mute';
+      if (ic && ic.dataset.ic !== want) { ic.dataset.ic = want; ic.innerHTML = Q.sprites.icon(want); }
+    }
   }
   function tickProgress() {
     if (!P.isApp && state.available) state = demoState();
@@ -189,6 +222,11 @@ Q.spotify = (() => {
     on('sp-prev', () => control('prev'));
     on('sp-shuffle', () => control('shuffle', state.shuffle ? 0 : 1));
     on('sp-open', () => P.openExternal(P.isApp ? 'spotify:' : 'https://open.spotify.com'));
+    on('sp-mute', () => {
+      Q.sfx.click();
+      if (state.volume > 0) { lastVol = state.volume; setVolume(0, true); } else setVolume(lastVol || 60, true);
+    });
+    Q.ui.onChange('sp-vol', (el, e) => setVolume(+el.value, e.type === 'change'));
     on('sp-seek', (el, ev) => {
       if (!state.can_seek || !state.duration_ms) return;
       const bar = el.querySelector('.sp-bar').getBoundingClientRect();

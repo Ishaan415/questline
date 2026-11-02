@@ -317,6 +317,12 @@ pub async fn spotify_web_state(app: AppHandle) -> Result<MediaState, String> {
         can_seek: !disallows["seeking"].as_bool().unwrap_or(false),
         shuffle: v["shuffle_state"].as_bool(),
         device: v["device"]["name"].as_str().unwrap_or_default().to_string(),
+        // Some devices (e.g. certain speakers and TVs) don't allow remote volume changes.
+        volume: if v["device"]["supports_volume"].as_bool().unwrap_or(true) {
+            v["device"]["volume_percent"].as_u64().map(|x| x.min(100) as u8)
+        } else {
+            None
+        },
     };
     // Fetch the cover once per track and keep it as a data URL, so the page
     // never needs to load images from the internet.
@@ -339,6 +345,7 @@ pub fn spotify_web_art() -> Option<String> {
 }
 
 /// action: "play" | "pause" | "next" | "prev" | "seek" (value = ms) | "shuffle" (value = 0/1)
+///         | "volume" (value = 0-100)
 #[tauri::command]
 pub async fn spotify_web_control(app: AppHandle, action: String, value: Option<f64>) -> Result<(), String> {
     use reqwest::Method;
@@ -350,6 +357,7 @@ pub async fn spotify_web_control(app: AppHandle, action: String, value: Option<f
         "prev" => (Method::POST, "/me/player/previous".to_string()),
         "seek" => (Method::PUT, format!("/me/player/seek?position_ms={v}")),
         "shuffle" => (Method::PUT, format!("/me/player/shuffle?state={}", v > 0)),
+        "volume" => (Method::PUT, format!("/me/player/volume?volume_percent={}", v.min(100))),
         other => return Err(format!("Unknown action {other}")),
     };
     api(&app, method, &path).await.map(|_| ())
