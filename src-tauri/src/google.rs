@@ -36,6 +36,25 @@ const SCOPES: &str = "openid email profile \
                       https://www.googleapis.com/auth/calendar.events \
                       https://www.googleapis.com/auth/drive.file";
 const TOKEN_FILE: &str = "google-token.bin";
+
+/// Questline's own Google OAuth client, baked in at build time from the GitHub
+/// secrets GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET (see the release workflow).
+/// With it, users only ever see "Sign in with Google". Google treats desktop
+/// client secrets as non-confidential, so shipping it inside the app is expected.
+const BUILTIN_CLIENT_ID: Option<&str> = option_env!("QUESTLINE_GOOGLE_CLIENT_ID");
+const BUILTIN_CLIENT_SECRET: Option<&str> = option_env!("QUESTLINE_GOOGLE_CLIENT_SECRET");
+
+fn builtin_client() -> Option<(String, Option<String>)> {
+    let id = BUILTIN_CLIENT_ID.map(str::trim).filter(|s| !s.is_empty())?;
+    let secret = BUILTIN_CLIENT_SECRET.map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
+    Some((id.to_string(), secret))
+}
+
+/// True when this build has Questline's own Google client inside.
+#[tauri::command]
+pub fn google_builtin() -> bool {
+    builtin_client().is_some()
+}
 const LOGIN_TIMEOUT: Duration = Duration::from_secs(300);
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -177,10 +196,16 @@ const DONE_PAGE: &str = "<!doctype html><meta charset=utf-8><title>Questline</ti
 #[tauri::command]
 pub async fn google_connect(
     app: AppHandle,
-    client_id: String,
+    client_id: Option<String>,
     client_secret: Option<String>,
 ) -> Result<(), String> {
-    let client_id = client_id.trim().to_string();
+    // Your own client from Settings (advanced) wins; otherwise the built-in one.
+    let (client_id, client_secret) = match client_id.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+        Some(id) => (id, client_secret),
+        None => builtin_client().ok_or(
+            "This build of Questline has no Google sign-in built in. Add your own client under Settings → Google account → Use my own Google app.",
+        )?,
+    };
     if !client_id.ends_with(".apps.googleusercontent.com") {
         return Err("That doesn't look like a Google OAuth client ID. It should end in .apps.googleusercontent.com".into());
     }

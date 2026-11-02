@@ -210,22 +210,34 @@ One **Sign in with Google** (Settings → Google account) gives you:
 Questline uses Drive's `drive.file` permission: it can only see the files and
 folders it created itself, never the rest of your Drive.
 
-### One-time Google setup (about 5 minutes)
+### One-time Google setup (developer, about 10 minutes)
 
-Questline talks to Google directly from your device, so it needs your own free
-OAuth client:
+Like other apps, Questline ships with its **own** Google sign-in built in, so on every
+device you just click **Sign in with Google** and pick your account. That built-in
+"client" is created once by you, as the developer, and stored as two GitHub secrets
+that the release build bakes into the app (PC now, the phone app later):
 
-1. Go to <https://console.cloud.google.com>, create a project (any name).
+1. Go to <https://console.cloud.google.com>, create a project (e.g. "Questline").
 2. **APIs & Services → Library** → enable **Google Calendar API** and **Google Drive API**.
-3. **APIs & Services → OAuth consent screen** → External → fill in the app name and
-   your email → add yourself under **Test users**.
-4. **APIs & Services → Credentials → Create credentials → OAuth client ID** →
-   Application type **Desktop app**. Copy the **Client ID** and **Client secret**.
-5. On the consent screen, click **Publish app** (status "In production"). Without this,
-   Google signs you out every 7 days. No review is needed for personal use; when you
-   sign in, Google warns the app is unverified: click **Advanced → Go to Questline**.
-6. In Questline: **Settings → Google account**, paste both, click **Sign in with Google**,
-   pick your account and allow everything (including Drive).
+3. **APIs & Services → OAuth consent screen** (Google Auth Platform): External, app name
+   "Questline", your email as support and developer contact. Under **Audience**, add
+   your Gmail as a **Test user**.
+4. **Clients → Create client** → Application type **Desktop app**, name "Questline".
+   Copy the **Client ID** and **Client secret**.
+5. Under **Audience**, click **Publish app** (status "In production"). Without this,
+   Google signs you out every 7 days. No review is needed for personal use (up to
+   100 users); at sign-in Google warns the app is unverified: **Advanced → Go to Questline**.
+6. On GitHub: **repo → Settings → Secrets and variables → Actions → New repository
+   secret**, twice:
+   - `GOOGLE_CLIENT_ID` = the Client ID
+   - `GOOGLE_CLIENT_SECRET` = the Client secret
+7. Push any change (or **Actions → Build and release → Run workflow**). From that
+   release on, **Settings → Google account** shows only **Sign in with Google**.
+
+Google treats desktop-app client secrets as non-confidential (anyone can read them out
+of an installed app), which is why shipping them inside Questline is the normal setup.
+**Settings → Google account → Advanced: use my own Google Cloud app** still lets you
+paste a different client if you ever need to.
 
 If you signed in before 0.4 (Calendar only), Settings shows **Allow Drive**: sign in
 once more and tick the Drive permission.

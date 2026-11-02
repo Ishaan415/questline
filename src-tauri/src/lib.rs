@@ -236,6 +236,7 @@ pub fn run() {
             google::google_connect,
             google::google_status,
             google::google_account,
+            google::google_builtin,
             drive::drive_ensure_folder,
             drive::drive_find,
             drive::drive_list,

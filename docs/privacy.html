@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Questline Privacy Policy</title>
+<meta name="description" content="How Questline handles your data and your Google account access.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1>Privacy policy</h1>
+  <p class="lead">Last updated: 3 November 2026</p>
+
+  <p>Questline is a desktop planner app made and published as an open-source personal project. This page explains what data it uses and where that data goes. In short: <b>Questline has no servers, and nobody but you can see your data.</b></p>
+
+  <h2>Data stored on your device</h2>
+  <p>Your tasks, reminders, events, progress and settings are saved in a file on your own computer (on Windows: <code>%APPDATA%\com.questline.app</code>). The app's developer never receives a copy.</p>
+
+  <h2>Sign in with Google (optional)</h2>
+  <p>If you choose to sign in with Google, Questline asks Google for these permissions, and uses them only for the features listed:</p>
+  <ul>
+    <li><b>Your name and email address</b> (<code>openid</code>, <code>email</code>, <code>profile</code>): shown in Settings so you can see which account is signed in.</li>
+    <li><b>Google Drive, only files Questline creates</b> (<code>drive.file</code>): to keep your progress in sync between your devices and to save daily backups. Questline creates a folder called <code>Questline</code> in your Drive and only ever reads or writes files inside it. It cannot see any other file in your Drive.</li>
+    <li><b>Google Calendar</b> (<code>calendar.readonly</code>, <code>calendar.events</code>): to show your calendar events in the app and, if you turn it on, to add the events and reminders you create in Questline to your calendar.</li>
+  </ul>
+  <p>Your Google data travels only between your device and Google. It is never sent to the developer or to any other server, never sold, never used for advertising, and never used to train AI models. The sign-in token is stored encrypted on your device.</p>
+  <p>Questline's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+
+  <h2>Spotify (optional)</h2>
+  <p>If you connect a Spotify account, Questline uses Spotify's Web API to show what's playing and to control playback. The token is stored encrypted on your device and is only used to talk to Spotify.</p>
+
+  <h2>Updates</h2>
+  <p>To check for new versions, Questline downloads a small file from GitHub (<code>github.com/Ishaan415/questline</code>). No personal data is sent.</p>
+
+  <h2>Removing your data</h2>
+  <ul>
+    <li><b>Sign out</b> in Settings → Google account removes the Google sign-in from your device.</li>
+    <li>You can revoke Questline's access at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</li>
+    <li>Delete the <code>Questline</code> folder in your Google Drive to remove synced data and backups.</li>
+    <li>Uninstalling Questline and ticking "delete app data" removes everything stored on your device.</li>
+  </ul>
+
+  <h2>Contact</h2>
+  <p>Questions or requests: open an issue at <a href="https://github.com/Ishaan415/questline/issues">github.com/Ishaan415/questline/issues</a>.</p>
+</main>
+<footer><a href="index.html">Questline home</a></footer>
+</body>
+</html>

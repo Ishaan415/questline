@@ -69,7 +69,7 @@ Q.sync = (() => {
   const g = (method, path, query, body) => P.invoke('google_api', { method, path, query: query || null, body: body || null });
 
   async function connectGoogle(clientId, clientSecret) {
-    await P.invoke('google_connect', { clientId, clientSecret: clientSecret || null });
+    await P.invoke('google_connect', { clientId: clientId || null, clientSecret: clientSecret || null });
     const st = S();
     st.settings.google.connected = true;
     st.settings.google.syncOn = true;

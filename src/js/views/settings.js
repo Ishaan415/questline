@@ -16,6 +16,8 @@ Q.views.settings = (() => {
     <select data-change="set" data-path="${path}" data-num="${typeof get(path) === 'number'}">${opts.map(([v, l]) => `<option value="${v}" ${String(get(path)) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
 
   let accountAsked = false;
+  let builtin = null;        // does this build have Questline's own Google client?
+  let ownClient = false;     // advanced: use your own client instead
   function google() {
     const st = S(); const g = st.settings.google;
     if (!P.isApp) {
@@ -55,13 +57,15 @@ Q.views.settings = (() => {
         ${toggle('settings.google.pushReminders', 'Send reminders to Google', 'Added as 30-minute entries, without duplicate Google alerts')}
         <div class="row-btns"><button class="btn btn-small" data-act="cal-sync">${I('sync')} Sync calendar</button><button class="btn btn-small btn-danger-ghost" data-act="g-disconnect">Sign out</button></div>`;
     }
-    return `<p class="small">Sign in with your Google account to <b>sync Questline between your devices</b>, keep <b>daily backups in your Google Drive</b> and show your <b>Google Calendar</b>. It needs a free Google Cloud app of your own (about 5 minutes, once; steps in the README):</p>
-      <ol class="small steps"><li>At console.cloud.google.com, enable the <b>Google Calendar API</b> and the <b>Google Drive API</b>.</li>
-      <li>OAuth consent screen: External, add yourself as a test user, then <b>Publish app</b> so you stay signed in.</li><li>Credentials → Create OAuth client ID → <b>Desktop app</b>. Paste the ID and secret below.</li></ol>
+    if (builtin === null) { builtin = false; P.invoke('google_builtin').then((v) => { builtin = !!v; Q.app.render(); }).catch(() => {}); }
+    const own = !builtin || ownClient;
+    return `<p class="small">Sign in to <b>sync Questline between your devices</b>, keep <b>daily backups in your Google Drive</b> and show your <b>Google Calendar</b>.</p>
+      ${own ? `${builtin ? '' : '<p class="small muted">This build has no Google sign-in built in, so it needs your own Google Cloud app (steps in the README).</p>'}
       <label class="field"><span class="field-label">Client ID</span><input data-change="set" data-path="settings.google.clientId" value="${esc(g.clientId)}" placeholder="1234-abc.apps.googleusercontent.com" spellcheck="false"></label>
-      <label class="field"><span class="field-label">Client secret</span><input data-change="set" data-path="settings.google.clientSecret" value="${esc(g.clientSecret)}" placeholder="GOCSPX-…" spellcheck="false"></label>
-      <button class="btn btn-primary" data-act="g-connect" ${g.clientId ? '' : 'disabled'}>${I('cloud')} Sign in with Google</button>
-      <p class="small muted">Your browser opens Google's account chooser. Questline can only see the files it creates in your Drive, never the rest. The sign-in is stored encrypted on this device.</p>`;
+      <label class="field"><span class="field-label">Client secret</span><input data-change="set" data-path="settings.google.clientSecret" value="${esc(g.clientSecret)}" placeholder="GOCSPX-…" spellcheck="false"></label>` : ''}
+      <button class="btn btn-primary btn-google" data-act="g-connect" ${own && !g.clientId ? 'disabled' : ''}>${I('cloud')} Sign in with Google</button>
+      <p class="small muted">Your browser opens Google's account chooser: pick your account and allow access. Questline can only see the files it creates in your Drive, never the rest. The sign-in is stored encrypted on this device.</p>
+      ${builtin ? `<button class="link small" data-act="g-own">${ownClient ? 'Use Questline\'s built-in sign-in' : 'Advanced: use my own Google Cloud app'}</button>` : ''}`;
   }
 
   let spWebLinked = null;
@@ -218,11 +222,13 @@ Q.views.settings = (() => {
     on('g-connect', async (el) => {
       const g = S().settings.google;
       el.disabled = true; el.textContent = 'Waiting for Google sign-in…';
-      try { await Q.sync.connectGoogle(g.clientId, g.clientSecret); Q.ui.toast('Signed in with Google', { kind: 'ok' }); }
+      const mine = !builtin || ownClient;
+      try { await Q.sync.connectGoogle(mine ? g.clientId : '', mine ? g.clientSecret : ''); Q.ui.toast('Signed in with Google', { kind: 'ok' }); }
       catch (e) { Q.ui.toast(String(e), { kind: 'error', timeout: 9000 }); }
       Q.app.render();
     });
     on('g-disconnect', async () => { if (await Q.ui.confirm('Sign out of Google on this device? Sync and backups stop here; your progress on this device and in Drive stays.', { ok: 'Sign out', danger: true })) { await Q.sync.disconnectGoogle(); accountAsked = false; Q.ui.toast('Signed out'); } });
+    on('g-own', () => { ownClient = !ownClient; Q.app.render(); });
     on('cloud-backup', () => Q.cloud.backupNow());
     on('cloud-open', () => P.openExternal(Q.cloud.driveFolderUrl()));
     on('cloud-restore', async () => {
