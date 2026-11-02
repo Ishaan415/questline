@@ -5,6 +5,11 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
+/// `npm run dev` builds use their own save file, so experiments never touch
+/// the data of the installed app.
+#[cfg(debug_assertions)]
+const SAVE_FILE: &str = "questline-save-dev.json";
+#[cfg(not(debug_assertions))]
 const SAVE_FILE: &str = "questline-save.json";
 const KEEP_BACKUPS: usize = 14;
 
@@ -46,7 +51,7 @@ pub fn save_state(app: AppHandle, json: String, day: String) -> Result<(), Strin
     fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
 
     if valid_day(&day) {
-        let bdir = dir.join("backups");
+        let bdir = dir.join(if cfg!(debug_assertions) { "backups-dev" } else { "backups" });
         fs::create_dir_all(&bdir).map_err(|e| e.to_string())?;
         let bfile = bdir.join(format!("questline-{day}.json"));
         if !bfile.exists() {

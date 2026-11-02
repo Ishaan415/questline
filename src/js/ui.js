@@ -271,6 +271,7 @@ Q.ui = (() => {
       ['Mini window', 'mini', () => Q.app.toggleMini()],
       ['Pause notifications for 1 hour', 'snooze', () => Q.app.pauseNotifications(60)],
       ['Export backup', 'chest', () => Q.app.exportData()],
+      ['Check for updates', 'sync', () => Q.updates.check({ manual: true })],
     ];
     for (const d of st.dailies.filter((x) => !x.archived)) list.push([`Daily: ${d.title}`, 'list', () => Q.editors.open('daily', d.id)]);
     for (const r of st.reminders.filter((x) => !x.done)) list.push([`Reminder: ${r.title}`, 'bell', () => Q.editors.open('reminder', r.id)]);

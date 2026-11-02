@@ -10,44 +10,80 @@ boss shows up every week. Missing things stings a little, never a lot.
 
 ---
 
-## 1. Get the .exe
+## 1. Releases, updates and making changes
 
-### Option A: let GitHub build it (no installs on your PC)
+Every push to `main` that touches the app (`src/`, `src-tauri/`, `package*.json`)
+builds a new signed version on GitHub (version `0.2.<run number>`) and publishes it
+as a **GitHub Release**. The installed app checks for it shortly after it starts and
+every 6 hours, then offers **Update now**. It downloads the installer, verifies its
+signature, and Questline closes, updates and reopens by itself. You can also check
+from the tray menu, **Settings → Updates**, or `Ctrl+K → Check for updates`.
 
-1. Create a new **private** repository on GitHub and upload this folder
-   (or `git init`, `git add .`, `git commit`, `git push`).
-2. Open the repo's **Actions** tab → **Build Windows app** → **Run workflow**.
-3. After about 10 minutes, open the finished run and download the
-   **Questline-windows** artifact. Inside:
-   - `Questline_0.1.0_x64-setup.exe` — installer (recommended)
-   - `Questline_0.1.0_x64_en-US.msi` — same thing as an MSI
-   - `questline.exe` — portable, runs without installing
+Add `[skip ci]` to a commit message to push without releasing (e.g. while you're
+halfway through a change spread over several commits).
 
-Pushing a tag such as `v0.1.0` also triggers a build.
+### One-time setup
 
-### Option B: build on your own PC
+The updater only installs files signed with *your* private key, so nobody else can
+push an update to your PC.
 
-One-time setup:
+1. **Install Node.js LTS** from <https://nodejs.org> (also needed for local development).
+2. **Generate the signing keys.** In PowerShell:
+   ```powershell
+   mkdir "$env:USERPROFILE\.tauri" -Force
+   npx @tauri-apps/cli signer generate -w "$env:USERPROFILE\.tauri\questline.key"
+   ```
+   Choose a password when asked. It creates `questline.key` (private, keep it secret and
+   backed up: losing it means installed copies can't update any more) and
+   `questline.key.pub` (public).
+3. **Add two repository secrets:** repo → **Settings → Secrets and variables → Actions →
+   New repository secret**:
+   - `TAURI_SIGNING_PRIVATE_KEY`: the whole contents of `questline.key`
+   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the password you chose
+4. **Paste the public key** (contents of `questline.key.pub`) into
+   `src-tauri/tauri.conf.json` → `plugins.updater.pubkey`, replacing
+   `PASTE_YOUR_PUBLIC_KEY_HERE`.
+5. **Check the update URL** in the same file (`plugins.updater.endpoints`) and in
+   `src/js/updates.js` (`RELEASES_URL`): it must match your repo,
+   `https://github.com/<your-user>/questline/...`.
+6. **Make the repository public** (Settings → General → Danger Zone → Change visibility).
+   The app downloads `latest.json` and the installer without logging in, which only works
+   for public releases. Secrets stay secret in public repos, and nothing private is in the
+   code (your Google client ID and all your data live only on your PC).
+   *Want the code private?* Keep it private and publish releases to a second, public repo
+   instead: set `owner`/`repo` on the `tauri-action` step, give it a personal access token
+   with write access to that repo, and point the two URLs above at it.
+7. Run **Actions → Build and release → Run workflow**, then download
+   `Questline_0.2.x_x64-setup.exe` from the new release under **Releases** and install it
+   once over your current version. From then on, updates arrive by themselves.
 
-1. **Microsoft C++ Build Tools**: install "Visual Studio Build Tools" and tick
-   **Desktop development with C++**.
-2. **Rust**: install from <https://rustup.rs> (default options).
-3. **Node.js 20+**: <https://nodejs.org>.
-4. WebView2 is already part of Windows 10 and 11.
+### Making changes
 
-Then in this folder:
+**Small edits:** open a file on GitHub, click ✏️, edit, commit. A release follows in a
+few minutes.
 
-```powershell
-npm install
-npm run dev     # run with live reload while you tinker
-npm run build   # produce the installer and exe
-```
+**Real development** (recommended for anything bigger):
 
-Results land in `src-tauri\target\release\bundle\nsis\` (installer) and
-`src-tauri\target\release\questline.exe` (portable).
+1. Install **Visual Studio Build Tools** (workload *Desktop development with C++*),
+   **Rust** from <https://rustup.rs>, Node.js, and **GitHub Desktop**.
+2. In GitHub Desktop: **File → Clone repository → questline**.
+3. In that folder:
+   ```powershell
+   npm install
+   npm run dev
+   ```
+   A development window opens. Edits to anything in `src/` reload instantly; edits to
+   `src-tauri/` recompile automatically. Dev builds keep their own save file
+   (`questline-save-dev.json`), so testing never touches your real progress.
+   Quit the installed Questline from the tray first: only one copy runs at a time.
+4. When it works, commit in GitHub Desktop and click **Push origin**. One push = one release.
 
-> Windows SmartScreen will warn about an unsigned app the first time. Click
-> **More info → Run anyway**. Code-signing certificates remove this but cost money.
+`npm run build` locally needs the signing key in the environment
+(`$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content "$env:USERPROFILE\.tauri\questline.key" -Raw`
+and the password variable); normally you let GitHub do release builds.
+
+> Windows SmartScreen will warn about the unsigned installer the first time. Click
+> **More info → Run anyway**. (Update signing is separate from Windows code signing.)
 
 ---
 
@@ -211,6 +247,7 @@ src/                 the whole UI (plain HTML/CSS/JS, no build step)
   js/sync.js         Google Calendar + iCal
   js/scheduler.js    builds the next 48 h of notifications
   js/focus.js        focus mode and the pixel scenes
+  js/updates.js      update checks and the progress window
   js/sprites.js      sprite renderer + 8×8 icon set (sprite-data.js has the pixels)
   js/views/*.js      one file per page
 src-tauri/
@@ -220,6 +257,7 @@ src-tauri/
   src/google.rs      OAuth (loopback + PKCE) and Calendar API proxy
   src/media.rs       Spotify via Windows media sessions
   src/secure.rs      DPAPI token encryption
+  src/updater.rs     self-update from GitHub Releases
 scripts/build-preview.mjs   bundles src/ into one HTML file for the web preview
 ```
 

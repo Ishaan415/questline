@@ -7,12 +7,14 @@
 //!   * file storage with daily rolling backups
 //!   * Google Calendar OAuth (loopback + PKCE) and a scoped API proxy
 //!   * Spotify control through Windows' system media sessions (GSMTC)
+//!   * self-updates from GitHub Releases (signed)
 
 mod alarms;
 mod google;
 mod media;
 mod secure;
 mod storage;
+mod updater;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
@@ -117,6 +119,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
@@ -155,12 +158,13 @@ pub fn run() {
             let snooze = MenuItem::with_id(app, "snooze-last", "Snooze last reminder 10 min", true, None::<&str>)?;
             let pause = MenuItem::with_id(app, "pause-1h", "Pause notifications for 1 hour", true, None::<&str>)?;
             let resume = MenuItem::with_id(app, "resume", "Resume notifications", true, None::<&str>)?;
+            let updates = MenuItem::with_id(app, "check-updates", "Check for updates", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let sep1 = PredefinedMenuItem::separator(app)?;
             let sep2 = PredefinedMenuItem::separator(app)?;
             let menu = Menu::with_items(
                 app,
-                &[&open, &add, &focus, &mini, &sep1, &snooze, &pause, &resume, &sep2, &quit],
+                &[&open, &add, &focus, &mini, &sep1, &snooze, &pause, &resume, &sep2, &updates, &quit],
             )?;
 
             let mut tray = TrayIconBuilder::with_id(TRAY_ID)
@@ -232,6 +236,8 @@ pub fn run() {
             media::spotify_state,
             media::spotify_art,
             media::spotify_control,
+            updater::update_check,
+            updater::update_install,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Questline");

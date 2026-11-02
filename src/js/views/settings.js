@@ -106,6 +106,11 @@ Q.views.settings = (() => {
           </div>
         </section>
 
+        <section class="panel" id="updates">
+          <div class="panel-title">${I('star')} Updates</div>
+          ${Q.updates.panel()}
+        </section>
+
         <section class="panel">
           <div class="panel-title">${I('chest')} Your data</div>
           <p class="small muted">${P.isApp ? 'Saved on this PC with a daily backup (last 14 days kept).' : 'The preview keeps data in this browser only.'}</p>
@@ -116,7 +121,7 @@ Q.views.settings = (() => {
             <button class="btn btn-small" data-act="starter-packs">Starter packs</button>
           </div>
           <div class="row-btns"><button class="btn btn-small btn-danger-ghost" data-act="reset-all">Start over</button></div>
-          <p class="small muted">Questline v0.1 · made for you, runs offline.</p>
+          <p class="small muted">Questline v${esc(Q.updates.version())} · made for you, runs offline.</p>
         </section>
       </div>`;
   }

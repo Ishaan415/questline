@@ -70,6 +70,8 @@ Q.store = (() => {
         skin: 'meadow',
         inn: false,
         confirmDelete: true,
+        autoUpdate: true,
+        lastUpdateCheck: 0,
         showCompletedReminders: false,
         calView: 'month',
         calShowReminders: true,

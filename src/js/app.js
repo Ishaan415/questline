@@ -235,6 +235,7 @@ Q.app = (() => {
     for (const k of Object.keys(Q.views)) Q.views[k].bind && Q.views[k].bind();
     Q.spotify.bind();
     Q.focus.bind();
+    Q.updates.bind();
   }
 
   function helpModal() {
@@ -283,6 +284,7 @@ Q.app = (() => {
     if (!S().onboarded) Q.onboarding.start(); else checkDay();
     Q.scheduler.refresh();
     Q.spotify.start();
+    Q.updates.init();
 
     // Minute tick: day rollover, live "in 5m" chips, clock, notifications horizon.
     setInterval(() => {
@@ -307,6 +309,7 @@ Q.app = (() => {
       else if (a === 'snooze-last') { const id = S().lastAlarm; if (id && id.startsWith('r:')) snooze(id.split(':')[1], 10); }
       else if (a === 'paused') Q.ui.toast('Notifications paused for 1 hour');
       else if (a === 'resumed') { P.setNotifyPause(0); Q.ui.toast('Notifications resumed'); }
+      else if (a === 'check-updates') Q.updates.check({ manual: true });
     });
     window.addEventListener('beforeunload', () => Q.store.saveNow());
     await P.ready();
