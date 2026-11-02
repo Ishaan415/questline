@@ -198,7 +198,7 @@ Q.editors = (() => {
           Q.store.commit('event');
           close();
           Q.ui.toast(item ? 'Event saved' : `Event added for ${U.fmtDay(new Date(s))}`, { kind: 'ok' });
-          if (st.settings.google.connected) Q.sync.syncAll();
+          if (Q.sync.calendarActive()) Q.sync.syncAll();
         };
         const del = m.querySelector('[data-del]');
         if (del) del.onclick = async () => {
@@ -305,7 +305,7 @@ Q.editors = (() => {
       Q.ui.toast(due ? `Reminder set for ${U.fmtDay(new Date(due))} ${U.fmtTime(new Date(due))}` : `Added: ${p.title}`, { kind: 'ok' });
     }
     Q.store.commit('add');
-    if ((p.type !== 'daily') && st.settings.google.connected) Q.sync.syncAll();
+    if ((p.type !== 'daily') && Q.sync.calendarActive()) Q.sync.syncAll();
     return item;
   }
 

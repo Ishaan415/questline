@@ -705,6 +705,9 @@ form.readonly input, form.readonly textarea { background: var(--panel-2); }
 .backup-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
 .backup-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border: 2px solid var(--line-soft); border-radius: 10px; background: var(--panel-hi); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .backup-row:hover { border-color: var(--line); }
+.acct-out { margin-top: 14px; padding-top: 10px; border-top: 2px dashed var(--grid); }
+.credits { margin: 4px 0 8px; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.credits .link { vertical-align: baseline; }
 .tb-cloud.cloud-ok { color: var(--ok); }
 .tb-cloud.cloud-paused { color: var(--ink-faint); }
 .tb-cloud.cloud-syncing { color: var(--accent-2); animation: blink 1s steps(2) infinite; }

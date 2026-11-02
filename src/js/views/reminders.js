@@ -62,7 +62,7 @@ Q.views.reminders = (() => {
             <ul class="tip-list">
               <li>Finishing before the due time pays a <b>20% bonus</b>. Late ones still pay full XP.</li>
               <li>Hit ${I('snooze')} to snooze 10 min, an hour, tonight or tomorrow.</li>
-              <li>Reminders show on your Calendar${st.settings.google.connected ? ' and sync to Google' : ''}. Dailies don't, so the calendar stays readable.</li>
+              <li>Reminders show on your Calendar${Q.sync.calendarActive() ? ' and sync to Google' : ''}. Dailies don't, so the calendar stays readable.</li>
             </ul>
           </section>
         </div>

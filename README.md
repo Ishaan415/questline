@@ -197,15 +197,19 @@ by GBA/NDS-era handheld games.
 
 ## 4. Google account: sync, Drive backups and Calendar
 
-One **Sign in with Google** (Settings → Google account) gives you:
+One **Sign in with Google** (Settings → Google account) gives you sync and backups;
+Google Calendar is an optional extra you turn on afterwards:
 
 - **Sync across devices**: tasks, progress, pals and game settings stay the same on
   every device signed in with the same account.
 - **Daily backups in your Google Drive**, in a normal folder you can open:
   `My Drive/Questline/Backups/questline-YYYY-MM-DD.json` (last 30 days kept).
   **Settings → Restore…** puts one back on every device.
-- **Google Calendar**: events from your Google calendars on the Calendar page,
-  and your own events/reminders sent to Google.
+- **Google Calendar** (optional, Settings → Google account → **Turn on Google Calendar**):
+  events from your Google calendars on the Calendar page, and your own events/reminders
+  sent to Google. Questline only asks Google for Calendar permission at that moment.
+  Sign-ins for sync and backups alone use non-sensitive permissions, so they show no
+  "unverified app" screen and don't count toward Google's 100-user limit for unverified apps.
 
 Questline uses Drive's `drive.file` permission: it can only see the files and
 folders it created itself, never the rest of your Drive.
@@ -226,7 +230,8 @@ that the release build bakes into the app (PC now, the phone app later):
    Copy the **Client ID** and **Client secret**.
 5. Under **Audience**, click **Publish app** (status "In production"). Without this,
    Google signs you out every 7 days. No review is needed for personal use (up to
-   100 users); at sign-in Google warns the app is unverified: **Advanced → Go to Questline**.
+   100 users). When someone turns on Google Calendar, Google warns the app is unverified:
+   **Advanced → Go to Questline**. Plain sign-in for sync and backups shows no warning.
 6. On GitHub: **repo → Settings → Secrets and variables → Actions → New repository
    secret**, twice:
    - `GOOGLE_CLIENT_ID` = the Client ID

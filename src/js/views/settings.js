@@ -15,6 +15,21 @@ Q.views.settings = (() => {
   const select = (path, label, opts, hint = '') => `<label class="toggle-row"><span><b>${label}</b>${hint ? `<span class="small muted">${hint}</span>` : ''}</span>
     <select data-change="set" data-path="${path}" data-num="${typeof get(path) === 'number'}">${opts.map(([v, l]) => `<option value="${v}" ${String(get(path)) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
 
+  const ABOUT_LINKS = [
+    ['Homepage', 'https://ishaan415.github.io/questline/'],
+    ['Privacy policy', 'https://ishaan415.github.io/questline/privacy.html'],
+    ['Source code', 'https://github.com/Ishaan415/questline'],
+    ['Release notes', 'https://github.com/Ishaan415/questline/releases'],
+  ];
+  /* Third-party parts bundled into the app, with their licences. */
+  const CREDITS = [
+    { name: 'Tiny5', what: 'pixel font for titles and numbers', notice: 'Copyright 2022-2024 The Tiny5 Project Authors', license: 'SIL Open Font License 1.1', url: 'https://openfontlicense.org/open-font-license-official-text/' },
+    { name: 'Nunito', what: 'font for text', notice: 'Copyright 2014 The Nunito Project Authors', license: 'SIL Open Font License 1.1', url: 'https://openfontlicense.org/open-font-license-official-text/' },
+    { name: 'Fredoka', what: 'rounded font style', notice: 'Copyright 2016 The Fredoka Project Authors', license: 'SIL Open Font License 1.1', url: 'https://openfontlicense.org/open-font-license-official-text/' },
+    { name: 'ical.js', what: 'reads iCal calendar feeds', notice: 'The ical.js contributors', license: 'Mozilla Public License 2.0', url: 'https://www.mozilla.org/en-US/MPL/2.0/' },
+    { name: 'Tauri', what: 'desktop app framework, plus open-source Rust libraries', notice: 'The Tauri Programme within The Commons Conservancy', license: 'MIT / Apache-2.0', url: 'https://github.com/tauri-apps/tauri/blob/dev/LICENSE_MIT' },
+  ];
+
   let accountAsked = false;
   let builtin = null;        // does this build have Questline's own Google client?
   let ownClient = false;     // advanced: use your own client instead
@@ -35,7 +50,7 @@ Q.views.settings = (() => {
       const last = g.lastSync ? `Last synced ${U.rel(new Date(g.lastSync))}` : 'Not synced yet';
       return `${who}
         <div class="acct-feats">
-          <span class="feat on">${I('calendar')} Calendar</span>
+          <span class="feat ${Q.sync.calendarActive() ? 'on' : ''}">${I('calendar')} Calendar${Q.sync.calendarActive() ? '' : ' · off'}</span>
           <span class="feat ${drive ? 'on' : ''}">${I('cloud')} Drive ${drive ? '' : '· not allowed'}</span>
         </div>
         ${acc && !drive ? `<div class="notice small">Drive sync and backups need one more permission. Sign in again and tick <b>"See, edit, create and delete only the specific Google Drive files you use with this app"</b>.
@@ -50,16 +65,20 @@ Q.views.settings = (() => {
             <button class="btn btn-small" data-act="cloud-restore">${I('chest')} Restore…</button>
             <button class="btn btn-small" data-act="cloud-open">${I('expand')} Open in Drive</button>
           </div>` : ''}
-        <div class="panel-title sub">${I('calendar')} Calendar</div>
+        <div class="panel-title sub">${I('calendar')} Google Calendar</div>
+        ${Q.sync.calendarActive() ? `
         ${g.calendars.length ? `<div class="cal-checks">${g.calendars.map((c) => `<label class="check-line"><input type="checkbox" data-change="gcal-sel" data-id="${esc(c.id)}" ${c.selected ? 'checked' : ''}><i class="dot" style="--c:${c.color}"></i>${esc(c.name)}${c.writable ? '' : ' <span class="small muted">(read-only)</span>'}</label>`).join('')}</div>` : '<p class="small muted">Calendars load on first sync.</p>'}
         ${select('settings.google.writeCalendar', 'Save new events to', [['primary', 'Primary calendar'], ...g.calendars.filter((c) => c.writable && !c.primary).map((c) => [c.id, c.name])])}
         ${toggle('settings.google.pushEvents', 'Send my events to Google', 'Events you create here appear on your phone too')}
         ${toggle('settings.google.pushReminders', 'Send reminders to Google', 'Added as 30-minute entries, without duplicate Google alerts')}
-        <div class="row-btns"><button class="btn btn-small" data-act="cal-sync">${I('sync')} Sync calendar</button><button class="btn btn-small btn-danger-ghost" data-act="g-disconnect">Sign out</button></div>`;
+        <div class="row-btns"><button class="btn btn-small" data-act="cal-sync">${I('sync')} Sync calendar</button><button class="btn btn-small" data-act="g-calendar-off">Turn off Calendar</button></div>`
+        : `<p class="small muted">Show your Google Calendar events on the Calendar page, and send events and reminders you create here to Google. Turning it on asks Google for Calendar permission (you'll see the "unverified app" screen once: Advanced → Go to Questline).</p>
+        <div class="row-btns"><button class="btn btn-small btn-primary" data-act="g-calendar-on">${I('calendar')} Turn on Google Calendar</button></div>`}
+        <div class="row-btns acct-out"><button class="btn btn-small btn-danger-ghost" data-act="g-disconnect">Sign out of Google</button></div>`;
     }
     if (builtin === null) { builtin = false; P.invoke('google_builtin').then((v) => { builtin = !!v; Q.app.render(); }).catch(() => {}); }
     const own = !builtin || ownClient;
-    return `<p class="small">Sign in to <b>sync Questline between your devices</b>, keep <b>daily backups in your Google Drive</b> and show your <b>Google Calendar</b>.</p>
+    return `<p class="small">Sign in to <b>sync Questline between your devices</b> and keep <b>daily backups in your Google Drive</b>. You can add <b>Google Calendar</b> afterwards.</p>
       ${own ? `${builtin ? '' : '<p class="small muted">This build has no Google sign-in built in, so it needs your own Google Cloud app (steps in the README).</p>'}
       <label class="field"><span class="field-label">Client ID</span><input data-change="set" data-path="settings.google.clientId" value="${esc(g.clientId)}" placeholder="1234-abc.apps.googleusercontent.com" spellcheck="false"></label>
       <label class="field"><span class="field-label">Client secret</span><input data-change="set" data-path="settings.google.clientSecret" value="${esc(g.clientSecret)}" placeholder="GOCSPX-…" spellcheck="false"></label>` : ''}
@@ -188,6 +207,17 @@ Q.views.settings = (() => {
           <div class="row-btns"><button class="btn btn-small btn-danger-ghost" data-act="reset-all">Start over</button></div>
           <p class="small muted">Questline v${esc(Q.updates.version())} · made for you, runs offline.</p>
         </section>
+
+        <section class="panel" id="about">
+          <div class="panel-title">${I('list')} About & licences</div>
+          <p class="small">Questline is a personal, open-source project. It has no servers: your data stays on this device and, if you sign in, in your own Google Drive.</p>
+          <div class="row-btns">
+            ${ABOUT_LINKS.map(([label, url]) => `<button class="btn btn-small" data-act="open-url" data-url="${esc(url)}">${esc(label)}</button>`).join('')}
+          </div>
+          <div class="panel-title sub">${I('star')} Made with</div>
+          <ul class="credits small">${CREDITS.map((c) => `<li><b>${esc(c.name)}</b> · ${esc(c.what)}<br><span class="muted">${esc(c.notice)}</span> · <button class="link small" data-act="open-url" data-url="${esc(c.url)}">${esc(c.license)}</button></li>`).join('')}</ul>
+          <p class="small muted">The full licence texts are included with the app (src/fonts/*-OFL.txt and src/vendor/ical.LICENSE in the source code). All sprites, pals and bosses are original artwork made for Questline.</p>
+        </section>
       </div>`;
   }
 
@@ -229,6 +259,18 @@ Q.views.settings = (() => {
     });
     on('g-disconnect', async () => { if (await Q.ui.confirm('Sign out of Google on this device? Sync and backups stop here; your progress on this device and in Drive stays.', { ok: 'Sign out', danger: true })) { await Q.sync.disconnectGoogle(); accountAsked = false; Q.ui.toast('Signed out'); } });
     on('g-own', () => { ownClient = !ownClient; Q.app.render(); });
+    on('open-url', (el) => P.openExternal(el.dataset.url));
+    on('g-calendar-on', async (el) => {
+      const g = S().settings.google; const mine = !builtin || ownClient;
+      el.disabled = true; el.textContent = 'Waiting for Google…';
+      try { await Q.sync.connectCalendar(mine ? g.clientId : '', mine ? g.clientSecret : ''); Q.ui.toast('Google Calendar is on', { kind: 'ok', icon: I('calendar') }); }
+      catch (e) { Q.ui.toast(String(e), { kind: 'error', timeout: 9000 }); }
+      Q.app.render();
+    });
+    on('g-calendar-off', async () => {
+      if (!(await Q.ui.confirm('Stop showing and syncing Google Calendar? Your Questline events and reminders stay. To remove the permission completely, use myaccount.google.com/permissions.', { ok: 'Turn off' }))) return;
+      Q.sync.disconnectCalendar(); Q.ui.toast('Google Calendar turned off');
+    });
     on('cloud-backup', () => Q.cloud.backupNow());
     on('cloud-open', () => P.openExternal(Q.cloud.driveFolderUrl()));
     on('cloud-restore', async () => {

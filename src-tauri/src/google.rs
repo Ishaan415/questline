@@ -31,10 +31,12 @@ pub(crate) const API_BASE: &str = "https://www.googleapis.com";
 const USERINFO_URL: &str = "https://openidconnect.googleapis.com/v1/userinfo";
 /// drive.file only reaches files and folders Questline itself created.
 pub(crate) const DRIVE_SCOPE: &str = "https://www.googleapis.com/auth/drive.file";
-const SCOPES: &str = "openid email profile \
-                      https://www.googleapis.com/auth/calendar.readonly \
-                      https://www.googleapis.com/auth/calendar.events \
-                      https://www.googleapis.com/auth/drive.file";
+/// Asked at sign-in: name/email and Questline's own Drive files. None of these
+/// are "sensitive" to Google, so plain sign-ins show no unverified-app warning.
+const BASE_SCOPES: &str = "openid email profile https://www.googleapis.com/auth/drive.file";
+/// Asked only when you turn Google Calendar on (incremental authorization).
+const CALENDAR_SCOPES: &str = "https://www.googleapis.com/auth/calendar.readonly \
+                               https://www.googleapis.com/auth/calendar.events";
 const TOKEN_FILE: &str = "google-token.bin";
 
 /// Questline's own Google OAuth client, baked in at build time from the GitHub
@@ -198,7 +200,13 @@ pub async fn google_connect(
     app: AppHandle,
     client_id: Option<String>,
     client_secret: Option<String>,
+    calendar: Option<bool>,
 ) -> Result<(), String> {
+    // Asking for Calendar on top of an existing sign-in keeps the account and
+    // the permissions already granted (include_granted_scopes below).
+    let calendar = calendar.unwrap_or(false);
+    let previous = load_tokens(&app);
+    let scopes = if calendar { format!("{BASE_SCOPES} {CALENDAR_SCOPES}") } else { BASE_SCOPES.to_string() };
     // Your own client from Settings (advanced) wins; otherwise the built-in one.
     let (client_id, client_secret) = match client_id.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
         Some(id) => (id, client_secret),
@@ -223,22 +231,24 @@ pub async fn google_connect(
     let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()));
     let state = random_string(24);
 
-    let auth = url::Url::parse_with_params(
-        AUTH_URL,
-        &[
-            ("client_id", client_id.as_str()),
-            ("redirect_uri", redirect.as_str()),
-            ("response_type", "code"),
-            ("scope", SCOPES),
-            ("code_challenge", challenge.as_str()),
-            ("code_challenge_method", "S256"),
-            ("state", state.as_str()),
-            ("access_type", "offline"),
-            ("include_granted_scopes", "true"),
-            ("prompt", "consent"),
-        ],
-    )
-    .map_err(|e| e.to_string())?;
+    let mut params: Vec<(&str, &str)> = vec![
+        ("client_id", client_id.as_str()),
+        ("redirect_uri", redirect.as_str()),
+        ("response_type", "code"),
+        ("scope", scopes.as_str()),
+        ("code_challenge", challenge.as_str()),
+        ("code_challenge_method", "S256"),
+        ("state", state.as_str()),
+        ("access_type", "offline"),
+        ("include_granted_scopes", "true"),
+        ("prompt", "consent"),
+    ];
+    // Same account as before when only adding Calendar.
+    let hint = previous.as_ref().map(|t| t.email.clone()).unwrap_or_default();
+    if calendar && !hint.is_empty() {
+        params.push(("login_hint", hint.as_str()));
+    }
+    let auth = url::Url::parse_with_params(AUTH_URL, &params).map_err(|e| e.to_string())?;
     tauri_plugin_opener::open_url(auth.as_str(), None::<&str>).map_err(|e| e.to_string())?;
 
     // Wait for the redirect. Browsers may also ask for /favicon.ico, so loop.

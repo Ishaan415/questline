@@ -82,7 +82,7 @@ Q.store = (() => {
         google: {
           clientId: '', clientSecret: '', connected: false, calendars: [], writeCalendar: 'primary', pushReminders: true, pushEvents: true,
           // Drive sync & backups (this device only; see cloud.js)
-          syncOn: true, backupOn: true, folderId: '', backupsFolderId: '', syncFileId: '', syncVersion: '', lastSync: 0, lastBackupDay: '', editedAt: 0,
+          calendarOn: null, syncOn: true, backupOn: true, folderId: '', backupsFolderId: '', syncFileId: '', syncVersion: '', lastSync: 0, lastBackupDay: '', editedAt: 0,
         },
         ics: [],
         spotify: { clientId: '', webConnected: false },

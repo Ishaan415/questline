@@ -244,6 +244,8 @@ Q.cloud = (() => {
     if (!P.isApp || !G().connected) { account = null; setStatus('off'); return null; }
     try { account = await P.invoke('google_account'); } catch (e) { account = null; }
     if (account && !account.connected) { G().connected = false; Q.store.commit('cloud'); }
+    // Sign-ins from before Calendar became optional already allowed it: keep it on.
+    if (account && account.connected && (G().calendarOn === null || G().calendarOn === undefined)) { G().calendarOn = !!account.calendar; Q.store.commit('cloud'); }
     setStatus(syncOn() ? (status.state === 'off' ? 'ok' : status.state) : canDrive() ? 'paused' : 'off');
     return account;
   }

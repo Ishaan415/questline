@@ -68,15 +68,43 @@ Q.sync = (() => {
   /* --------------------------------------------------------------- Google */
   const g = (method, path, query, body) => P.invoke('google_api', { method, path, query: query || null, body: body || null });
 
+  /** Sign in for sync & backups. Calendar permission is asked separately. */
   async function connectGoogle(clientId, clientSecret) {
-    await P.invoke('google_connect', { clientId: clientId || null, clientSecret: clientSecret || null });
+    await P.invoke('google_connect', { clientId: clientId || null, clientSecret: clientSecret || null, calendar: false });
     const st = S();
     st.settings.google.connected = true;
     st.settings.google.syncOn = true;
     Q.store.commit('settings');
     await Q.cloud.refreshAccount();
-    await syncAll(true);
     await Q.cloud.syncNow({ manual: true });
+  }
+
+  /** Turn Google Calendar on: asks Google for the Calendar permission only now. */
+  async function connectCalendar(clientId, clientSecret) {
+    const acc = Q.cloud.account();
+    if (!(acc && acc.calendar)) {
+      await P.invoke('google_connect', { clientId: clientId || null, clientSecret: clientSecret || null, calendar: true });
+      await Q.cloud.refreshAccount();
+      const now = Q.cloud.account();
+      if (!(now && now.calendar)) throw new Error('Google didn\'t grant Calendar access. Turn it on again and tick both Calendar boxes.');
+    }
+    S().settings.google.calendarOn = true;
+    Q.store.commit('settings');
+    await syncAll(true);
+  }
+
+  function disconnectCalendar() {
+    const st = S();
+    st.settings.google.calendarOn = false;
+    st.calCache.google = [];
+    Q.store.commit('settings');
+  }
+
+  /** Google Calendar is used only when turned on and permitted. */
+  function calendarActive() {
+    const gs = S().settings.google;
+    const acc = Q.cloud.account();
+    return !!(gs.connected && gs.calendarOn === true && (!acc || acc.calendar));
   }
 
   async function disconnectGoogle() {
@@ -84,6 +112,7 @@ Q.sync = (() => {
     await Q.cloud.forget();
     const st = S();
     st.settings.google.connected = false;
+    st.settings.google.calendarOn = null;
     st.settings.google.calendars = [];
     st.calCache.google = [];
     Q.store.commit('settings');
@@ -228,7 +257,7 @@ Q.sync = (() => {
     st.calCache.error = null;
     Q.store.commit('sync-start');
     try {
-      if (st.settings.google.connected) {
+      if (calendarActive()) {
         await pushGoogle();
         await pullGoogle();
       }
@@ -271,7 +300,7 @@ Q.sync = (() => {
   }
 
   return {
-    itemsBetween, connectGoogle, disconnectGoogle, syncAll, queueDelete, saveGoogleEvent, deleteGoogleEvent,
+    itemsBetween, connectGoogle, connectCalendar, disconnectCalendar, calendarActive, disconnectGoogle, syncAll, queueDelete, saveGoogleEvent, deleteGoogleEvent,
     isSyncing: () => syncing, parseIcs, LOCAL_COLOR, REMINDER_COLOR, GOOGLE_COLOR,
   };
 })();
