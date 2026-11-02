@@ -36,6 +36,7 @@ Q.app = (() => {
         <div class="tb-actions">
           <button class="tb-btn" data-act="quick-add" title="Quick add (N)" aria-label="Quick add">${I('plus')}</button>
           <button class="tb-btn" data-act="palette" title="Command palette (Ctrl+K)" aria-label="Command palette">${I('search')}</button>
+          <button class="tb-btn tb-cloud cloud-off" id="tb-cloud" data-act="cloud-sync" hidden aria-label="Sync with Google Drive">${I('cloud')}</button>
           <button class="tb-btn" data-act="toggle-mode" id="tb-mode" title="Switch light / dark (D)" aria-label="Switch light or dark mode">${I('moon')}</button>
           <button class="tb-btn" data-act="mini-toggle" title="Mini window" aria-label="Mini window">${I('mini')}</button>
           ${P.isApp ? `<span class="tb-sep"></span>
@@ -255,7 +256,7 @@ Q.app = (() => {
 
   /* ---------------------------------------------------------- rollover */
   function checkDay() {
-    if (reviewing) return;
+    if (reviewing || !Q.cloud.ready()) return;
     const rv = G.checkRollover();
     if (!rv) return;
     if (!rv.missed.length) { G.finalizeDay(rv, []); flushGame(); return; }
@@ -286,6 +287,7 @@ Q.app = (() => {
     on('use-item', (el) => useItem(el.dataset.item));
     on('toggle-inn', toggleInn);
     on('toggle-mode', toggleMode);
+    on('cloud-sync', () => Q.cloud.syncNow({ manual: true }));
     on('starter-packs', () => Q.onboarding.packsModal());
     on('mini-toggle', toggleMini);
     on('win-min', () => P.win.minimize());
@@ -343,7 +345,10 @@ Q.app = (() => {
     go(fromHash ? fromHash.k : 'home');
     window.addEventListener('hashchange', () => { const v = VIEWS.find((x) => x.hash && `#${x.hash}` === location.hash); if (v && v.k !== current) go(v.k); });
 
-    if (!S().onboarded) Q.onboarding.start(); else checkDay();
+    // Pull other devices' progress before settling yesterday, so a day is never
+    // settled twice (checkDay waits for Q.cloud.ready()).
+    Q.cloud.start().finally(() => { if (S().onboarded) checkDay(); });
+    if (!S().onboarded) Q.onboarding.start();
     Q.scheduler.refresh();
     Q.spotify.start();
     Q.updates.init();

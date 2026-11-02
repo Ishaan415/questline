@@ -99,6 +99,33 @@ pub fn export_backup(app: AppHandle, json: String, stamp: String) -> Result<Stri
     Ok(path.to_string_lossy().into_owned())
 }
 
+/// Small side files next to the save (e.g. the last state synced with Drive).
+/// Only fixed names are allowed.
+fn extra_path(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
+    let file = match name {
+        "sync-base" => if cfg!(debug_assertions) { "sync-base-dev.json" } else { "sync-base.json" },
+        _ => return Err("Unknown file".into()),
+    };
+    Ok(data_dir(app)?.join(file))
+}
+
+#[tauri::command]
+pub fn load_extra(app: AppHandle, name: String) -> Result<Option<String>, String> {
+    match fs::read_to_string(extra_path(&app, &name)?) {
+        Ok(s) => Ok(Some(s)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn save_extra(app: AppHandle, name: String, json: String) -> Result<(), String> {
+    let path = extra_path(&app, &name)?;
+    let tmp = path.with_extension("tmp");
+    fs::write(&tmp, json.as_bytes()).map_err(|e| e.to_string())?;
+    fs::rename(&tmp, &path).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn open_data_dir(app: AppHandle) -> Result<(), String> {
     let dir = data_dir(&app)?;

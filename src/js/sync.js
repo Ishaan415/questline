@@ -72,12 +72,16 @@ Q.sync = (() => {
     await P.invoke('google_connect', { clientId, clientSecret: clientSecret || null });
     const st = S();
     st.settings.google.connected = true;
+    st.settings.google.syncOn = true;
     Q.store.commit('settings');
+    await Q.cloud.refreshAccount();
     await syncAll(true);
+    await Q.cloud.syncNow({ manual: true });
   }
 
   async function disconnectGoogle() {
     try { await P.invoke('google_disconnect'); } catch (e) { /* already gone */ }
+    await Q.cloud.forget();
     const st = S();
     st.settings.google.connected = false;
     st.settings.google.calendars = [];

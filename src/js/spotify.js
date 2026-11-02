@@ -181,7 +181,6 @@ Q.spotify = (() => {
             <div class="sp-times"><span class="sp-pos"></span><span class="sp-dur">${U.fmtClock((state.duration_ms || 0) / 1000)}</span></div>
           </div>
           <div class="sp-controls">
-            ${size !== 'mini' ? `<button class="icon-btn ${state.shuffle ? 'on' : ''}" data-act="sp-shuffle" title="Shuffle" aria-label="Shuffle">${Q.sprites.icon('shuffle')}</button>` : ''}
             <button class="icon-btn" data-act="sp-prev" title="Previous" aria-label="Previous">${Q.sprites.icon('prev')}</button>
             <button class="icon-btn sp-play" data-act="sp-toggle" title="${state.playing ? 'Pause' : 'Play'}" aria-label="${state.playing ? 'Pause' : 'Play'}">${Q.sprites.icon(state.playing ? 'pause' : 'play')}</button>
             <button class="icon-btn" data-act="sp-next" title="Next" aria-label="Next">${Q.sprites.icon('next')}</button>
@@ -220,7 +219,6 @@ Q.spotify = (() => {
     on('sp-toggle', () => control('toggle'));
     on('sp-next', () => control('next'));
     on('sp-prev', () => control('prev'));
-    on('sp-shuffle', () => control('shuffle', state.shuffle ? 0 : 1));
     on('sp-open', () => P.openExternal(P.isApp ? 'spotify:' : 'https://open.spotify.com'));
     on('sp-mute', () => {
       Q.sfx.click();

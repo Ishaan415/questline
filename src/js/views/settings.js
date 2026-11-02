@@ -15,26 +15,53 @@ Q.views.settings = (() => {
   const select = (path, label, opts, hint = '') => `<label class="toggle-row"><span><b>${label}</b>${hint ? `<span class="small muted">${hint}</span>` : ''}</span>
     <select data-change="set" data-path="${path}" data-num="${typeof get(path) === 'number'}">${opts.map(([v, l]) => `<option value="${v}" ${String(get(path)) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
 
+  let accountAsked = false;
   function google() {
     const st = S(); const g = st.settings.google;
     if (!P.isApp) {
-      return `<p class="small muted">Google Calendar sync runs in the desktop app. The calendar here shows sample events.</p>`;
+      return `<p class="small muted">Google sign-in, Drive sync and Calendar run in the desktop app. The calendar here shows sample events.</p>`;
     }
     if (g.connected) {
-      return `<div class="sync-ok">${I('check')} Connected to Google Calendar</div>
+      const acc = Q.cloud.account();
+      if (!acc && !accountAsked) { accountAsked = true; Q.cloud.refreshAccount().then(() => Q.app.render()); }
+      const who = acc && (acc.name || acc.email) ? `<div class="acct">
+          <span class="acct-av">${esc((acc.name || acc.email || '?').trim()[0].toUpperCase())}</span>
+          <div class="acct-id"><b>${esc(acc.name || acc.email)}</b>${acc.name && acc.email ? `<span class="small muted">${esc(acc.email)}</span>` : ''}</div>
+        </div>` : '<div class="sync-ok">' + I('check') + ' Signed in with Google</div>';
+      const drive = acc && acc.drive;
+      const cs = Q.cloud.status();
+      const last = g.lastSync ? `Last synced ${U.rel(new Date(g.lastSync))}` : 'Not synced yet';
+      return `${who}
+        <div class="acct-feats">
+          <span class="feat on">${I('calendar')} Calendar</span>
+          <span class="feat ${drive ? 'on' : ''}">${I('cloud')} Drive ${drive ? '' : '· not allowed'}</span>
+        </div>
+        ${acc && !drive ? `<div class="notice small">Drive sync and backups need one more permission. Sign in again and tick <b>"See, edit, create and delete only the specific Google Drive files you use with this app"</b>.
+          <div class="row-btns"><button class="btn btn-small btn-primary" data-act="g-connect">${I('cloud')} Allow Drive</button></div></div>` : ''}
+        ${drive ? `
+          ${toggle('settings.google.syncOn', 'Sync across devices', 'Tasks, progress, pals and settings stay the same on every device signed in with this account')}
+          ${toggle('settings.google.backupOn', 'Daily backup to Google Drive', 'Saved in Drive → Questline → Backups; the last 30 days are kept')}
+          <div class="sync-line small ${cs.state === 'error' ? 'err' : 'muted'}">${cs.state === 'error' ? `${I('cloud')} ${esc(cs.msg)}` : cs.state === 'syncing' ? 'Syncing…' : esc(last)}</div>
+          <div class="row-btns">
+            <button class="btn btn-small" data-act="cloud-sync" ${g.syncOn === false ? 'disabled' : ''}>${I('sync')} Sync now</button>
+            <button class="btn btn-small" data-act="cloud-backup">${I('down')} Back up now</button>
+            <button class="btn btn-small" data-act="cloud-restore">${I('chest')} Restore…</button>
+            <button class="btn btn-small" data-act="cloud-open">${I('expand')} Open in Drive</button>
+          </div>` : ''}
+        <div class="panel-title sub">${I('calendar')} Calendar</div>
         ${g.calendars.length ? `<div class="cal-checks">${g.calendars.map((c) => `<label class="check-line"><input type="checkbox" data-change="gcal-sel" data-id="${esc(c.id)}" ${c.selected ? 'checked' : ''}><i class="dot" style="--c:${c.color}"></i>${esc(c.name)}${c.writable ? '' : ' <span class="small muted">(read-only)</span>'}</label>`).join('')}</div>` : '<p class="small muted">Calendars load on first sync.</p>'}
         ${select('settings.google.writeCalendar', 'Save new events to', [['primary', 'Primary calendar'], ...g.calendars.filter((c) => c.writable && !c.primary).map((c) => [c.id, c.name])])}
         ${toggle('settings.google.pushEvents', 'Send my events to Google', 'Events you create here appear on your phone too')}
         ${toggle('settings.google.pushReminders', 'Send reminders to Google', 'Added as 30-minute entries, without duplicate Google alerts')}
-        <div class="row-btns"><button class="btn btn-small" data-act="cal-sync">${I('sync')} Sync now</button><button class="btn btn-small btn-danger-ghost" data-act="g-disconnect">Disconnect</button></div>`;
+        <div class="row-btns"><button class="btn btn-small" data-act="cal-sync">${I('sync')} Sync calendar</button><button class="btn btn-small btn-danger-ghost" data-act="g-disconnect">Sign out</button></div>`;
     }
-    return `<p class="small">Two-way sync needs a free Google Cloud OAuth client (5 minutes, once). Steps are in the README.</p>
-      <ol class="small steps"><li>Create a project at console.cloud.google.com and enable the <b>Google Calendar API</b>.</li>
-      <li>OAuth consent screen: External, add yourself as a test user.</li><li>Credentials → Create OAuth client ID → <b>Desktop app</b>. Paste the ID and secret below.</li></ol>
+    return `<p class="small">Sign in with your Google account to <b>sync Questline between your devices</b>, keep <b>daily backups in your Google Drive</b> and show your <b>Google Calendar</b>. It needs a free Google Cloud app of your own (about 5 minutes, once; steps in the README):</p>
+      <ol class="small steps"><li>At console.cloud.google.com, enable the <b>Google Calendar API</b> and the <b>Google Drive API</b>.</li>
+      <li>OAuth consent screen: External, add yourself as a test user, then <b>Publish app</b> so you stay signed in.</li><li>Credentials → Create OAuth client ID → <b>Desktop app</b>. Paste the ID and secret below.</li></ol>
       <label class="field"><span class="field-label">Client ID</span><input data-change="set" data-path="settings.google.clientId" value="${esc(g.clientId)}" placeholder="1234-abc.apps.googleusercontent.com" spellcheck="false"></label>
       <label class="field"><span class="field-label">Client secret</span><input data-change="set" data-path="settings.google.clientSecret" value="${esc(g.clientSecret)}" placeholder="GOCSPX-…" spellcheck="false"></label>
-      <button class="btn btn-primary" data-act="g-connect" ${g.clientId ? '' : 'disabled'}>${I('calendar')} Connect Google Calendar</button>
-      <p class="small muted">Your browser opens Google's sign-in. The token is stored encrypted with your Windows account and never leaves this PC except to talk to Google.</p>`;
+      <button class="btn btn-primary" data-act="g-connect" ${g.clientId ? '' : 'disabled'}>${I('cloud')} Sign in with Google</button>
+      <p class="small muted">Your browser opens Google's account chooser. Questline can only see the files it creates in your Drive, never the rest. The sign-in is stored encrypted on this device.</p>`;
   }
 
   let spWebLinked = null;
@@ -103,7 +130,7 @@ Q.views.settings = (() => {
         </section>
 
         <section class="panel" id="sync">
-          <div class="panel-title">${I('calendar')} Google Calendar</div>
+          <div class="panel-title">${I('cloud')} Google account</div>
           ${google()}
           <div class="panel-title sub">${I('sync')} Subscribed calendars (iCal)</div>
           ${ics()}
@@ -191,11 +218,33 @@ Q.views.settings = (() => {
     on('g-connect', async (el) => {
       const g = S().settings.google;
       el.disabled = true; el.textContent = 'Waiting for Google sign-in…';
-      try { await Q.sync.connectGoogle(g.clientId, g.clientSecret); Q.ui.toast('Google Calendar connected', { kind: 'ok' }); }
+      try { await Q.sync.connectGoogle(g.clientId, g.clientSecret); Q.ui.toast('Signed in with Google', { kind: 'ok' }); }
       catch (e) { Q.ui.toast(String(e), { kind: 'error', timeout: 9000 }); }
       Q.app.render();
     });
-    on('g-disconnect', async () => { if (await Q.ui.confirm('Disconnect Google Calendar? Your local events and reminders stay.', { ok: 'Disconnect', danger: true })) { await Q.sync.disconnectGoogle(); Q.ui.toast('Disconnected'); } });
+    on('g-disconnect', async () => { if (await Q.ui.confirm('Sign out of Google on this device? Sync and backups stop here; your progress on this device and in Drive stays.', { ok: 'Sign out', danger: true })) { await Q.sync.disconnectGoogle(); accountAsked = false; Q.ui.toast('Signed out'); } });
+    on('cloud-backup', () => Q.cloud.backupNow());
+    on('cloud-open', () => P.openExternal(Q.cloud.driveFolderUrl()));
+    on('cloud-restore', async () => {
+      let list = [];
+      try { list = await Q.cloud.listBackups(); } catch (e) { return Q.ui.toast(String(e), { kind: 'error' }); }
+      if (!list.length) return Q.ui.toast('No backups in Drive yet. Use "Back up now" first.');
+      Q.ui.modal({
+        title: 'Restore a backup', cls: 'modal-form',
+        body: `<p class="small muted">Replaces your progress on every device with the backup you pick. Your current progress is backed up first.</p>
+          <div class="backup-list">${list.map((f) => `<button class="backup-row" data-id="${esc(f.id)}"><b>${esc(f.name.replace(/^questline-|\.json$/g, ''))}</b><span class="small muted">${esc(new Date(f.modifiedTime).toLocaleString())} · ${Math.max(1, Math.round(f.size / 1024))} KB</span></button>`).join('')}</div>`,
+        onMount(m, close) {
+          m.querySelectorAll('[data-id]').forEach((b) => {
+            b.onclick = async () => {
+              if (!(await Q.ui.confirm(`Restore ${b.querySelector('b').textContent}? This replaces your current progress on all devices.`, { ok: 'Restore', danger: true }))) return;
+              close();
+              try { await Q.cloud.restore(b.dataset.id); Q.ui.toast('Backup restored', { kind: 'ok' }); }
+              catch (e) { Q.ui.toast(String(e), { kind: 'error', timeout: 8000 }); }
+            };
+          });
+        },
+      });
+    });
     on('ics-del', (el) => { S().settings.ics.splice(+el.dataset.i, 1); Q.store.commit('settings'); Q.sync.syncAll(); });
     document.addEventListener('submit', (e) => {
       if (!e.target.matches('[data-ics-form]')) return;

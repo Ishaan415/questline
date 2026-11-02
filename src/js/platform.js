@@ -23,6 +23,15 @@ Q.platform = (() => {
     if (isApp) return invoke('save_state', { json, day });
     try { localStorage.setItem(LS_KEY, json); } catch (e) { /* storage unavailable: session-only */ }
   }
+  /** Side files next to the save (only fixed names, e.g. 'sync-base'). */
+  async function loadExtra(name) {
+    if (isApp) return invoke('load_extra', { name });
+    try { return localStorage.getItem(`questline-${name}`); } catch (e) { return null; }
+  }
+  async function saveExtra(name, json) {
+    if (isApp) return invoke('save_extra', { name, json });
+    try { localStorage.setItem(`questline-${name}`, json); } catch (e) { /* ignore */ }
+  }
   function clearBrowserSave() { try { localStorage.removeItem(LS_KEY); } catch (e) { /* ignore */ } }
 
   /* ---------- window ---------- */
@@ -95,7 +104,7 @@ Q.platform = (() => {
   };
 
   return {
-    isApp, invoke, listen, load, save, clearBrowserSave, win: w, setAlarms, setNotifyPause, askNotifyPermission,
+    isApp, invoke, listen, load, save, loadExtra, saveExtra, clearBrowserSave, win: w, setAlarms, setNotifyPause, askNotifyPermission,
     openExternal, autostart,
     ready: () => (isApp ? invoke('app_ready') : Promise.resolve()),
     setCloseToTray: (on) => isApp && invoke('set_close_to_tray', { enabled: !!on }),

@@ -79,7 +79,11 @@ Q.store = (() => {
         showCompletedReminders: false,
         calView: 'month',
         calShowReminders: true,
-        google: { clientId: '', clientSecret: '', connected: false, calendars: [], writeCalendar: 'primary', pushReminders: true, pushEvents: true },
+        google: {
+          clientId: '', clientSecret: '', connected: false, calendars: [], writeCalendar: 'primary', pushReminders: true, pushEvents: true,
+          // Drive sync & backups (this device only; see cloud.js)
+          syncOn: true, backupOn: true, folderId: '', backupsFolderId: '', syncFileId: '', syncVersion: '', lastSync: 0, lastBackupDay: '', editedAt: 0,
+        },
         ics: [],
         spotify: { clientId: '', webConnected: false },
       },
@@ -157,7 +161,7 @@ Q.store = (() => {
     /** Call after mutating state. */
     commit(reason = 'change') { persist(); emit(reason); },
     saveNow() { Q.platform.save(JSON.stringify(state), U.ymd(new Date())); },
-    replace(next) { state = merge(defaults(), next); migrate(state); persist(); emit('replace'); },
+    replace(next, reason = 'replace') { state = merge(defaults(), next); migrate(state); persist(); emit(reason); },
     snapshot() { undoSnap = JSON.stringify(state); },
     undo() {
       if (!undoSnap) return false;

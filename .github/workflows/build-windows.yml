@@ -21,7 +21,7 @@ permissions:
   contents: write   # needed to create releases
 
 env:
-  SERIES: '0.3'
+  SERIES: '0.4'
 
 concurrency:
   group: release

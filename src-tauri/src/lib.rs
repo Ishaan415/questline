@@ -11,6 +11,7 @@
 //!   * self-updates from GitHub Releases (signed)
 
 mod alarms;
+mod drive;
 mod google;
 mod media;
 mod secure;
@@ -228,10 +229,19 @@ pub fn run() {
             storage::save_state,
             storage::export_backup,
             storage::open_data_dir,
+            storage::load_extra,
+            storage::save_extra,
             alarms::set_alarms,
             alarms::set_notify_pause,
             google::google_connect,
             google::google_status,
+            google::google_account,
+            drive::drive_ensure_folder,
+            drive::drive_find,
+            drive::drive_list,
+            drive::drive_read,
+            drive::drive_write,
+            drive::drive_trash,
             google::google_disconnect,
             google::google_api,
             google::fetch_ics,

@@ -1,4 +1,6 @@
-//! Google Calendar: OAuth for installed apps + a narrowly scoped API proxy.
+//! Google account: OAuth for installed apps + narrowly scoped API access.
+//! One sign-in covers Calendar, Drive (only files Questline creates) and the
+//! account's name and email. Drive sync itself lives in drive.rs.
 //!
 //! Flow (Google's recommended one for desktop apps):
 //!   1. Bind a one-shot HTTP listener on 127.0.0.1:<random port>.
@@ -7,8 +9,8 @@
 //!   4. Exchange the code (+ PKCE verifier) for access and refresh tokens.
 //!   5. Store the refresh token, DPAPI-encrypted, in the app data folder.
 //!
-//! The UI then calls `google_api` for Calendar v3 endpoints only. Requests
-//! never leave the Rust side with a token for any other host.
+//! The UI then calls `google_api` for Calendar v3 endpoints only, and the
+//! drive_* commands for the Questline folder. Tokens never leave the Rust side.
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
@@ -25,9 +27,14 @@ use tokio::net::TcpListener;
 const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const REVOKE_URL: &str = "https://oauth2.googleapis.com/revoke";
-const API_BASE: &str = "https://www.googleapis.com";
-const SCOPES: &str = "https://www.googleapis.com/auth/calendar.readonly \
-                      https://www.googleapis.com/auth/calendar.events";
+pub(crate) const API_BASE: &str = "https://www.googleapis.com";
+const USERINFO_URL: &str = "https://openidconnect.googleapis.com/v1/userinfo";
+/// drive.file only reaches files and folders Questline itself created.
+pub(crate) const DRIVE_SCOPE: &str = "https://www.googleapis.com/auth/drive.file";
+const SCOPES: &str = "openid email profile \
+                      https://www.googleapis.com/auth/calendar.readonly \
+                      https://www.googleapis.com/auth/calendar.events \
+                      https://www.googleapis.com/auth/drive.file";
 const TOKEN_FILE: &str = "google-token.bin";
 const LOGIN_TIMEOUT: Duration = Duration::from_secs(300);
 
@@ -39,6 +46,13 @@ struct Tokens {
     access_token: String,
     /// Unix seconds.
     expires_at: u64,
+    /// Space-separated scopes Google actually granted (empty for pre-0.4 sign-ins).
+    #[serde(default)]
+    scope: String,
+    #[serde(default)]
+    email: String,
+    #[serde(default)]
+    name: String,
 }
 
 #[derive(Deserialize)]
@@ -46,6 +60,18 @@ struct TokenResponse {
     access_token: String,
     expires_in: u64,
     refresh_token: Option<String>,
+    #[serde(default)]
+    scope: Option<String>,
+}
+
+/// What the Settings page shows about the signed-in account.
+#[derive(Serialize)]
+pub struct Account {
+    connected: bool,
+    email: String,
+    name: String,
+    calendar: bool,
+    drive: bool,
 }
 
 static CACHE: Mutex<Option<Tokens>> = Mutex::new(None);
@@ -146,7 +172,7 @@ pub(crate) async fn read_request_path(stream: &mut tokio::net::TcpStream) -> Opt
 const DONE_PAGE: &str = "<!doctype html><meta charset=utf-8><title>Questline</title>\
 <body style=\"font-family:system-ui;background:#EAF4E4;color:#23343B;display:grid;place-items:center;height:100vh;margin:0\">\
 <div style=\"background:#FFFDF4;border:4px solid #2F4858;border-radius:14px;padding:28px 36px;text-align:center\">\
-<h2 style=\"margin:0 0 8px\">Calendar linked!</h2><p style=\"margin:0\">You can close this tab and return to Questline.</p></div>";
+<h2 style=\"margin:0 0 8px\">Google account linked!</h2><p style=\"margin:0\">You can close this tab and return to Questline.</p></div>";
 
 #[tauri::command]
 pub async fn google_connect(
@@ -183,6 +209,7 @@ pub async fn google_connect(
             ("code_challenge_method", "S256"),
             ("state", state.as_str()),
             ("access_type", "offline"),
+            ("include_granted_scopes", "true"),
             ("prompt", "consent"),
         ],
     )
@@ -247,6 +274,8 @@ pub async fn google_connect(
         .refresh_token
         .ok_or("Google didn't return a refresh token. Remove Questline's access at myaccount.google.com/permissions and connect again.")?;
 
+    // Name and email for Settings; failure here isn't fatal.
+    let (email, name) = userinfo(&tr.access_token).await.unwrap_or_default();
     save_tokens(
         &app,
         &Tokens {
@@ -255,12 +284,23 @@ pub async fn google_connect(
             refresh_token: refresh,
             access_token: tr.access_token,
             expires_at: now_s() + tr.expires_in,
+            scope: tr.scope.unwrap_or_default(),
+            email,
+            name,
         },
     )
 }
 
-async fn access_token(app: &AppHandle, force_refresh: bool) -> Result<String, String> {
-    let mut t = load_tokens(app).ok_or("Google Calendar isn't connected.")?;
+async fn userinfo(token: &str) -> Option<(String, String)> {
+    let v: Value = http().get(USERINFO_URL).bearer_auth(token).send().await.ok()?.json().await.ok()?;
+    Some((
+        v["email"].as_str().unwrap_or_default().to_string(),
+        v["name"].as_str().unwrap_or_default().to_string(),
+    ))
+}
+
+pub(crate) async fn access_token(app: &AppHandle, force_refresh: bool) -> Result<String, String> {
+    let mut t = load_tokens(app).ok_or("Your Google account isn't connected.")?;
     if !force_refresh && t.expires_at > now_s() + 60 {
         return Ok(t.access_token);
     }
@@ -278,6 +318,9 @@ async fn access_token(app: &AppHandle, force_refresh: bool) -> Result<String, St
     if let Some(r) = tr.refresh_token {
         t.refresh_token = r;
     }
+    if let Some(sc) = tr.scope {
+        t.scope = sc;
+    }
     save_tokens(app, &t)?;
     Ok(t.access_token)
 }
@@ -285,6 +328,38 @@ async fn access_token(app: &AppHandle, force_refresh: bool) -> Result<String, St
 #[tauri::command]
 pub fn google_status(app: AppHandle) -> bool {
     load_tokens(&app).is_some()
+}
+
+/// Granted scopes are only known after a token refresh for older sign-ins,
+/// so this refreshes once when the list is empty.
+#[tauri::command]
+pub async fn google_account(app: AppHandle) -> Result<Account, String> {
+    let Some(mut t) = load_tokens(&app) else {
+        return Ok(Account { connected: false, email: String::new(), name: String::new(), calendar: false, drive: false });
+    };
+    if t.scope.is_empty() || t.email.is_empty() {
+        if let Ok(tok) = access_token(&app, t.scope.is_empty()).await {
+            if t.email.is_empty() {
+                if let Some((email, name)) = userinfo(&tok).await {
+                    if let Some(mut fresh) = load_tokens(&app) {
+                        fresh.email = email;
+                        fresh.name = name;
+                        let _ = save_tokens(&app, &fresh);
+                    }
+                }
+            }
+        }
+        t = load_tokens(&app).unwrap_or(t);
+    }
+    // Pre-0.4 sign-ins never recorded scopes: they only ever had Calendar.
+    let has = |s: &str| t.scope.split_whitespace().any(|x| x == s);
+    Ok(Account {
+        connected: true,
+        calendar: t.scope.is_empty() || has("https://www.googleapis.com/auth/calendar.events"),
+        drive: has(DRIVE_SCOPE),
+        email: t.email,
+        name: t.name,
+    })
 }
 
 #[tauri::command]

@@ -195,21 +195,58 @@ by GBA/NDS-era handheld games.
 
 ---
 
-## 4. Google Calendar (two-way sync)
+## 4. Google account: sync, Drive backups and Calendar
 
-Questline talks to Google directly from your PC. You need your own free OAuth
-client once (about 5 minutes):
+One **Sign in with Google** (Settings → Google account) gives you:
+
+- **Sync across devices**: tasks, progress, pals and game settings stay the same on
+  every device signed in with the same account.
+- **Daily backups in your Google Drive**, in a normal folder you can open:
+  `My Drive/Questline/Backups/questline-YYYY-MM-DD.json` (last 30 days kept).
+  **Settings → Restore…** puts one back on every device.
+- **Google Calendar**: events from your Google calendars on the Calendar page,
+  and your own events/reminders sent to Google.
+
+Questline uses Drive's `drive.file` permission: it can only see the files and
+folders it created itself, never the rest of your Drive.
+
+### One-time Google setup (about 5 minutes)
+
+Questline talks to Google directly from your device, so it needs your own free
+OAuth client:
 
 1. Go to <https://console.cloud.google.com>, create a project (any name).
-2. **APIs & Services → Library** → enable **Google Calendar API**.
+2. **APIs & Services → Library** → enable **Google Calendar API** and **Google Drive API**.
 3. **APIs & Services → OAuth consent screen** → External → fill in the app name and
    your email → add yourself under **Test users**.
 4. **APIs & Services → Credentials → Create credentials → OAuth client ID** →
    Application type **Desktop app**. Copy the **Client ID** and **Client secret**.
-5. In Questline: **Settings → Google Calendar**, paste both, click **Connect**. Your
-   browser opens Google's sign-in; approve, then return to the app.
+5. On the consent screen, click **Publish app** (status "In production"). Without this,
+   Google signs you out every 7 days. No review is needed for personal use; when you
+   sign in, Google warns the app is unverified: click **Advanced → Go to Questline**.
+6. In Questline: **Settings → Google account**, paste both, click **Sign in with Google**,
+   pick your account and allow everything (including Drive).
 
-What syncs:
+If you signed in before 0.4 (Calendar only), Settings shows **Allow Drive**: sign in
+once more and tick the Drive permission.
+
+### How sync works
+
+- The shared copy is `My Drive/Questline/questline-sync.json`. Questline syncs when it
+  starts, 15 seconds after you change something, every 3 minutes while it's open, and
+  when you press the cloud icon in the title bar (green = synced, blinking = syncing,
+  red = problem; hover for details).
+- Both devices can be used offline. When they meet, changes are **merged**, not
+  overwritten: tasks are matched one by one (new ones on either side are kept; an edit
+  beats a delete), and gold, XP, HP changes, items and pal EXP from both devices add up.
+  If the same thing was edited on both, the most recent edit wins.
+- Each device keeps its own window, sound, notification, theme and sign-in settings.
+- The first time a device with its own progress meets an existing Drive copy, you choose
+  which one to keep. The other is saved to Backups first.
+- Yesterday's dailies are only settled after the first sync, so two devices never both
+  take damage for the same day.
+
+### What syncs with Google Calendar
 
 - Events from the calendars you tick appear on the Calendar page (refreshed every
   10 minutes, or press the sync button). Events on calendars you can edit can be
@@ -221,9 +258,7 @@ What syncs:
 
 The sign-in token is encrypted with Windows DPAPI (tied to your Windows account) and
 stored in `%APPDATA%\com.questline.app\`. Google says desktop "client secrets" aren't
-truly secret, so keeping it in Settings is fine. While your OAuth app is in "Testing"
-mode Google may ask you to sign in again every 7 days; publishing the consent screen
-(no review needed for personal use with your own account) avoids that.
+truly secret, so keeping it in Settings is fine.
 
 ### Other calendars (read-only)
 
