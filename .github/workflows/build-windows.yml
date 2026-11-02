@@ -2,7 +2,8 @@
 # The installed app checks the latest release and offers the update.
 #
 # Runs when you push changes to the app (src/, src-tauri/, package files) to main,
-# or manually from the Actions tab. Each run gets a new version: 0.2.<run number>.
+# or manually from the Actions tab. Versions are SERIES.<n>: the first release in
+# a series is .0, then .1, .2… To start a new series (e.g. 0.4), change SERIES below.
 # Add [skip ci] to a commit message to push without releasing.
 name: Build and release
 
@@ -18,6 +19,9 @@ on:
 
 permissions:
   contents: write   # needed to create releases
+
+env:
+  SERIES: '0.3'
 
 concurrency:
   group: release
@@ -43,17 +47,20 @@ jobs:
             exit 1
           fi
 
-      - name: Set version to 0.2.${{ github.run_number }}
+      - name: Pick the next version in the series
         shell: bash
         run: |
+          # Count releases already tagged vSERIES.* (e.g. v0.3.0, v0.3.1) and use the next number.
+          n=$(git ls-remote --tags origin "refs/tags/v${SERIES}.*" | grep -v '\^{}' | wc -l | tr -d ' ')
+          VERSION="${SERIES}.${n}"
+          echo "Building version $VERSION"
           node -e "
             const fs = require('fs');
             const f = 'src-tauri/tauri.conf.json';
             const c = JSON.parse(fs.readFileSync(f, 'utf8'));
-            c.version = '0.2.${{ github.run_number }}';
+            c.version = process.argv[1];
             fs.writeFileSync(f, JSON.stringify(c, null, 2));
-            console.log('Building version', c.version);
-          "
+          " "$VERSION"
 
       - uses: actions/setup-node@v6
         with:
