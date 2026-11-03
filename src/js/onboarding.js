@@ -168,7 +168,7 @@ Q.onboarding = (() => {
     let seed = 42; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
     st.demo = true; st.onboarded = true;
-    st.profile = { name: 'Ishaan', outfit: 'classic', trainerId: '04217' };
+    st.profile = { name: 'Player', outfit: 'classic', trainerId: '04217' };
     st.createdAt = U.addDays(todayD, -62).getTime();
     st.pals = {
       owned: { sprigg: { exp: 2600, nick: '', got: st.createdAt, seen: 2 }, emberkit: { exp: 1150, nick: 'Mochi', got: st.createdAt, seen: 2 }, peeplet: { exp: 640, nick: '', got: st.createdAt, seen: 2 }, boolet: { exp: 220, nick: '', got: st.createdAt, seen: 1 }, splotter: { exp: 90, nick: '', got: st.createdAt, seen: 1 }, pebbit: { exp: 0, nick: '', got: st.createdAt, seen: 1 } },
