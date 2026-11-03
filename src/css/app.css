@@ -780,7 +780,8 @@ form.readonly input, form.readonly textarea { background: var(--panel-2); }
 .evolve-stage img { position: absolute; inset: 0; }
 .evolve-from { animation: evolveOut 2.2s steps(1) forwards; }
 .evolve-to { animation: evolveIn 2.2s steps(1) forwards; }
-.defeated { filter: grayscale(.6); transform: rotate(90deg); }
+/* The knocked-out boss picture in the victory pop-up (not the boss card). */
+img.defeated { filter: grayscale(.6); transform: rotate(90deg); }
 .modal-onboard { width: min(600px, 100%); }
 .ob { display: flex; flex-direction: column; gap: 12px; }
 .ob .textbox { margin: 0; }

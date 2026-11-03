@@ -329,20 +329,41 @@ Q.game = (() => {
   }
 
   /* ------------------------------------------------------------------ boss */
+  /**
+   * Boss health = the damage this week's scheduled dailies would deal (a daily hits
+   * for about 9 × its difficulty multiplier), so beating it takes roughly 4 in 5 of
+   * them once streak/on-time bonuses, reminders and focus sessions are counted.
+   * A little tougher as you level up; never below BOSS_MIN_HP.
+   */
+  const BOSS_MIN_HP = 150;
+  function bossHpFor(wk) {
+    const st = S();
+    let dmg = 0;
+    for (let i = 0; i < 7; i++) {
+      const ds = U.ymd(U.addDays(U.parseYmd(wk), i));
+      for (const d of st.dailies) if (!d.archived && isScheduled(d, ds)) dmg += 9 * (DIFF[d.difficulty] || DIFF.easy).mult;
+    }
+    const levelScale = 1 + Math.min(0.6, Math.max(0, st.hero.level - 1) * 0.03);
+    return U.clamp(Math.round(dmg * levelScale), BOSS_MIN_HP, 2500);
+  }
+
   function ensureBoss() {
     const st = S();
     const wk = U.weekKey(U.parseYmd(today()), st.settings.weekStart);
-    if (st.boss && st.boss.week === wk) return st.boss;
-    if (st.boss && !st.boss.defeated) Q.store.log(`${st.boss.name} slipped away at the end of the week.`, 'boss');
-    let expected = 0;
-    for (let i = 0; i < 7; i++) {
-      const ds = U.ymd(U.addDays(U.parseYmd(wk), i));
-      expected += st.dailies.filter((d) => !d.archived && isScheduled(d, ds)).length;
+    if (st.boss && st.boss.week === wk) {
+      // Dailies added mid-week make the boss tougher too (it never gets weaker).
+      const b = st.boss;
+      if (!b.defeated) {
+        const target = bossHpFor(wk);
+        if (target > b.maxHp) { b.hp += target - b.maxHp; b.maxHp = target; }
+      }
+      return b;
     }
+    if (st.boss && !st.boss.defeated) Q.store.log(`${st.boss.name} slipped away at the end of the week.`, 'boss');
     const list = Q.PALS.BOSSES;
     let pickB = list[U.hash(wk) % list.length];
     if (st.boss && st.boss.id === pickB.id) pickB = list[(list.indexOf(pickB) + 1) % list.length];
-    const maxHpB = U.clamp(Math.round(expected * 8 + 40), 80, 1200);
+    const maxHpB = bossHpFor(wk);
     st.boss = { week: wk, id: pickB.id, name: pickB.name, taunt: pickB.taunt, type: pickB.type, maxHp: maxHpB, hp: maxHpB, defeated: false };
     return st.boss;
   }

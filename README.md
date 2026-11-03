@@ -200,8 +200,9 @@ companion (here: a collectable team), Duolingo's streak freeze, and a solo versi
     weekly bosses, achievements and rare drops.
   - **Presets**: save up to 3 teams (e.g. Focus team, Boss team) and swap in one click.
   - Your lead pal's mood follows your day.
-- **Weekly boss**: HP is set from how many dailies you have scheduled that week.
-  Every completion hits it; every miss heals it. Beat it by the end of the week for
+- **Weekly boss**: its HP matches the dailies you have scheduled that week (harder ones
+  count more) and grows if you add dailies mid-week, so beating it takes most of your
+  week's dailies. Every completion hits it; every miss heals it. Beat it by the end of the week for
   gold, XP and loot.
 - **Drops**: completing tasks sometimes finds gold pouches, Potions, a shield or, rarely,
   a Capsule Ticket (max 6 a day).
