@@ -1,100 +1,114 @@
+<div align="center">
+
+<img src="src-tauri/icons/128x128@2x.png" width="104" alt="Questline icon">
+
 # Questline
 
-A cozy pixel-RPG planner for Windows and Android. Daily chores with times,
-reminders, a full-page calendar synced with Google, a full-screen focus mode with
-ambient pixel scenes, and Spotify controls. On Windows it lives in the system tray
-and costs almost nothing to keep running; on your phone it's the same app with a
-thumb-friendly layout. Sign in with Google and both stay in sync.
+### Your to-do list, as a cozy pixel RPG.
 
-Finishing things earns XP, gold and badges; a team of pals grows and evolves with
-you; a new boss shows up every week. Missing things stings a little, never a lot.
+Dailies, reminders, a calendar and a focus timer, where getting things done levels you up,<br>
+grows a team of pixel pals and knocks down a weekly boss. For **Windows** and **Android**.
 
----
+[![Download for Windows](https://img.shields.io/badge/Download-Windows-2F4858?style=for-the-badge)](https://github.com/Ishaan415/questline/releases/latest)
+[![Download for Android](https://img.shields.io/badge/Download-Android-3E9E5A?style=for-the-badge)](https://github.com/Ishaan415/questline/releases/latest/download/Questline-android.apk)
+<br>
+[![Latest release](https://img.shields.io/github/v/release/Ishaan415/questline?style=flat-square&label=latest&color=3E9E5A)](https://github.com/Ishaan415/questline/releases)
+[![Homepage](https://img.shields.io/badge/homepage-ishaan415.github.io%2Fquestline-3C82C8?style=flat-square)](https://ishaan415.github.io/questline/)
 
-## 1. Releases, updates and making changes
+<img src="docs/screenshots/hero.png" alt="Questline on a PC and a phone: today's timeline, your trainer, your pal and the weekly boss" width="100%">
 
-Every push to `main` that touches the app (`src/`, `src-tauri/`, `package*.json`)
-builds a new signed version on GitHub (versions `0.5.0`, `0.5.1`, …) and publishes it
-as a **GitHub Release**: the Windows installer first, then the Android APK is added
-to the same release about 15 minutes later (see [Android app](#android-app)). The installed app checks for it shortly after it starts and
-every 6 hours, then offers **Update now**. It downloads the installer, verifies its
-signature, and Questline closes, updates and reopens by itself. You can also check
-from the tray menu, **Settings → Updates**, or `Ctrl+K → Check for updates`.
+</div>
 
-Add `[skip ci]` to a commit message to push without releasing (e.g. while you're
-halfway through a change spread over several commits).
+## What is it?
 
-**Version numbers.** `SERIES` at the top of `.github/workflows/build-windows.yml`
-sets the first two parts (currently `0.5`). Each release counts the existing
-`v0.5.*` tags and takes the next number, so the first build is `0.5.0`. For a big
-update, change `SERIES` to `0.6` and the next build becomes `0.6.0`.
+Questline is a daily planner that plays like a little handheld RPG. Add your chores,
+reminders and events; tick them off and you earn **XP and gold**, your **pals** gain
+EXP and evolve, and the **weekly boss** takes damage. Skip things and you lose a bit
+of HP. It's never punishing, just enough to make "I'll do it tomorrow" sting.
 
-### One-time setup
+It runs on your PC (quietly, from the system tray) and on your Android phone, and keeps
+both in sync through **your own Google Drive**. There's no account to create and no
+server in between.
 
-The updater only installs files signed with *your* private key, so nobody else can
-push an update to your PC.
+## How it works
 
-1. **Install Node.js LTS** from <https://nodejs.org> (also needed for local development).
-2. **Generate the signing keys.** In PowerShell:
-   ```powershell
-   mkdir "$env:USERPROFILE\.tauri" -Force
-   npx @tauri-apps/cli signer generate -w "$env:USERPROFILE\.tauri\questline.key"
-   ```
-   Choose a password when asked. It creates `questline.key` (private, keep it secret and
-   backed up: losing it means installed copies can't update any more) and
-   `questline.key.pub` (public).
-3. **Add two repository secrets:** repo → **Settings → Secrets and variables → Actions →
-   New repository secret**:
-   - `TAURI_SIGNING_PRIVATE_KEY`: the whole contents of `questline.key`
-   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the password you chose
-4. **Paste the public key** (contents of `questline.key.pub`) into
-   `src-tauri/tauri.conf.json` → `plugins.updater.pubkey`, replacing
-   `PASTE_YOUR_PUBLIC_KEY_HERE`.
-5. **Check the update URL** in the same file (`plugins.updater.endpoints`) and in
-   `src/js/updates.js` (`RELEASES_URL`): it must match your repo,
-   `https://github.com/<your-user>/questline/...`.
-6. **Make the repository public** (Settings → General → Danger Zone → Change visibility).
-   The app downloads `latest.json` and the installer without logging in, which only works
-   for public releases. Secrets stay secret in public repos, and nothing private is in the
-   code (your Google client ID and all your data live only on your PC).
-   *Want the code private?* Keep it private and publish releases to a second, public repo
-   instead: set `owner`/`repo` on the `tauri-action` step, give it a personal access token
-   with write access to that repo, and point the two URLs above at it.
-7. Run **Actions → Build and release → Run workflow**, then download
-   `Questline_0.3.x_x64-setup.exe` from the new release under **Releases** and install it
-   once over your current version. From then on, updates arrive by themselves.
+| Step | What happens |
+|---|---|
+| **1. Add your day** | Type it the way you'd say it: `gym mon wed fri 7pm`, `dentist fri 3pm`, `pay rent tomorrow !h`. Questline works out the date, time and repeat. |
+| **2. Get it done** | Tick things off for XP, gold and loot. Doing a task within 30 minutes of its time pays an on-time bonus; streaks pay more. |
+| **3. Grow your team** | Your three pals share every bit of EXP you earn and evolve as they level up. Win new ones from the Capsule Machine: 50 to collect, three of them legendary. |
+| **4. Beat the boss** | Every completed task hits this week's boss; every miss heals it. Defeat it by the end of the week for gold, XP and a capsule ticket. |
+| **5. Go easy on yourself** | Sick or travelling? Rest at the Inn and nothing hurts. Weekends can be rest days. Forgot to tick something yesterday? Record it before the day settles. |
 
-### Making changes
+## On your phone
 
-**Small edits:** open a file on GitHub, click ✏️, edit, commit. A release follows in a
-few minutes.
+The Android app is the same Questline with a layout made for one thumb: tabs along the
+bottom, a big **+ Add** button, dialogs that slide up, haptics, and reminders that
+arrive as notifications even when the app is closed.
 
-**Real development** (recommended for anything bigger):
+<img src="docs/screenshots/phones.png" alt="Questline on Android: dailies, quick add, the More menu and dark mode" width="100%">
 
-1. Install **Visual Studio Build Tools** (workload *Desktop development with C++*),
-   **Rust** from <https://rustup.rs>, Node.js, and **GitHub Desktop**.
-2. In GitHub Desktop: **File → Clone repository → questline**.
-3. In that folder:
-   ```powershell
-   npm install
-   npm run dev
-   ```
-   A development window opens. Edits to anything in `src/` reload instantly; edits to
-   `src-tauri/` recompile automatically. Dev builds keep their own save file
-   (`questline-save-dev.json`), so testing never touches your real progress.
-   Quit the installed Questline from the tray first: only one copy runs at a time.
-4. When it works, commit in GitHub Desktop and click **Push origin**. One push = one release.
+## A look around
 
-`npm run build` locally needs the signing key in the environment
-(`$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content "$env:USERPROFILE\.tauri\questline.key" -Raw`
-and the password variable); normally you let GitHub do release builds.
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/pals.png" alt="Pals page"><br><b>Pals</b>: your team of three, presets, the Capsule Machine and the Paldex.</td>
+    <td width="50%"><img src="docs/screenshots/calendar.png" alt="Calendar page"><br><b>Calendar</b>: month, week and agenda views, with your Google Calendar if you like.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/focus.png" alt="Focus mode"><br><b>Focus mode</b>: Pomodoro, timer or stopwatch over a slow pixel scene. Sessions earn XP.</td>
+    <td width="50%"><img src="docs/screenshots/journey.png" alt="Journey page"><br><b>Journey</b>: trainer card, badges, stats with perks, your streak heatmap and achievements.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/shop.png" alt="Shop: themes, outfits and focus scenes"><br><b>Shop</b>: spend gold on your own real-life rewards, items, town themes, outfits and focus scenes.</td>
+    <td width="50%"><img src="docs/screenshots/dark-mode.png" alt="Dailies in dark mode"><br><b>Dark mode</b>: every theme has a light and a dark version, and you can try any of them before buying.</td>
+  </tr>
+</table>
 
-> Windows SmartScreen will warn about the unsigned installer the first time. Click
-> **More info → Run anyway**. (Update signing is separate from Windows code signing.)
+## Features at a glance
+
+- **Planner**: timed dailies with checklists, habits (+/−), one-off and repeating reminders, events, snooze, and a full-page calendar.
+- **Game**: XP, gold, HP, levels and titles; 50 pals across 9 types with abilities and team synergy; weekly bosses; 34 achievements; loot drops; a shop for your own real-life rewards.
+- **Focus**: full-screen Pomodoro, timer and stopwatch with ambient pixel scenes, rain sounds and Spotify controls; landscape mode on phones.
+- **Sync & backups**: sign in with Google to sync PC and phone, with daily backups in a normal `Questline` folder in your Drive. Restore any backup in two taps.
+- **Calendar**: optional two-way Google Calendar, plus read-only iCal feeds (holidays, timetables, Outlook).
+- **Spotify**: see and control what's playing from Home, focus mode or the mini window.
+- **Desktop niceties**: tray icon, quick add from any app (`Ctrl+Alt+Q`), command palette (`Ctrl+K`), notifications with the window closed, mini window, start with Windows.
+- **Updates itself**: new versions arrive from GitHub on both PC and phone; nothing installs without your OK.
+
+## Get started
+
+**Windows**: download `Questline_x.y.z_x64-setup.exe` from the [latest release](https://github.com/Ishaan415/questline/releases/latest) and run it. Windows may show "Windows protected your PC" for new apps: **More info → Run anyway**.
+
+**Android**: open [Questline-android.apk](https://github.com/Ishaan415/questline/releases/latest/download/Questline-android.apk) on your phone and install it (Android asks you to allow installs from your browser once).
+
+**Then**: pick your starter pal, choose a few starter packs or add your own tasks, and you're playing. To use more than one device, go to **Settings → Google account → Sign in with Google** on each one.
+
+## Your data stays yours
+
+Questline has **no servers**. Everything is saved on your device and, if you sign in,
+in your own Google Drive, where Questline can only see the files it created (Google's
+`drive.file` permission). Nothing is sent to the developer, sold or used for ads. Read
+the [privacy policy](https://ishaan415.github.io/questline/privacy.html).
 
 ---
 
-## 2. What's inside
+<details>
+<summary><b>Contents of the full guide</b></summary>
+
+1. [What's inside](#1-whats-inside)
+2. [How the game works](#2-how-the-game-works)
+3. [Google account: sync, backups and Calendar](#3-google-account-sync-backups-and-calendar)
+4. [Spotify](#4-spotify)
+5. [Installing and updating](#5-installing-and-updating)
+6. [Troubleshooting](#6-troubleshooting)
+7. [Credits and legal](#7-credits-and-legal)
+
+</details>
+
+# Full guide
+
+## 1. What's inside
 
 | Area | What it does |
 |---|---|
@@ -116,8 +130,8 @@ and the password variable); normally you let GitHub do release builds.
 - **Command palette** `Ctrl+K`: jump anywhere, search tasks, use items, pause notifications.
 - **Tray icon** with quick add, focus, mini window, snooze last reminder, pause notifications.
   Left-click toggles the window. Tooltip shows level, dailies left and the next alarm.
-- **Notifications keep working with the window closed** (a native alarm thread fires them).
-  Quiet hours, muting during focus, per-task heads-up.
+- **Notifications keep working with the window closed**, with quiet hours, muting during
+  focus and a per-task heads-up. On Android they arrive even when the app is closed.
 - **Mini window**: a small always-on-top view of today's list plus Spotify.
 - **Start with Windows** (starts hidden in the tray), single instance, close-to-tray.
 - **Record yesterday**: when a new day starts you can tick off things you did but
@@ -130,9 +144,10 @@ and the password variable); normally you let GitHub do release builds.
 - Undo after completing or deleting, repeating reminders that roll forward,
   "move all overdue to tomorrow", starter packs, 12/24-hour clock, Monday/Sunday weeks,
   six colour themes, interface size, reduced motion, sound volume.
-- **Backups**: saved atomically, a daily backup kept for 14 days, export/import JSON.
+- **Backups**: a daily local copy kept for 14 days, export/import as a file, and (if you
+  sign in) daily backups in your Google Drive.
 
-### Keyboard
+### Keyboard (Windows)
 
 | Keys | Action |
 |---|---|
@@ -149,7 +164,7 @@ and the password variable); normally you let GitHub do release builds.
 
 ---
 
-## 3. How the game works
+## 2. How the game works
 
 The design borrows what works from several apps and leaves out what makes
 people quit: Habitica's XP/gold/HP loop and "record yesterday", Finch's growing
@@ -197,224 +212,149 @@ by GBA/NDS-era handheld games.
 
 ---
 
-## 4. Google account: sync, Drive backups and Calendar
+## 3. Google account: sync, backups and Calendar
 
-One **Sign in with Google** (Settings → Google account) gives you sync and backups;
-Google Calendar is an optional extra you turn on afterwards:
+Signing in is optional. Questline works fully offline without it.
 
-- **Sync across devices**: tasks, progress, pals and game settings stay the same on
-  every device signed in with the same account.
-- **Daily backups in your Google Drive**, in a normal folder you can open:
-  `My Drive/Questline/Backups/questline-YYYY-MM-DD-HHMM.json`. Every backup is a new
-  file (nothing is ever overwritten) and the newest 40 are kept. **Settings → Restore…**
-  lists them with what's inside ("Lv 3 · 5 dailies · 2 reminders · 80 gold") and puts
-  the one you pick back on every device: tasks, progress, pals, and that device's look
-  & sound. Your Spotify app's Client ID comes along too, so on a new device Spotify is
-  one tap (**Connect Spotify account**); the Spotify sign-in itself stays per device.
-- **New device or a fresh start?** Just sign in: if this device has nothing yet,
-  Questline takes your progress from Drive automatically, plus the look & sound from
-  your newest backup.
-- **Google Calendar** (optional, Settings → Google account → **Turn on Google Calendar**):
-  events from your Google calendars on the Calendar page, and your own events/reminders
-  sent to Google. Questline only asks Google for Calendar permission at that moment.
-  Sign-ins for sync and backups alone use non-sensitive permissions, so they show no
-  "unverified app" screen and don't count toward Google's 100-user limit for unverified apps.
+**Sign in**
 
-Questline uses Drive's `drive.file` permission: it can only see the files and
-folders it created itself, never the rest of your Drive.
+1. Open **Settings → Google account** and press **Sign in with Google**.
+2. Pick your account. On Windows this happens in your browser; on Android, in Google's
+   own account picker.
+3. Allow access. Questline asks only for your name and email, and for access to the
+   files *it creates* in your Drive. It can't see anything else in your Drive.
 
-### One-time Google setup (developer, about 10 minutes)
+Do the same on each device you use. If a device has nothing on it yet, it picks up your
+progress from Drive automatically.
 
-Like other apps, Questline ships with its **own** Google sign-in built in, so on every
-device you just click **Sign in with Google** and pick your account. That built-in
-"client" is created once by you, as the developer, and stored as two GitHub secrets
-that the release build bakes into the app (PC now, the phone app later):
+**What you get**
 
-1. Go to <https://console.cloud.google.com>, create a project (e.g. "Questline").
-2. **APIs & Services → Library** → enable **Google Calendar API** and **Google Drive API**.
-3. **APIs & Services → OAuth consent screen** (Google Auth Platform): External, app name
-   "Questline", your email as support and developer contact. Under **Audience**, add
-   your Gmail as a **Test user**.
-4. **Clients → Create client** → Application type **Desktop app**, name "Questline".
-   Copy the **Client ID** and **Client secret**.
-5. Under **Audience**, click **Publish app** (status "In production"). Without this,
-   Google signs you out every 7 days. No review is needed for personal use (up to
-   100 users). When someone turns on Google Calendar, Google warns the app is unverified:
-   **Advanced → Go to Questline**. Plain sign-in for sync and backups shows no warning.
-6. On GitHub: **repo → Settings → Secrets and variables → Actions → New repository
-   secret**, twice:
-   - `GOOGLE_CLIENT_ID` = the Client ID
-   - `GOOGLE_CLIENT_SECRET` = the Client secret
-7. Push any change (or **Actions → Build and release → Run workflow**). From that
-   release on, **Settings → Google account** shows only **Sign in with Google**.
+- **Sync across devices**: tasks, progress and pals stay the same on your PC and phone.
+  Each device keeps its own window, sound, notification and theme settings.
+- **Daily backups** in a normal folder in your Drive: `My Drive/Questline/Backups`.
+- **Restore**: **Settings → Google account → Restore…** lists your backups with what's
+  in each one ("Lv 3 · 5 dailies · 2 reminders · 80 gold") and which device made it.
+  Pick one to put it back on every device. Your current progress is backed up first.
 
-Google treats desktop-app client secrets as non-confidential (anyone can read them out
-of an installed app), which is why shipping them inside Questline is the normal setup.
-**Settings → Google account → Advanced: use my own Google Cloud app** still lets you
-paste a different client if you ever need to.
+**How sync works**
 
-If you signed in before 0.4 (Calendar only), Settings shows **Allow Drive**: sign in
-once more and tick the Drive permission.
+Questline syncs when it starts, shortly after you change something, every few minutes
+while it's open, and when you tap the cloud icon in the top bar (green = synced,
+blinking = syncing, red = problem). Both devices can be used offline: when they meet,
+changes are merged rather than overwritten. New tasks from either side are kept, gold
+and XP earned on both devices add up, and if the same thing was edited on both, the
+most recent edit wins. The first time a device that already has its own progress meets
+your Drive copy, you choose which one to keep, and the other is saved as a backup.
 
-### Android app
+**Google Calendar (optional)**
 
-The phone app is built from the same code and released with every Windows version
-(`Questline-android.apk` in each GitHub Release). Install it once from
-<https://github.com/Ishaan415/questline/releases/latest/download/Questline-android.apk>
-(Android asks you to allow installs from your browser). After that, **Settings →
-Updates** downloads new versions and Android asks you to confirm.
+1. In **Settings → Google account**, press **Turn on Google Calendar**.
+2. Google asks for permission to see and edit your calendars. It may show a
+   *"Google hasn't verified this app"* notice: choose **Advanced → Go to Questline**.
+3. Tick the calendars you want to see.
 
-On the phone: tab bar at the bottom (Home, Dailies, Reminders, Calendar, More), a big
-**+ Add** button in thumb reach, dialogs open from the bottom, vibration on taps and
-completed tasks, the back button closes dialogs and goes Home, and reminders arrive
-as notifications even when Questline is closed. Focus mode has a **Landscape /
-Portrait** button.
-
-**One-time Android setup (developer, about 10 minutes):**
-
-1. **Signing key.** Android only accepts an update signed with the same key as the
-   installed app, so the key is made once and kept forever. It's in the
-   `android-signing/` folder of your local copy (git ignores it). Back it up somewhere
-   private (USB stick, a private cloud folder) and never commit it: if it's lost,
-   phones need a fresh install to get updates again.
-2. **GitHub secrets** (repo → Settings → Secrets and variables → Actions):
-   - `ANDROID_KEYSTORE` = the whole text of `questline-release.jks.base64.txt`
-   - `ANDROID_KEYSTORE_PASSWORD` = the text of `password.txt`
-   - `ANDROID_KEY_ALIAS` = `questline` (optional; that's the default)
-3. **Google sign-in on Android.** In Google Cloud (same project) → **Clients → Create
-   client** → **Android**: package name `com.questline.app`, SHA-1 from
-   `sha1.txt`. No secret is needed: Android checks the app's signature instead.
-4. Push. The **android** job in Actions builds, signs and attaches the APK.
-
-### How sync works
-
-- The shared copy is `My Drive/Questline/questline-sync.json`. Questline syncs when it
-  starts, 15 seconds after you change something, every 3 minutes while it's open, and
-  when you press the cloud icon in the title bar (green = synced, blinking = syncing,
-  red = problem; hover for details).
-- Both devices can be used offline. When they meet, changes are **merged**, not
-  overwritten: tasks are matched one by one (new ones on either side are kept; an edit
-  beats a delete), and gold, XP, HP changes, items and pal EXP from both devices add up.
-  If the same thing was edited on both, the most recent edit wins.
-- Each device keeps its own window, sound, notification, theme and sign-in settings.
-- The first time a device with its own progress meets an existing Drive copy, you choose
-  which one to keep. The other is saved to Backups first.
-- Yesterday's dailies are only settled after the first sync, so two devices never both
-  take damage for the same day.
-
-### What syncs with Google Calendar
-
-- Events from the calendars you tick appear on the Calendar page (refreshed every
-  10 minutes, or press the sync button). Events on calendars you can edit can be
-  edited or deleted from Questline.
-- Events you create in Questline are sent to the calendar you choose.
-- Reminders can be sent too, as 30-minute entries. A ✓ is added when you finish one.
-  Google's own alerts are turned off for these so you aren't notified twice.
+Then:
+- Events from those calendars appear on the Calendar page; events on calendars you can
+  edit can also be changed from Questline.
+- Events you create in Questline are added to the calendar you choose.
+- Reminders can be added too, as 30-minute entries (without duplicate Google alerts).
 - Dailies are never sent.
 
-The sign-in token is encrypted with Windows DPAPI (tied to your Windows account) and
-stored in `%APPDATA%\com.questline.app\`. Google says desktop "client secrets" aren't
-truly secret, so keeping it in Settings is fine.
+**Other calendars (read-only):** **Settings → Subscribed calendars** accepts any iCal
+link (`https://…` or `webcal://…`): Google's "secret address in iCal format", Outlook's
+"Publish a calendar" link, iCloud public calendars, timetables and holiday calendars.
 
-### Other calendars (read-only)
-
-**Settings → Subscribed calendars** accepts any iCal link (`https://…` or `webcal://…`):
-Google's "Secret address in iCal format", Outlook's "Publish a calendar" link, iCloud
-public calendars, college timetables, holiday calendars.
+**Signing out:** **Settings → Google account → Sign out of Google**. You can also remove
+Questline's access at any time at [myaccount.google.com/permissions](https://myaccount.google.com/permissions),
+and delete the `Questline` folder in your Drive to remove synced data and backups.
 
 ---
 
-## 5. Spotify
+## 4. Spotify
 
-Questline uses two connections and switches between them by itself:
+On **Windows**, Questline shows and controls the official Spotify app automatically:
+no setup, no login, free accounts included.
 
-1. **Official Spotify desktop app → Windows media controls.** Instant, works offline,
-   no login, works on free accounts. Used whenever the desktop app is the one playing.
-2. **Your Spotify account → Spotify Web API** (optional, Premium). Sees and controls
-   whatever your account plays anywhere: **Spotifast**, your phone, the web player.
-   Used when the desktop app isn't playing; the player then shows the device
-   ("on Spotifast"). Checks every ~2.4 s while the player is on screen.
-   This mode also shows a **volume slider** with a mute button, for devices that allow
-   remote volume (most do; some speakers and TVs don't).
+To also control playback on other devices (your phone, a speaker, the web player,
+other Spotify apps), or to use Spotify in the **Android** app, connect your Spotify
+account. This needs **Spotify Premium** and takes about five minutes, once:
 
-Why both: Spotifast plays through librespot and doesn't publish Windows media
-controls, but it is a Spotify Connect device, so the account-wide Web API can see it.
+1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+   and log in with your Spotify account.
+2. Press **Create app**. Give it any name and description. Under **Redirect URIs**, add
+   exactly `http://127.0.0.1:43821/callback`. Tick **Web API**, accept the terms and save.
+3. Open the app's **Settings** and copy the **Client ID**.
+4. In Questline: **Settings → Spotify**, paste the Client ID and press
+   **Connect Spotify account**, then approve in the browser.
 
-### Connecting your account (once, ~5 minutes)
-
-1. Go to <https://developer.spotify.com/dashboard> and log in.
-2. **Create app**: any name and description. **Redirect URIs**: add exactly
-   `http://127.0.0.1:43821/callback`. Tick **Web API**, accept the terms, save.
-3. Open the app's **Settings**, copy the **Client ID** (no secret needed: Questline uses PKCE).
-4. Questline → **Settings → Spotify** → paste → **Connect Spotify account** → approve in the browser.
-
-Spotify's 2026 rules for personal (development-mode) apps require Premium on the
-owner's account and allow up to 5 users, which is fine for personal use. The sign-in
-token is encrypted with Windows DPAPI in `%APPDATA%\com.questline.app\spotify-token.bin`.
+This creates a personal Spotify app that only you use; Questline never sees your
+Spotify password. If you sign in with Google, your Client ID is synced to your other
+devices, so there you only need to press **Connect Spotify account**.
 
 ---
 
-## 6. Resource use
+## 5. Installing and updating
 
-- Built with **Tauri 2** (Rust + the WebView2 already in Windows) instead of
-  Electron, so the installer is a few MB rather than ~100 MB.
-- Expect roughly 60–120 MB of RAM, most of it the shared WebView2 runtime. Idle CPU
-  is ~0%: no polling while the window is hidden except a tiny alarm thread that checks
-  every 5 seconds.
-- Spotify is polled every 1.5 s only while a player is on screen. Focus scenes draw at
-  ~12 fps on a 240×135 canvas and stop when the window is hidden or reduced motion is on.
+**Windows 10/11**: download `Questline_x.y.z_x64-setup.exe` from the
+[latest release](https://github.com/Ishaan415/questline/releases/latest) and run it.
+Because the installer isn't code-signed, Windows may show *"Windows protected your PC"*:
+choose **More info → Run anyway**. Questline then lives in the system tray.
 
----
+**Android 8 or newer**: open
+[Questline-android.apk](https://github.com/Ishaan415/questline/releases/latest/download/Questline-android.apk)
+on your phone and install it. Android asks you once to allow installs from your browser.
+On first launch, allow notifications so reminders can reach you.
 
-## 7. Where things live
+**Updates**: both apps check for new versions on start and every few hours, and tell
+you when one is ready (**Settings → Updates** to check now or turn this off). Nothing
+installs without your OK. On Windows the app closes, updates and reopens by itself; on
+Android, the system installer asks you to confirm.
 
-```
-src/                 the whole UI (plain HTML/CSS/JS, no build step)
-  index.html
-  css/app.css        design tokens and themes at the top
-  js/game.js         rules: rewards, streaks, rollover, boss, shop, achievements
-  js/nlp.js          quick-add parser
-  js/sync.js         Google Calendar + iCal
-  js/scheduler.js    builds the next 48 h of notifications
-  js/focus.js        focus mode and the pixel scenes
-  js/updates.js      update checks and the progress window
-  js/sprites.js      sprite renderer + 8×8 icon set (sprite-data.js has the pixels)
-  js/views/*.js      one file per page
-src-tauri/
-  src/lib.rs         tray, hotkeys, autostart, single instance, close-to-tray
-  src/alarms.rs      native notification thread
-  src/storage.rs     atomic save + daily backups
-  src/google.rs      OAuth (loopback + PKCE) and Calendar API proxy
-  src/media.rs       Spotify desktop app via Windows media sessions
-  src/spotify_web.rs Spotify Web API (Spotifast, phone…), PKCE sign-in
-  src/secure.rs      DPAPI token encryption
-  src/updater.rs     self-update from GitHub Releases
-scripts/build-preview.mjs   bundles src/ into one HTML file for the web preview
-```
+**Your data**: saved on your device (Windows: `%APPDATA%\com.questline.app`, reachable
+via **Settings → Open data folder**; Android: the app's private storage), plus your
+Google Drive if you sign in.
 
-Your data: `%APPDATA%\com.questline.app\questline-save.json`, plus `backups\`.
-**Settings → Open data folder** takes you there.
-
-### Tweaking it
-
-- **New theme**: copy a `[data-skin="…"]` block in `css/app.css`, then add it to
-  `SHOP.skins` in `js/game.js`.
-- **Balance**: XP curve, damage, drop rates and prices are all at the top of
-  `js/game.js`.
-- **New focus scene**: add an entry to `SCENES` in `js/focus.js` (`bake` draws the
-  static background once, `draw` animates on top) and to `SHOP.scenes`.
-- **Hotkeys**: change the `Shortcut::new(...)` lines in `src-tauri/src/lib.rs`.
+**Lightweight**: Questline is built with [Tauri](https://tauri.app), so the Windows
+installer is a few MB and the app idles at roughly 0% CPU and 60–120 MB of RAM.
 
 ---
 
-## 8. Troubleshooting
+## 6. Troubleshooting
 
-- **No notifications**: use the installer build (Windows ties notifications to the
-  installed app), check Windows **Focus assist / Do not disturb**, and check
-  Questline's quiet hours. **Settings → Send a test** checks the whole path.
-- **A global hotkey does nothing**: another app owns that combination. Change it in
-  `lib.rs` and rebuild.
-- **Spotify shows "isn't playing"**: start playback once in the Spotify app; Windows
-  only creates its media session after something plays.
-- **Google says "access blocked"**: add your Google account under **Test users** on
-  the OAuth consent screen.
+- **No notifications on Windows**: check **Focus assist / Do not disturb** and
+  Questline's quiet hours (Settings → Notifications). **Send a test** checks the whole path.
+- **No notifications on Android**: allow notifications for Questline in Android's
+  settings, and exclude it from battery optimisation if reminders arrive late.
+- **A keyboard shortcut does nothing (Windows)**: another app already uses that key
+  combination.
+- **Spotify says nothing is playing**: start playback once in the Spotify app. To see
+  other devices, connect your Spotify account (section 4).
+- **Google sign-in or sync shows an error**: check your internet connection and try
+  **Sync now**. If it keeps failing, sign out and sign in again.
+- **Android won't install the update**: allow Questline to install apps when Android
+  asks (Settings → Apps → Questline → Install unknown apps).
+
+---
+
+## 7. Credits and legal
+
+- **Privacy**: Questline has no servers and collects nothing. See the
+  [privacy policy](https://ishaan415.github.io/questline/privacy.html).
+- **Artwork**: all sprites, pals and bosses are original pixel art made for Questline;
+  the colour palettes are inspired by classic handheld games.
+- **Third-party software** (licence texts are included with the app):
+  - [Tauri](https://tauri.app): MIT / Apache-2.0
+  - [ical.js](https://github.com/kewisch/ical.js): Mozilla Public License 2.0
+  - Fonts [Tiny5](https://fonts.google.com/specimen/Tiny5), [Nunito](https://fonts.google.com/specimen/Nunito)
+    and [Fredoka](https://fonts.google.com/specimen/Fredoka): SIL Open Font License 1.1
+- **Trademarks**: Questline is an independent project and is not affiliated with,
+  endorsed by or sponsored by Google, Spotify or Microsoft. Google, Google Drive and
+  Google Calendar are trademarks of Google LLC; Spotify is a trademark of Spotify AB;
+  Windows is a trademark of Microsoft Corporation; Android is a trademark of Google LLC.
+
+---
+
+<sub>Want to build it yourself? Questline is a Tauri 2 app (Rust shell, plain
+HTML/CSS/JS interface in `src/`). With Node.js, Rust and
+[Tauri's prerequisites](https://tauri.app/start/prerequisites/) installed:
+`npm install` then `npm run dev`.</sub>

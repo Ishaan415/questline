@@ -45,8 +45,8 @@ Q.mobile = (() => {
       <div class="shell">
         <main id="view" class="view" tabindex="-1"></main>
         <nav class="tabbar" aria-label="Main">
-          ${TABS.map((t) => `<button class="tab" data-act="go" data-view="${t.k}" data-tab="${t.k}">${I(t.icon)}<span>${t.name}</span></button>`).join('')}
-          <button class="tab" data-act="m-more" data-tab="more">${I('more')}<span>More</span></button>
+          ${TABS.map((t) => `<button class="nav-tab" data-act="go" data-view="${t.k}" data-tab="${t.k}">${I(t.icon)}<span>${t.name}</span></button>`).join('')}
+          <button class="nav-tab" data-act="m-more" data-tab="more">${I('more')}<span>More</span></button>
         </nav>
       </div>
       <button class="fab" data-act="quick-add" aria-label="Quick add">${I('plus')}<span>Add</span></button>`;
@@ -56,7 +56,7 @@ Q.mobile = (() => {
   function update(current) {
     if (!on) return;
     const inTabs = TABS.some((t) => t.k === current);
-    document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('on', inTabs ? b.dataset.tab === current : b.dataset.tab === 'more'));
+    document.querySelectorAll('.nav-tab').forEach((b) => b.classList.toggle('on', inTabs ? b.dataset.tab === current : b.dataset.tab === 'more'));
     const name = document.getElementById('pb-name');
     if (name) name.textContent = NAMES[current] || 'Questline';
     const st = S();

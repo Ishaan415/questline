@@ -80,7 +80,7 @@ Q.views.shop = (() => {
         <div><div class="eyebrow">Spend what you earned</div><h1 class="page-title">Shop</h1></div>
         <div class="head-stats"><div class="stat-pill big-gold">${I('coin')}<b>${st.hero.gold.toLocaleString()}</b><span>gold</span></div></div>
       </div>
-      <div class="tabs" role="tablist">${[['rewards', 'Your rewards'], ['items', 'Items'], ['looks', 'Looks']].map(([k, n]) => `<button class="tab ${tab === k ? 'on' : ''}" data-act="shop-tab" data-t="${k}" role="tab">${n}</button>`).join('')}</div>
+      <div class="tabs" role="tablist">${[['rewards', 'Your rewards', 'chest'], ['items', 'Items', 'potion'], ['looks', 'Looks', 'sun']].map(([k, n, ic]) => `<button class="tab ${tab === k ? 'on' : ''}" data-act="shop-tab" data-t="${k}" role="tab" aria-selected="${tab === k}">${I(ic)}<span>${n}</span></button>`).join('')}</div>
       <section class="panel shop-panel">${tab === 'items' ? items() : tab === 'looks' ? looks() : rewards()}</section>`;
   }
 

@@ -43,7 +43,7 @@ jobs:
           KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
           if [ -z "$KEY" ]; then
-            echo "::error::Missing secret TAURI_SIGNING_PRIVATE_KEY. See README → Updates."
+            echo "::error::Missing secret TAURI_SIGNING_PRIVATE_KEY (Settings → Secrets and variables → Actions)."
             exit 1
           fi
           if grep -q PASTE_YOUR_PUBLIC_KEY_HERE src-tauri/tauri.conf.json; then
@@ -117,7 +117,7 @@ jobs:
           KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           if [ -z "$KS" ] || [ -z "$KS_PASS" ]; then
-            echo "::error::Missing secrets ANDROID_KEYSTORE / ANDROID_KEYSTORE_PASSWORD. See README → Android app."
+            echo "::error::Missing secrets ANDROID_KEYSTORE / ANDROID_KEYSTORE_PASSWORD (Settings → Secrets and variables → Actions)."
             exit 1
           fi
 

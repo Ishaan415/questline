@@ -545,8 +545,9 @@ kbd {
 
 /* ---------------------------------------------------------------- shop */
 .tabs { display: flex; gap: 4px; margin-bottom: -3px; position: relative; z-index: 1; }
-.tab { font-family: var(--f-ui); font-weight: var(--w-ui); font-size: 15px; padding: 8px 16px; border: 3px solid var(--line); border-bottom: 0; border-radius: 10px 10px 0 0; background: var(--panel-2); color: var(--ink-soft); }
+.tab { display: inline-flex; align-items: center; gap: 7px; font-family: var(--f-ui); font-weight: var(--w-ui); font-size: 15px; padding: 8px 16px; border: 3px solid var(--line); border-bottom: 0; border-radius: 10px 10px 0 0; background: var(--panel-2); color: var(--ink-soft); }
 .tab.on { background: var(--panel); color: var(--ink); padding-bottom: 11px; margin-top: -3px; }
+.tab .ico { width: 15px; height: 15px; color: var(--accent); }
 .shop-panel { border-top-left-radius: 0; }
 .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
 .shop-item { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 6px 12px; align-items: start; padding: 12px; border: 2px solid var(--grid); border-radius: 10px; background: var(--panel); text-align: left; }
@@ -1169,7 +1170,7 @@ body.mini .shell { grid-template-columns: minmax(0, 1fr); }
    bottom tab bar, + button bottom-right, dialogs as bottom sheets. */
 .fab { display: none; }
 body.phone { -webkit-tap-highlight-color: transparent; font-size: 15px; }
-body.phone .titlebar, body.phone .tabbar, body.phone .fab, body.phone .btn, body.phone .tab, body.phone .more-tile, body.phone .cbox { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body.phone .titlebar, body.phone .tabbar, body.phone .fab, body.phone .btn, body.phone .nav-tab, body.phone .more-tile, body.phone .cbox { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
 body.phone .titlebar.phonebar { height: 56px; gap: 4px; padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(6px, env(safe-area-inset-right, 0px)); }
 .pb-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; font-family: var(--f-display); font-weight: 700; font-size: 21px; letter-spacing: .5px; white-space: nowrap; }
@@ -1200,15 +1201,15 @@ body.phone .view[data-view="calendar"] { padding-bottom: 88px; }
   flex: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; background: var(--panel); border-top: 3px solid var(--line);
   padding: 4px max(4px, env(safe-area-inset-right, 0px)) max(4px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px));
 }
-.tab {
+.nav-tab {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 60px; min-width: 0; padding: 4px 0;
   border: 0; border-radius: 12px; background: transparent; color: var(--ink-soft); font-family: var(--f-ui); font-weight: var(--w-ui); font-size: 12px;
 }
-.tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tab .ico { width: 20px; height: 20px; padding: 5px 16px; box-sizing: content-box; border-radius: 999px; transition: background .15s; }
-.tab.on { color: var(--ink); }
-.tab.on .ico { background: var(--accent-soft); color: var(--accent); }
-.tab:active .ico { background: var(--hover); }
+.nav-tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-tab .ico { width: 20px; height: 20px; padding: 5px 16px; box-sizing: content-box; border-radius: 999px; transition: background .15s; }
+.nav-tab.on { color: var(--ink); }
+.nav-tab.on .ico { background: var(--accent-soft); color: var(--accent); }
+.nav-tab:active .ico { background: var(--hover); }
 
 body.phone .fab {
   display: flex; position: fixed; z-index: 60; align-items: center; gap: 8px; height: 56px; padding: 0 20px 0 16px;
@@ -1260,6 +1261,17 @@ body.phone .toasts { left: max(12px, env(safe-area-inset-left, 0px)); right: max
 body.phone .toast-btn { min-height: 38px; padding: 4px 12px; font-size: 14px; }
 body.phone .toast-x { width: 38px; height: 38px; place-items: center; }
 body.phone .preview-bar { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+
+/* Shop tabs: three big buttons instead of small folder tabs */
+body.phone .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+body.phone .tab {
+  flex-direction: column; justify-content: center; gap: 5px; min-height: 66px; padding: 8px 4px; margin: 0;
+  border: 3px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); box-shadow: 0 3px 0 var(--line); font-size: 14.5px; text-align: center;
+}
+body.phone .tab .ico { width: 20px; height: 20px; }
+body.phone .tab.on { background: var(--sel-bg); color: var(--sel-ink); padding-bottom: 8px; margin-top: 0; }
+body.phone .tab.on .ico { color: var(--sel-ink); }
+body.phone .tab:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line); }
 
 /* the More sheet */
 body.phone .more-hud { display: flex; margin-bottom: 14px; }
