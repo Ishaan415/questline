@@ -1,13 +1,21 @@
 'use strict';
 /*
- * Platform bridge. Inside the desktop app (Tauri) this calls the Rust side;
- * in a plain browser (the web preview) it falls back to localStorage, the
- * Notification API and a demo Spotify player, so the same UI runs in both.
+ * Platform bridge. Inside the app (Tauri, on Windows or Android) this calls the
+ * Rust side; in a plain browser (the web preview) it falls back to localStorage,
+ * the Notification API and a demo Spotify player, so the same UI runs in both.
+ * Add ?phone to the preview's address to see the phone layout.
  */
 
 Q.platform = (() => {
   const T = window.__TAURI__;
   const isApp = !!(T && T.core && T.core.invoke);
+  const isAndroid = isApp && /Android/i.test(navigator.userAgent);
+  let phonePreview = false;
+  try { phonePreview = !isApp && (/[?&#]phone\b/.test(location.search + location.hash) || !!window.QUESTLINE_PHONE); } catch (e) { /* sandboxed */ }
+  /** Phone layout: the Android app, or the preview with ?phone. */
+  const isPhone = isAndroid || phonePreview;
+  /** What to call this device in messages. */
+  const deviceName = isPhone ? 'phone' : 'PC';
   const LS_KEY = 'questline-save-v1';
 
   const invoke = (cmd, args = {}) => (isApp ? T.core.invoke(cmd, args) : Promise.reject(new Error('Only available in the desktop app')));
@@ -41,6 +49,7 @@ Q.platform = (() => {
     hide: () => (isApp ? invoke('hide_main') : null),
     quit: () => (isApp ? invoke('quit_app') : null),
     async setFullscreen(on) {
+      if (isAndroid) return undefined; // the phone app is already full screen
       if (isApp) return win()?.setFullscreen(on);
       try {
         if (on && !document.fullscreenElement) await document.documentElement.requestFullscreen();
@@ -86,6 +95,10 @@ Q.platform = (() => {
     if (isApp) invoke('set_notify_pause', { untilMs }).catch(() => {});
   }
   async function askNotifyPermission() {
+    // Android 13+ asks once; older phones and Windows just allow it.
+    if (isAndroid) {
+      try { return (await invoke('plugin:notification|request_permission')) === 'granted'; } catch (e) { return false; }
+    }
     if (isApp) return true;
     if (!('Notification' in window)) return false;
     try { return (await Notification.requestPermission()) === 'granted'; } catch (e) { return false; }
@@ -98,13 +111,32 @@ Q.platform = (() => {
     a.href = url; a.target = '_blank'; a.rel = 'noopener';
     document.body.appendChild(a); a.click(); a.remove();
   }
+  /* ---------- phone ---------- */
+  /** Vibration feedback: 'tap' (light), 'success', 'error', 'heavy'. */
+  function haptic(kind = 'tap') {
+    if (isAndroid) { invoke('plugin:ql-mobile|haptic', { kind }).catch(() => {}); return; }
+    if (phonePreview && navigator.vibrate) { try { navigator.vibrate(kind === 'tap' ? 6 : kind === 'error' ? [20, 40, 20] : 18); } catch (e) { /* ignore */ } }
+  }
+  /** Hold the screen in 'portrait' or 'landscape' (focus mode); 'auto' follows the phone. */
+  function setOrientation(mode) {
+    if (isAndroid) { invoke('plugin:ql-mobile|set_orientation', { mode }).catch(() => {}); return; }
+    try {
+      if (mode === 'auto') screen.orientation && screen.orientation.unlock && screen.orientation.unlock();
+      else if (screen.orientation && screen.orientation.lock) screen.orientation.lock(mode).catch(() => {});
+    } catch (e) { /* browsers only allow this in full screen */ }
+  }
+  /** Colour Android's status and navigation bars to match the theme. */
+  function setBars(color, dark) {
+    if (isAndroid) invoke('plugin:ql-mobile|set_bars', { color, dark: !!dark }).catch(() => {});
+  }
+
   const autostart = {
     get: () => (isApp ? invoke('plugin:autostart|is_enabled') : Promise.resolve(false)),
     set: (on) => (isApp ? invoke(on ? 'plugin:autostart|enable' : 'plugin:autostart|disable') : Promise.resolve()),
   };
 
   return {
-    isApp, invoke, listen, load, save, loadExtra, saveExtra, clearBrowserSave, win: w, setAlarms, setNotifyPause, askNotifyPermission,
+    isApp, isAndroid, isPhone, deviceName, haptic, setBars, setOrientation, invoke, listen, load, save, loadExtra, saveExtra, clearBrowserSave, win: w, setAlarms, setNotifyPause, askNotifyPermission,
     openExternal, autostart,
     ready: () => (isApp ? invoke('app_ready') : Promise.resolve()),
     setCloseToTray: (on) => isApp && invoke('set_close_to_tray', { enabled: !!on }),

@@ -302,6 +302,7 @@ Q.focus = (() => {
         }).join('')}</div>
         <div class="fx-top-right">
           <button class="fx-pill ${fs.rain ? 'on' : ''}" data-act="fx-rain" title="Soft rain sound">${I('note')} Rain sound</button>
+          ${Q.platform.isPhone ? `<button class="fx-pill" data-act="fx-rotate" title="Turn the screen">${I('sync')} ${fs.orientation === 'landscape' ? 'Portrait' : 'Landscape'}</button>` : ''}
           <button class="fx-pill" data-act="fx-close" title="Exit (Esc)">${I('close')} Exit</button>
         </div>
       </div>
@@ -324,7 +325,7 @@ Q.focus = (() => {
             <label>Long <input type="number" min="5" max="60" value="${fs.long}" data-change="fx-len" data-k="long" aria-label="Long break minutes"></label>
             <label>Rounds <input type="number" min="2" max="8" value="${fs.rounds}" data-change="fx-len" data-k="rounds" aria-label="Rounds before a long break"></label></div>`
           : f.mode === 'timer' ? `<div class="fx-presets">${[15, 25, 45, 60, 90].map((m) => `<button class="fx-pill ${f.timerMin === m ? 'on' : ''}" data-act="fx-tmin" data-m="${m}">${m}m</button>`).join('')}
-            <label>Custom <input type="number" min="1" max="600" value="${f.timerMin}" data-change="fx-tmin-in" aria-label="Timer minutes"></label></div>` : '<p class="fx-note">Stopwatch sessions over 5 minutes earn XP when you press Finish.</p>') : '<p class="fx-note">Notifications are muted while you focus. Move the mouse to show controls.</p>'}
+            <label>Custom <input type="number" min="1" max="600" value="${f.timerMin}" data-change="fx-tmin-in" aria-label="Timer minutes"></label></div>` : '<p class="fx-note">Stopwatch sessions over 5 minutes earn XP when you press Finish.</p>') : `<p class="fx-note">Notifications are muted while you focus. ${Q.platform.isPhone ? 'Tap the screen' : 'Move the mouse'} to show controls.</p>`}
       </div>
       <div class="fx-bottom">${Q.spotify.markup('focus')}</div>`;
     paintTime();
@@ -348,9 +349,11 @@ Q.focus = (() => {
     render();
     tickT = setInterval(tick, 250);
     Q.platform.win.setFullscreen(true);
+    if (Q.platform.isPhone) Q.platform.setOrientation(st.focus.orientation === 'landscape' ? 'landscape' : 'portrait');
     Q.scheduler.setFocus(true);
     if (st.focus.rain) Q.sfx.ambientRain(true);
     root.addEventListener('mousemove', wake);
+    root.addEventListener('pointerdown', wake);
     wake();
     if (opts.autostart && !f.running) start();
     document.body.classList.add('in-focus');
@@ -369,6 +372,7 @@ Q.focus = (() => {
     cancelAnimationFrame(raf); clearInterval(tickT); clearTimeout(idleT);
     root.hidden = true; root.innerHTML = '';
     Q.platform.win.setFullscreen(false);
+    if (Q.platform.isPhone) Q.platform.setOrientation('auto');
     Q.scheduler.setFocus(false);
     Q.sfx.ambientRain(false);
     document.title = 'Questline';
@@ -399,6 +403,13 @@ Q.focus = (() => {
     on('fx-mode', (el) => { f.mode = el.dataset.m; f.phase = 'work'; f.round = 1; f.combo = 0; resetPhase(); render(); });
     on('fx-tmin', (el) => { f.timerMin = +el.dataset.m; resetPhase(); render(); });
     on('fx-scene', (el) => { S().focus.scene = el.dataset.k; Q.store.commit('focus-scene'); setScene(el.dataset.k); render(); if (S().settings.reducedMotion) { ctx.drawImage(bg, 0, 0); f.scene.draw(ctx, 0, 0); } });
+    on('fx-rotate', () => {
+      const fs = S().focus;
+      fs.orientation = fs.orientation === 'landscape' ? 'portrait' : 'landscape';
+      Q.store.commit('focus');
+      Q.platform.setOrientation(fs.orientation);
+      render();
+    });
     on('fx-rain', () => { const st = S(); st.focus.rain = !st.focus.rain; Q.sfx.ambientRain(st.focus.rain); Q.store.commit('focus'); render(); });
     Q.ui.onChange('fx-task', (el) => { f.taskId = el.value || null; S().focus.lastTaskId = f.taskId; Q.store.commit('focus'); });
     Q.ui.onChange('fx-len', (el) => { const st = S(); st.focus[el.dataset.k] = U.clamp(+el.value || 1, +el.min, +el.max); Q.store.commit('focus'); resetPhase(); render(); });

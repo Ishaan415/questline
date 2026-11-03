@@ -19,6 +19,7 @@ use sha2::{Digest, Sha256};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
+use tauri_plugin_opener::OpenerExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 
@@ -126,7 +127,7 @@ pub async fn spotify_web_connect(app: AppHandle, client_id: String) -> Result<()
         ],
     )
     .map_err(|e| e.to_string())?;
-    tauri_plugin_opener::open_url(auth.as_str(), None::<&str>).map_err(|e| e.to_string())?;
+    app.opener().open_url(auth.as_str(), None::<&str>).map_err(|e| e.to_string())?;
 
     let code = tokio::time::timeout(LOGIN_TIMEOUT, async {
         loop {

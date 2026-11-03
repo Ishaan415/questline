@@ -83,8 +83,8 @@ Q.views.settings = (() => {
       <label class="field"><span class="field-label">Client ID</span><input data-change="set" data-path="settings.google.clientId" value="${esc(g.clientId)}" placeholder="1234-abc.apps.googleusercontent.com" spellcheck="false"></label>
       <label class="field"><span class="field-label">Client secret</span><input data-change="set" data-path="settings.google.clientSecret" value="${esc(g.clientSecret)}" placeholder="GOCSPX-…" spellcheck="false"></label>` : ''}
       <button class="btn btn-primary btn-google" data-act="g-connect" ${own && !g.clientId ? 'disabled' : ''}>${I('cloud')} Sign in with Google</button>
-      <p class="small muted">Your browser opens Google's account chooser: pick your account and allow access. Questline can only see the files it creates in your Drive, never the rest. The sign-in is stored encrypted on this device.</p>
-      ${builtin ? `<button class="link small" data-act="g-own">${ownClient ? 'Use Questline\'s built-in sign-in' : 'Advanced: use my own Google Cloud app'}</button>` : ''}`;
+      <p class="small muted">${P.isAndroid ? 'Google\'s account picker opens: pick your account and allow access. Questline can only see the files it creates in your Drive, never the rest. No password is stored; Android renews access by itself.' : 'Your browser opens Google\'s account chooser: pick your account and allow access. Questline can only see the files it creates in your Drive, never the rest. The sign-in is stored encrypted on this device.'}</p>
+      ${builtin && !P.isAndroid ? `<button class="link small" data-act="g-own">${ownClient ? 'Use Questline\'s built-in sign-in' : 'Advanced: use my own Google Cloud app'}</button>` : ''}`;
   }
 
   let spWebLinked = null;
@@ -122,7 +122,7 @@ Q.views.settings = (() => {
 
   function render(root) {
     const st = S(); const s = st.settings;
-    if (P.isApp && autostartOn === null) P.autostart.get().then((v) => { autostartOn = !!v; Q.app.render(); }).catch(() => { autostartOn = false; });
+    if (P.isApp && !P.isPhone && autostartOn === null) P.autostart.get().then((v) => { autostartOn = !!v; Q.app.render(); }).catch(() => { autostartOn = false; });
     root.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">Make it yours</div><h1 class="page-title">Settings</h1></div></div>
       <div class="settings">
@@ -143,7 +143,7 @@ Q.views.settings = (() => {
 
         <section class="panel">
           <div class="panel-title">${I('bell')} Notifications</div>
-          ${toggle('settings.notifications', 'Desktop notifications', 'Dailies, reminders and events, even with the window closed')}
+          ${toggle('settings.notifications', P.isPhone ? 'Notifications' : 'Desktop notifications', P.isPhone ? 'Dailies, reminders and events, even when Questline is closed' : 'Dailies, reminders and events, even with the window closed')}
           ${select('settings.defaultLead', 'Default heads-up', [[0, 'At the time only'], [5, '5 min before'], [10, '10 min before'], [15, '15 min before'], [30, '30 min before'], [60, '1 hour before']])}
           ${toggle('settings.quietOn', 'Quiet hours', 'Notifications still show inside the app, silently')}
           <div class="row2 ${s.quietOn ? '' : 'dim'}"><label class="field"><span class="field-label">From</span><input type="time" data-change="set" data-path="settings.quietFrom" value="${s.quietFrom}"></label>
@@ -161,8 +161,8 @@ Q.views.settings = (() => {
 
         <section class="panel">
           <div class="panel-title">${I('sun')} Look & sound</div>
-          <div class="mode-row"><span><b>Mode</b><span class="small muted">Press <kbd>D</kbd> or the moon/sun button in the title bar to switch quickly</span></span>
-            <div class="seg seg-small" role="radiogroup" aria-label="Light or dark mode">${[['light', 'Light'], ['dark', 'Dark'], ['auto', 'Match Windows']].map(([k, n]) => `<button class="seg-btn ${s.themeMode === k ? 'on' : ''}" data-act="set-mode" data-mode="${k}">${n}</button>`).join('')}</div></div>
+          <div class="mode-row"><span><b>Mode</b><span class="small muted">${P.isPhone ? 'Also under More at the bottom right' : 'Press <kbd>D</kbd> or the moon/sun button in the title bar to switch quickly'}</span></span>
+            <div class="seg seg-small" role="radiogroup" aria-label="Light or dark mode">${[['light', 'Light'], ['dark', 'Dark'], ['auto', P.isPhone ? 'Match phone' : 'Match Windows']].map(([k, n]) => `<button class="seg-btn ${s.themeMode === k ? 'on' : ''}" data-act="set-mode" data-mode="${k}">${n}</button>`).join('')}</div></div>
           ${['light', 'dark'].map((mode) => `<div class="theme-group"><span class="field-label">${mode === 'light' ? 'Light theme' : 'Dark theme'}</span>
             <div class="skin-row">${st.owned.skins.filter((k) => Q.game.SHOP.skins[k] && Q.game.SHOP.skins[k].mode === mode).map((k) => { const sk = Q.game.SHOP.skins[k]; const on = (mode === 'dark' ? s.darkSkin : s.skin) === k; return `<button class="skin-pick ${on ? 'on' : ''}" data-act="equip-skin" data-key="${k}" title="${sk.name}">${sk.sw.map((c) => `<i style="background:${c}"></i>`).join('')}<span>${sk.name}</span></button>`; }).join('')}
               <button class="skin-pick more" data-act="go-shop-looks">${I('bag')}<span>More in Shop</span></button></div></div>`).join('')}
@@ -170,19 +170,20 @@ Q.views.settings = (() => {
           ${select('settings.uiScale', 'Interface size', [[90, 'Compact (90%)'], [100, 'Normal'], [110, 'Large (110%)'], [125, 'Extra large (125%)']])}
           ${toggle('settings.reducedMotion', 'Reduce motion', 'Calmer animations, static focus scenes')}
           ${toggle('settings.sounds', 'Sound effects')}
+          ${P.isPhone ? toggle('settings.haptics', 'Vibration', 'A light buzz on taps, completed tasks and damage') : ''}
           <label class="toggle-row"><span><b>Volume</b></span><input type="range" min="0" max="1" step="0.05" value="${s.volume}" data-change="set" data-path="settings.volume" data-num="true"></label>
         </section>
 
         <section class="panel">
           <div class="panel-title">${I('gear')} App</div>
-          ${P.isApp ? `<label class="toggle-row"><span><b>Start with Windows</b><span class="small muted">Launches quietly into the tray</span></span><input type="checkbox" class="switch" data-change="autostart" ${autostartOn ? 'checked' : ''}></label>` : ''}
-          ${toggle('settings.closeToTray', 'Close button hides to tray', 'Keeps reminders working. Quit from the tray menu.')}
+          ${P.isApp && !P.isPhone ? `<label class="toggle-row"><span><b>Start with Windows</b><span class="small muted">Launches quietly into the tray</span></span><input type="checkbox" class="switch" data-change="autostart" ${autostartOn ? 'checked' : ''}></label>` : ''}
+          ${P.isPhone ? '' : toggle('settings.closeToTray', 'Close button hides to tray', 'Keeps reminders working. Quit from the tray menu.')}
           ${toggle('settings.confirmDelete', 'Undo bar after deleting')}
-          <div class="keys"><b>Shortcuts</b>
+          ${P.isPhone ? '' : `<div class="keys"><b>Shortcuts</b>
             <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Q</kbd> quick add from anywhere${P.isApp ? '' : ' (desktop app)'}</div>
             <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> focus mode · <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> show/hide</div>
             <div><kbd>N</kbd> quick add · <kbd>Ctrl</kbd>+<kbd>K</kbd> command palette · <kbd>1</kbd>–<kbd>9</kbd> pages · <kbd>F</kbd> focus · <kbd>?</kbd> help</div>
-          </div>
+          </div>`}
         </section>
 
         <section class="panel" id="spotify">
@@ -197,11 +198,11 @@ Q.views.settings = (() => {
 
         <section class="panel">
           <div class="panel-title">${I('chest')} Your data</div>
-          <p class="small muted">${P.isApp ? 'Saved on this PC with a daily backup (last 14 days kept).' : 'The preview keeps data in this browser only.'}</p>
+          <p class="small muted">${P.isApp ? `Saved on this ${P.deviceName} with a daily backup (last 14 days kept).` : 'The preview keeps data in this browser only.'}</p>
           <div class="row-btns">
             <button class="btn btn-small" data-act="export">${I('down')} Export backup</button>
             <label class="btn btn-small file-btn">${I('up')} Import backup<input type="file" accept=".json,application/json" data-change="import" hidden></label>
-            ${P.isApp ? `<button class="btn btn-small" data-act="open-data">Open data folder</button>` : ''}
+            ${P.isApp && !P.isPhone ? `<button class="btn btn-small" data-act="open-data">Open data folder</button>` : ''}
             <button class="btn btn-small" data-act="starter-packs">Starter packs</button>
           </div>
           <div class="row-btns"><button class="btn btn-small btn-danger-ghost" data-act="reset-all">Start over</button></div>
@@ -243,8 +244,9 @@ Q.views.settings = (() => {
         try {
           const data = JSON.parse(r.result);
           if (!data.hero || !data.dailies) throw new Error('Not a Questline backup');
-          if (!(await Q.ui.confirm('Replace everything with this backup? Export first if you want to keep the current data.', { ok: 'Import', danger: true }))) return;
-          Q.store.replace(data); Q.app.applySettings(); Q.ui.toast('Backup imported', { kind: 'ok' });
+          if (!(await Q.ui.confirm(`Replace everything with this backup (${Q.cloud.summary(data)})? ${Q.cloud.canDrive() ? 'Your current progress is backed up to Drive first, and your other devices get the backup too.' : 'Export first if you want to keep the current data.'}`, { ok: 'Import', danger: true }))) return;
+          await Q.cloud.importSave(data);
+          Q.ui.toast(`Backup imported: ${Q.cloud.summary(data)}`, { kind: 'ok' });
         } catch (e) { Q.ui.toast(`Couldn't import: ${e.message}`, { kind: 'error' }); }
       };
       r.readAsText(file);
@@ -275,18 +277,23 @@ Q.views.settings = (() => {
     on('cloud-open', () => P.openExternal(Q.cloud.driveFolderUrl()));
     on('cloud-restore', async () => {
       let list = [];
+      Q.ui.toast('Reading your backups…', { timeout: 2500 });
       try { list = await Q.cloud.listBackups(); } catch (e) { return Q.ui.toast(String(e), { kind: 'error' }); }
       if (!list.length) return Q.ui.toast('No backups in Drive yet. Use "Back up now" first.');
+      const label = (n) => {
+        const m = n.match(/^questline-(\d{4}-\d{2}-\d{2})(?:-(\d{2})(\d{2}))?(?:-([a-z-]+))?\.json$/);
+        return m ? `${m[1]}${m[2] ? ` ${m[2]}:${m[3]}` : ''}${m[4] ? ` · ${m[4].replace(/-/g, ' ')}` : ''}` : n;
+      };
       Q.ui.modal({
         title: 'Restore a backup', cls: 'modal-form',
-        body: `<p class="small muted">Replaces your progress on every device with the backup you pick. Your current progress is backed up first.</p>
-          <div class="backup-list">${list.map((f) => `<button class="backup-row" data-id="${esc(f.id)}"><b>${esc(f.name.replace(/^questline-|\.json$/g, ''))}</b><span class="small muted">${esc(new Date(f.modifiedTime).toLocaleString())} · ${Math.max(1, Math.round(f.size / 1024))} KB</span></button>`).join('')}</div>`,
+        body: `<p class="small muted">Brings back your dailies, reminders, habits, events, progress and pals, plus that device's look & sound. It replaces your progress on every device; your current progress is backed up first.</p>
+          <div class="backup-list">${list.map((f) => `<button class="backup-row ${f.items === 0 ? 'empty' : ''}" data-id="${esc(f.id)}"><b>${esc(label(f.name))}</b><span class="small">${esc(f.summary)}${f.items === 0 ? ' · empty' : ''}</span><span class="small muted">${esc(new Date(f.modifiedTime).toLocaleString())}${f.device ? ` · from ${esc(f.device)}` : ''}</span></button>`).join('')}</div>`,
         onMount(m, close) {
           m.querySelectorAll('[data-id]').forEach((b) => {
             b.onclick = async () => {
               if (!(await Q.ui.confirm(`Restore ${b.querySelector('b').textContent}? This replaces your current progress on all devices.`, { ok: 'Restore', danger: true }))) return;
               close();
-              try { await Q.cloud.restore(b.dataset.id); Q.ui.toast('Backup restored', { kind: 'ok' }); }
+              try { const d = await Q.cloud.restore(b.dataset.id); Q.ui.toast(`Backup restored: ${Q.cloud.summary(d)}`, { kind: 'ok', timeout: 6000 }); }
               catch (e) { Q.ui.toast(String(e), { kind: 'error', timeout: 8000 }); }
             };
           });
@@ -339,6 +346,8 @@ Q.views.settings = (() => {
     on('reset-all', async () => {
       if (!(await Q.ui.confirm('Erase all dailies, reminders, events and progress? A backup is exported first.', { ok: 'Erase everything', danger: true }))) return;
       await Q.app.exportData();
+      // The sync "base" belongs to the old save: drop it, or signing in again would sync the empty save over Drive.
+      await Q.cloud.dropBase();
       Q.store.replace(Q.store.defaults()); Q.app.applySettings(); Q.app.go('home'); Q.onboarding.start();
     });
   }

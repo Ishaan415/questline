@@ -1,5 +1,7 @@
-# Builds Questline for Windows and publishes it as a GitHub Release.
-# The installed app checks the latest release and offers the update.
+# Builds Questline for Windows and Android and publishes both as one GitHub Release.
+# The installed apps check the latest release and offer the update.
+#   1. release: Windows installer + latest.json (signed, for the Windows updater)
+#   2. android: Questline-android.apk + android.json, added to the same release
 #
 # Runs when you push changes to the app (src/, src-tauri/, package files) to main,
 # or manually from the Actions tab. Versions are SERIES.<n>: the first release in
@@ -21,7 +23,7 @@ permissions:
   contents: write   # needed to create releases
 
 env:
-  SERIES: '0.4'
+  SERIES: '0.5'
 
 concurrency:
   group: release
@@ -30,6 +32,8 @@ concurrency:
 jobs:
   release:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
     steps:
       - uses: actions/checkout@v6
 
@@ -48,6 +52,7 @@ jobs:
           fi
 
       - name: Pick the next version in the series
+        id: ver
         shell: bash
         run: |
           # Count releases already tagged vSERIES.* (e.g. v0.3.0, v0.3.1) and use the next number.
@@ -55,6 +60,7 @@ jobs:
           n=$(git ls-remote --tags origin "refs/tags/v${SERIES}.*" | awk '!/\^\{\}/' | wc -l | tr -d ' ')
           VERSION="${SERIES}.${n}"
           echo "Building version $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           node -e "
             const fs = require('fs');
             const f = 'src-tauri/tauri.conf.json';
@@ -94,3 +100,104 @@ jobs:
           releaseDraft: false
           prerelease: false
           updaterJsonPreferNsis: true
+
+  # Phone app. Runs after the Windows release exists and adds the APK to it.
+  # If this job fails, the Windows update still goes out; fix and push again.
+  android:
+    needs: release
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check Android signing setup
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KS" ] || [ -z "$KS_PASS" ]; then
+            echo "::error::Missing secrets ANDROID_KEYSTORE / ANDROID_KEYSTORE_PASSWORD. See README → Android app."
+            exit 1
+          fi
+
+      - name: Use the same version as the Windows build
+        run: |
+          node -e "
+            const fs = require('fs');
+            const f = 'src-tauri/tauri.conf.json';
+            const c = JSON.parse(fs.readFileSync(f, 'utf8'));
+            c.version = process.argv[1];
+            fs.writeFileSync(f, JSON.stringify(c, null, 2));
+          " "$VERSION"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          key: android
+
+      - name: Install JS tooling
+        run: npm ci
+
+      - name: Create the Android project
+        run: |
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npx tauri android init --ci
+
+      - name: App icon
+        run: |
+          npx tauri icon app-icon.png -o "$RUNNER_TEMP/icons"
+          cp -r "$RUNNER_TEMP/icons/android/." src-tauri/gen/android/app/src/main/res/
+          sed -i 's/#FFFFFF/#6EC070/' src-tauri/gen/android/app/src/main/res/values/ic_launcher_background.xml
+
+      - name: Build the APK (64-bit ARM, which every recent phone uses)
+        run: |
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npx tauri android build --apk --target aarch64 --ci
+
+      - name: Sign the APK
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'questline' }}
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*release*.apk' | head -1)
+          echo "Signing $APK"
+          echo "$ANDROID_KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
+          "$BT/zipalign" -f -p 4 "$APK" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.jks" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" --out Questline-android.apk "$RUNNER_TEMP/aligned.apk"
+          rm -f "$RUNNER_TEMP/release.jks"
+          "$BT/apksigner" verify --print-certs Questline-android.apk | grep -i "SHA-1" || true
+
+      - name: Add the APK to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTES: ${{ github.event.head_commit.message || 'Manual release' }}
+        run: |
+          node -e "
+            const [version, repo, notes] = process.argv.slice(1);
+            require('fs').writeFileSync('android.json', JSON.stringify({
+              version,
+              url: 'https://github.com/' + repo + '/releases/download/v' + version + '/Questline-android.apk',
+              notes,
+              date: new Date().toISOString(),
+            }, null, 2));
+          " "$VERSION" "$GITHUB_REPOSITORY" "$NOTES"
+          gh release upload "v$VERSION" Questline-android.apk android.json --clobber --repo "$GITHUB_REPOSITORY"

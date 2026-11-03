@@ -9,22 +9,31 @@
 //!   * Spotify control through Windows' system media sessions (GSMTC), with the
 //!     Spotify Web API as a fallback for other players (Spotifast, phone…)
 //!   * self-updates from GitHub Releases (signed)
+//!
+//! The same crate builds the Android app. Tray, hotkeys, autostart and the
+//! single-window lock are Windows-only (`cfg(desktop)`); the phone gets the
+//! ql-mobile plugin instead (Google sign-in, haptics, back button, APK updates).
 
 mod alarms;
 mod drive;
 mod google;
 mod media;
+mod mobile;
 mod secure;
 mod spotify_web;
 mod storage;
 mod updater;
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::{AppHandle, Manager};
+use tauri_plugin_opener::OpenerExt;
+#[cfg(desktop)]
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, WindowEvent,
+    Emitter, WindowEvent,
 };
+#[cfg(desktop)]
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 /// When true, the window's close button hides to tray instead of quitting.
@@ -32,16 +41,21 @@ static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(true);
 /// Set when the app was launched by autostart with `--minimized`.
 static START_HIDDEN: AtomicBool = AtomicBool::new(false);
 
+#[cfg(desktop)]
 const TRAY_ID: &str = "questline-tray";
 
 pub fn show_main(app: &AppHandle) {
+    #[cfg(desktop)]
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
     }
+    #[cfg(mobile)]
+    let _ = app;
 }
 
+#[cfg(desktop)]
 fn toggle_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let visible = w.is_visible().unwrap_or(false);
@@ -55,6 +69,7 @@ fn toggle_main(app: &AppHandle) {
 }
 
 /// Show the window and ask the UI to perform an action (quick add, focus...).
+#[cfg(desktop)]
 fn show_and_emit(app: &AppHandle, action: &str) {
     show_main(app);
     let _ = app.emit("tray-action", action.to_string());
@@ -77,16 +92,22 @@ fn set_close_to_tray(enabled: bool) {
 
 #[tauri::command]
 fn set_tray_tooltip(app: AppHandle, text: String) {
+    #[cfg(desktop)]
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let _ = tray.set_tooltip(Some(text));
     }
+    #[cfg(mobile)]
+    let _ = (app, text);
 }
 
 #[tauri::command]
 fn hide_main(app: AppHandle) {
+    #[cfg(desktop)]
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.hide();
     }
+    #[cfg(mobile)]
+    let _ = app;
 }
 
 #[tauri::command]
@@ -95,18 +116,81 @@ fn quit_app(app: AppHandle) {
 }
 
 /// Open an external link. Only web links and the Spotify app are allowed.
+/// (async: on Android opening a link goes through the native side.)
 #[tauri::command]
-fn open_external(url: String) -> Result<(), String> {
+async fn open_external(app: AppHandle, url: String) -> Result<(), String> {
     let ok = url.starts_with("https://") || url == "spotify:" || url.starts_with("spotify:");
     if !ok {
         return Err("Only https:// and spotify: links can be opened.".into());
     }
-    tauri_plugin_opener::open_url(url, None::<&str>).map_err(|e| e.to_string())
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
 // --------------------------------------------------------------------- run
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let builder = tauri::Builder::default();
+    #[cfg(desktop)]
+    let builder = desktop_setup(builder);
+    #[cfg(mobile)]
+    let builder = builder
+        .plugin(tauri_plugin_ql_mobile::init())
+        .setup(|app| {
+            alarms::start(app.handle().clone());
+            Ok(())
+        });
+
+    builder
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_opener::init())
+        .invoke_handler(tauri::generate_handler![
+            app_ready,
+            set_close_to_tray,
+            set_tray_tooltip,
+            hide_main,
+            quit_app,
+            open_external,
+            storage::load_state,
+            storage::save_state,
+            storage::export_backup,
+            storage::open_data_dir,
+            storage::load_extra,
+            storage::save_extra,
+            alarms::set_alarms,
+            alarms::set_notify_pause,
+            google::google_connect,
+            google::google_status,
+            google::google_account,
+            google::google_builtin,
+            drive::drive_ensure_folder,
+            drive::drive_find,
+            drive::drive_list,
+            drive::drive_read,
+            drive::drive_write,
+            drive::drive_trash,
+            google::google_disconnect,
+            google::google_api,
+            google::fetch_ics,
+            media::spotify_state,
+            media::spotify_art,
+            media::spotify_control,
+            spotify_web::spotify_web_connect,
+            spotify_web::spotify_web_status,
+            spotify_web::spotify_web_disconnect,
+            spotify_web::spotify_web_state,
+            spotify_web::spotify_web_art,
+            spotify_web::spotify_web_control,
+            updater::update_check,
+            updater::update_install,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running Questline");
+}
+
+/// Windows: one instance, tray, hotkeys, autostart, close-to-tray, installer updates.
+#[cfg(desktop)]
+fn desktop_setup(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     if std::env::args().any(|a| a == "--minimized") {
         START_HIDDEN.store(true, Ordering::SeqCst);
     }
@@ -115,13 +199,11 @@ pub fn run() {
     let focus_key = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyF);
     let toggle_key = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyH);
 
-    tauri::Builder::default()
+    builder
         // Must be registered first: a second launch just focuses the first one.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_main(app);
         }))
-        .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -218,46 +300,4 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![
-            app_ready,
-            set_close_to_tray,
-            set_tray_tooltip,
-            hide_main,
-            quit_app,
-            open_external,
-            storage::load_state,
-            storage::save_state,
-            storage::export_backup,
-            storage::open_data_dir,
-            storage::load_extra,
-            storage::save_extra,
-            alarms::set_alarms,
-            alarms::set_notify_pause,
-            google::google_connect,
-            google::google_status,
-            google::google_account,
-            google::google_builtin,
-            drive::drive_ensure_folder,
-            drive::drive_find,
-            drive::drive_list,
-            drive::drive_read,
-            drive::drive_write,
-            drive::drive_trash,
-            google::google_disconnect,
-            google::google_api,
-            google::fetch_ics,
-            media::spotify_state,
-            media::spotify_art,
-            media::spotify_control,
-            spotify_web::spotify_web_connect,
-            spotify_web::spotify_web_status,
-            spotify_web::spotify_web_disconnect,
-            spotify_web::spotify_web_state,
-            spotify_web::spotify_web_art,
-            spotify_web::spotify_web_control,
-            updater::update_check,
-            updater::update_install,
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running Questline");
 }

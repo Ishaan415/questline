@@ -9,6 +9,9 @@ questline-preview.html
 
 # Signing keys: the private key must never be in the repo
 *.key
+*.jks
+*.keystore
+android-signing/
 
 # Editor and OS clutter
 .vscode/

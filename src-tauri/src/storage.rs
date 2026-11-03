@@ -4,6 +4,7 @@
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
+use tauri_plugin_opener::OpenerExt;
 
 /// `npm run dev` builds use their own save file, so experiments never touch
 /// the data of the installed app.
@@ -127,7 +128,12 @@ pub fn save_extra(app: AppHandle, name: String, json: String) -> Result<(), Stri
 }
 
 #[tauri::command]
-pub fn open_data_dir(app: AppHandle) -> Result<(), String> {
+pub async fn open_data_dir(app: AppHandle) -> Result<(), String> {
+    if cfg!(mobile) {
+        return Err("On a phone the app's files are private to Questline. Use Google Drive backups instead.".into());
+    }
     let dir = data_dir(&app)?;
-    tauri_plugin_opener::open_path(dir, None::<&str>).map_err(|e| e.to_string())
+    app.opener()
+        .open_path(dir.to_string_lossy(), None::<&str>)
+        .map_err(|e| e.to_string())
 }

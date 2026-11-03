@@ -1,0 +1,16 @@
+[package]
+name = "tauri-plugin-ql-mobile"
+version = "0.1.0"
+description = "Questline's phone bridge: Google sign-in, haptics, back button, system bars and APK updates (Android)."
+edition = "2021"
+publish = false
+# Lets the app's Android build find this plugin's Kotlin project.
+links = "tauri-plugin-ql-mobile"
+build = "build.rs"
+
+[dependencies]
+tauri = { version = "2" }
+serde = { version = "1", features = ["derive"] }
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

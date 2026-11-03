@@ -1,9 +1,10 @@
 # Questline
 
-A cozy pixel-RPG planner for Windows. Daily chores with times, reminders, a
-full-page calendar synced with Google, a full-screen focus mode with ambient
-pixel scenes, and Spotify controls. It lives in the system tray and costs
-almost nothing to keep running.
+A cozy pixel-RPG planner for Windows and Android. Daily chores with times,
+reminders, a full-page calendar synced with Google, a full-screen focus mode with
+ambient pixel scenes, and Spotify controls. On Windows it lives in the system tray
+and costs almost nothing to keep running; on your phone it's the same app with a
+thumb-friendly layout. Sign in with Google and both stay in sync.
 
 Finishing things earns XP, gold and badges; a team of pals grows and evolves with
 you; a new boss shows up every week. Missing things stings a little, never a lot.
@@ -13,8 +14,9 @@ you; a new boss shows up every week. Missing things stings a little, never a lot
 ## 1. Releases, updates and making changes
 
 Every push to `main` that touches the app (`src/`, `src-tauri/`, `package*.json`)
-builds a new signed version on GitHub (versions `0.3.0`, `0.3.1`, …) and publishes it
-as a **GitHub Release**. The installed app checks for it shortly after it starts and
+builds a new signed version on GitHub (versions `0.5.0`, `0.5.1`, …) and publishes it
+as a **GitHub Release**: the Windows installer first, then the Android APK is added
+to the same release about 15 minutes later (see [Android app](#android-app)). The installed app checks for it shortly after it starts and
 every 6 hours, then offers **Update now**. It downloads the installer, verifies its
 signature, and Questline closes, updates and reopens by itself. You can also check
 from the tray menu, **Settings → Updates**, or `Ctrl+K → Check for updates`.
@@ -23,9 +25,9 @@ Add `[skip ci]` to a commit message to push without releasing (e.g. while you're
 halfway through a change spread over several commits).
 
 **Version numbers.** `SERIES` at the top of `.github/workflows/build-windows.yml`
-sets the first two parts (currently `0.3`). Each release counts the existing
-`v0.3.*` tags and takes the next number, so the first build is `0.3.0`. For a big
-update, change `SERIES` to `0.4` and the next build becomes `0.4.0`.
+sets the first two parts (currently `0.5`). Each release counts the existing
+`v0.5.*` tags and takes the next number, so the first build is `0.5.0`. For a big
+update, change `SERIES` to `0.6` and the next build becomes `0.6.0`.
 
 ### One-time setup
 
@@ -203,8 +205,15 @@ Google Calendar is an optional extra you turn on afterwards:
 - **Sync across devices**: tasks, progress, pals and game settings stay the same on
   every device signed in with the same account.
 - **Daily backups in your Google Drive**, in a normal folder you can open:
-  `My Drive/Questline/Backups/questline-YYYY-MM-DD.json` (last 30 days kept).
-  **Settings → Restore…** puts one back on every device.
+  `My Drive/Questline/Backups/questline-YYYY-MM-DD-HHMM.json`. Every backup is a new
+  file (nothing is ever overwritten) and the newest 40 are kept. **Settings → Restore…**
+  lists them with what's inside ("Lv 3 · 5 dailies · 2 reminders · 80 gold") and puts
+  the one you pick back on every device: tasks, progress, pals, and that device's look
+  & sound. Your Spotify app's Client ID comes along too, so on a new device Spotify is
+  one tap (**Connect Spotify account**); the Spotify sign-in itself stays per device.
+- **New device or a fresh start?** Just sign in: if this device has nothing yet,
+  Questline takes your progress from Drive automatically, plus the look & sound from
+  your newest backup.
 - **Google Calendar** (optional, Settings → Google account → **Turn on Google Calendar**):
   events from your Google calendars on the Calendar page, and your own events/reminders
   sent to Google. Questline only asks Google for Calendar permission at that moment.
@@ -246,6 +255,36 @@ paste a different client if you ever need to.
 
 If you signed in before 0.4 (Calendar only), Settings shows **Allow Drive**: sign in
 once more and tick the Drive permission.
+
+### Android app
+
+The phone app is built from the same code and released with every Windows version
+(`Questline-android.apk` in each GitHub Release). Install it once from
+<https://github.com/Ishaan415/questline/releases/latest/download/Questline-android.apk>
+(Android asks you to allow installs from your browser). After that, **Settings →
+Updates** downloads new versions and Android asks you to confirm.
+
+On the phone: tab bar at the bottom (Home, Dailies, Reminders, Calendar, More), a big
+**+ Add** button in thumb reach, dialogs open from the bottom, vibration on taps and
+completed tasks, the back button closes dialogs and goes Home, and reminders arrive
+as notifications even when Questline is closed. Focus mode has a **Landscape /
+Portrait** button.
+
+**One-time Android setup (developer, about 10 minutes):**
+
+1. **Signing key.** Android only accepts an update signed with the same key as the
+   installed app, so the key is made once and kept forever. It's in the
+   `android-signing/` folder of your local copy (git ignores it). Back it up somewhere
+   private (USB stick, a private cloud folder) and never commit it: if it's lost,
+   phones need a fresh install to get updates again.
+2. **GitHub secrets** (repo → Settings → Secrets and variables → Actions):
+   - `ANDROID_KEYSTORE` = the whole text of `questline-release.jks.base64.txt`
+   - `ANDROID_KEYSTORE_PASSWORD` = the text of `password.txt`
+   - `ANDROID_KEY_ALIAS` = `questline` (optional; that's the default)
+3. **Google sign-in on Android.** In Google Cloud (same project) → **Clients → Create
+   client** → **Android**: package name `com.questline.app`, SHA-1 from
+   `sha1.txt`. No secret is needed: Android checks the app's signature instead.
+4. Push. The **android** job in Actions builds, signs and attaches the APK.
 
 ### How sync works
 

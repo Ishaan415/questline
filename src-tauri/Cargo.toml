@@ -15,19 +15,25 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-notification = "2"
-tauri-plugin-autostart = "2"
-tauri-plugin-global-shortcut = "2"
-tauri-plugin-single-instance = "2"
 tauri-plugin-opener = "2"
-tauri-plugin-updater = "2"
+# Phone bridge (Google sign-in, haptics, back button, APK updates). Does nothing on Windows.
+tauri-plugin-ql-mobile = { path = "plugins/ql-mobile" }
+time = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-tokio = { version = "1", features = ["net", "io-util", "time", "sync"] }
+tokio = { version = "1", features = ["net", "io-util", "time", "sync", "fs"] }
 sha2 = "0.10"
 base64 = "0.22"
 rand = "0.8"
 url = "2"
+
+# Desktop-only: tray, autostart, hotkeys, one window, signed installer updates.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-autostart = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [

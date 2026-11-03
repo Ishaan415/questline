@@ -9,6 +9,10 @@
 //!   4. Exchange the code (+ PKCE verifier) for access and refresh tokens.
 //!   5. Store the refresh token, DPAPI-encrypted, in the app data folder.
 //!
+//! On Android there is no browser round-trip: Google Play services shows its own
+//! account picker and hands back short-lived access tokens (plugins/ql-mobile).
+//! Nothing long-lived is stored; a fresh token is fetched silently when needed.
+//!
 //! The UI then calls `google_api` for Calendar v3 endpoints only, and the
 //! drive_* commands for the Questline folder. Tokens never leave the Rust side.
 
@@ -21,6 +25,7 @@ use sha2::{Digest, Sha256};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
+use tauri_plugin_opener::OpenerExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -38,6 +43,11 @@ const BASE_SCOPES: &str = "openid email profile https://www.googleapis.com/auth/
 const CALENDAR_SCOPES: &str = "https://www.googleapis.com/auth/calendar.readonly \
                                https://www.googleapis.com/auth/calendar.events";
 const TOKEN_FILE: &str = "google-token.bin";
+/// Android signs in through Google Play services instead of the loopback flow.
+const ANDROID: bool = cfg!(target_os = "android");
+/// Google Play services doesn't say how long a (possibly cached) token has left,
+/// so treat it as fresh for half an hour; a 401 renews it early anyway.
+const ANDROID_TOKEN_SECS: u64 = 30 * 60;
 
 /// Questline's own Google OAuth client, baked in at build time from the GitHub
 /// secrets GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET (see the release workflow).
@@ -55,7 +65,7 @@ fn builtin_client() -> Option<(String, Option<String>)> {
 /// True when this build has Questline's own Google client inside.
 #[tauri::command]
 pub fn google_builtin() -> bool {
-    builtin_client().is_some()
+    ANDROID || builtin_client().is_some()
 }
 const LOGIN_TIMEOUT: Duration = Duration::from_secs(300);
 
@@ -74,6 +84,9 @@ struct Tokens {
     email: String,
     #[serde(default)]
     name: String,
+    /// Signed in through Google Play services (Android): no refresh token.
+    #[serde(default)]
+    android: bool,
 }
 
 #[derive(Deserialize)]
@@ -206,6 +219,9 @@ pub async fn google_connect(
     // the permissions already granted (include_granted_scopes below).
     let calendar = calendar.unwrap_or(false);
     let previous = load_tokens(&app);
+    if ANDROID {
+        return connect_android(&app, calendar, previous).await;
+    }
     let scopes = if calendar { format!("{BASE_SCOPES} {CALENDAR_SCOPES}") } else { BASE_SCOPES.to_string() };
     // Your own client from Settings (advanced) wins; otherwise the built-in one.
     let (client_id, client_secret) = match client_id.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
@@ -249,7 +265,7 @@ pub async fn google_connect(
         params.push(("login_hint", hint.as_str()));
     }
     let auth = url::Url::parse_with_params(AUTH_URL, &params).map_err(|e| e.to_string())?;
-    tauri_plugin_opener::open_url(auth.as_str(), None::<&str>).map_err(|e| e.to_string())?;
+    app.opener().open_url(auth.as_str(), None::<&str>).map_err(|e| e.to_string())?;
 
     // Wait for the redirect. Browsers may also ask for /favicon.ico, so loop.
     let code = tokio::time::timeout(LOGIN_TIMEOUT, async {
@@ -322,8 +338,66 @@ pub async fn google_connect(
             scope: tr.scope.unwrap_or_default(),
             email,
             name,
+            android: false,
         },
     )
+}
+
+/// Scope list for Google Play services. Keeps Calendar if it was granted before.
+fn android_scopes(calendar: bool) -> Vec<String> {
+    let mut v: Vec<String> = BASE_SCOPES.split_whitespace().map(str::to_string).collect();
+    if calendar {
+        v.extend(CALENDAR_SCOPES.split_whitespace().map(str::to_string));
+    }
+    v
+}
+
+fn has_calendar(scope: &str) -> bool {
+    scope.split_whitespace().any(|s| s == "https://www.googleapis.com/auth/calendar.events")
+}
+
+/// Android sign-in: Google's own account picker and consent screen, no browser.
+async fn connect_android(app: &AppHandle, calendar: bool, previous: Option<Tokens>) -> Result<(), String> {
+    let keep_calendar = previous.as_ref().map(|t| has_calendar(&t.scope)).unwrap_or(false);
+    let scopes = android_scopes(calendar || keep_calendar);
+    let grant = crate::mobile::authorize(app, scopes.clone(), true).await?;
+    let (email, name) = userinfo(&grant.access_token).await.unwrap_or_default();
+    let scope = if grant.granted_scopes.is_empty() { scopes.join(" ") } else { grant.granted_scopes.join(" ") };
+    save_tokens(
+        app,
+        &Tokens {
+            client_id: "android".into(),
+            client_secret: None,
+            refresh_token: String::new(),
+            access_token: grant.access_token,
+            expires_at: now_s() + ANDROID_TOKEN_SECS,
+            scope,
+            email,
+            name,
+            android: true,
+        },
+    )
+}
+
+/// Silent token renewal on Android. Fails (asking to sign in again) only if the
+/// user removed Questline's access in their Google account.
+async fn renew_android(app: &AppHandle, mut t: Tokens, rejected: bool) -> Result<String, String> {
+    if rejected {
+        let _ = crate::mobile::clear_token(app, &t.access_token).await;
+    }
+    let scopes: Vec<String> = if t.scope.trim().is_empty() {
+        android_scopes(false)
+    } else {
+        t.scope.split_whitespace().map(str::to_string).collect()
+    };
+    let grant = crate::mobile::authorize(app, scopes, false).await?;
+    t.access_token = grant.access_token;
+    t.expires_at = now_s() + ANDROID_TOKEN_SECS;
+    if !grant.granted_scopes.is_empty() {
+        t.scope = grant.granted_scopes.join(" ");
+    }
+    save_tokens(app, &t)?;
+    Ok(t.access_token)
 }
 
 async fn userinfo(token: &str) -> Option<(String, String)> {
@@ -338,6 +412,9 @@ pub(crate) async fn access_token(app: &AppHandle, force_refresh: bool) -> Result
     let mut t = load_tokens(app).ok_or("Your Google account isn't connected.")?;
     if !force_refresh && t.expires_at > now_s() + 60 {
         return Ok(t.access_token);
+    }
+    if t.android {
+        return renew_android(app, t, force_refresh).await;
     }
     let mut form: Vec<(&str, &str)> = vec![
         ("grant_type", "refresh_token"),
@@ -400,11 +477,12 @@ pub async fn google_account(app: AppHandle) -> Result<Account, String> {
 #[tauri::command]
 pub async fn google_disconnect(app: AppHandle) -> Result<(), String> {
     if let Some(t) = load_tokens(&app) {
-        let _ = http()
-            .post(REVOKE_URL)
-            .form(&[("token", t.refresh_token.as_str())])
-            .send()
-            .await;
+        // Revoking either token ends Questline's access for the whole account.
+        let token = if t.android { t.access_token.as_str() } else { t.refresh_token.as_str() };
+        let _ = http().post(REVOKE_URL).form(&[("token", token)]).send().await;
+        if t.android {
+            let _ = crate::mobile::clear_token(&app, &t.access_token).await;
+        }
     }
     if let Ok(mut c) = CACHE.lock() {
         *c = None;

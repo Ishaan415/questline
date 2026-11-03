@@ -81,6 +81,8 @@ Q.ui = (() => {
   function toast(text, { kind = 'info', icon, actions = [], timeout = 4200 } = {}) {
     const root = document.getElementById('toasts');
     const t = document.createElement('div');
+    if (kind === 'error') Q.mobile.buzz('error');
+    else if (kind === 'alarm') Q.mobile.buzz('heavy');
     t.className = `toast toast-${kind}`;
     t.setAttribute('role', 'status');
     t.innerHTML = `${icon ? `<span class="toast-ico">${icon}</span>` : ''}<span class="toast-text">${U.esc(text)}</span>
@@ -126,11 +128,12 @@ Q.ui = (() => {
           if (e.palExp) setTimeout(() => float(`+${e.palExp} pal EXP`, 'pal', { x: p.x + 8, y: p.y + 26 }), 180);
           floatY += 22;
           Q.sfx.complete(); setTimeout(Q.sfx.coin, 90);
+          Q.mobile.buzz('success');
           if (e.bossDmg) setTimeout(() => document.querySelectorAll('.boss-sprite').forEach((b) => { b.classList.remove('hit'); void b.offsetWidth; b.classList.add('hit'); }), 50);
           break;
         }
-        case 'uncheck': Q.sfx.uncheck(); break;
-        case 'hurt': Q.sfx.hurt(); shake(); if (!e.rollover) float(`−${e.dmg} HP`, 'hurt'); break;
+        case 'uncheck': Q.sfx.uncheck(); Q.mobile.buzz('tap'); break;
+        case 'hurt': Q.sfx.hurt(); shake(); Q.mobile.buzz('error'); if (!e.rollover) float(`−${e.dmg} HP`, 'hurt'); break;
         case 'drop':
           setTimeout(() => { Q.sfx.drop(); toast(e.drop.text, { kind: 'drop', icon: I(e.drop.item === 'gold' ? 'coin' : e.drop.item === 'ticket' ? 'ticket' : Q.game.SHOP.items[e.drop.item].icon) }); }, 350);
           break;

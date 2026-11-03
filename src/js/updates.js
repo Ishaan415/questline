@@ -3,7 +3,8 @@
  * In-app updates. Checks GitHub Releases shortly after start and every
  * 6 hours (if enabled), offers the update in a toast, and shows download
  * progress. The signature check and the actual install happen in Rust
- * (src-tauri/src/updater.rs).
+ * (src-tauri/src/updater.rs). On Android the APK is downloaded the same way
+ * and then handed to Android's installer, which asks you to confirm.
  */
 
 Q.updates = (() => {
@@ -76,13 +77,15 @@ Q.updates = (() => {
     Q.store.saveNow();
     progressModal = Q.ui.modal({
       title: `Updating to v${available.version}`, cls: 'modal-small', dismissable: false,
-      body: `<p class="dialog-text">Downloading the update. Questline will close, install it, and open again by itself.</p>
+      body: `<p class="dialog-text">${P.isAndroid ? 'Downloading the update. Android will then ask you to install it: tap Update, and Questline reopens with everything kept.' : 'Downloading the update. Questline will close, install it, and open again by itself.'}</p>
         <div class="bar-row"><div class="bar bar-xp"><div class="bar-fill" id="upd-fill" style="width:0%"></div></div><span class="bar-num" id="upd-num">0%</span></div>`,
     });
     try {
       await P.invoke('update_install');
+      // Android: the installer is open now; this app stays behind it.
+      if (P.isAndroid && progressModal) { progressModal(); progressModal = null; }
     } catch (e) {
-      if (progressModal) progressModal();
+      if (progressModal) { progressModal(); progressModal = null; }
       Q.ui.toast(String(e), { kind: 'error', timeout: 10000 });
     }
   }
@@ -103,7 +106,7 @@ Q.updates = (() => {
     const st = S();
     const last = st.settings.lastUpdateCheck;
     let status;
-    if (!P.isApp) status = 'The desktop app checks GitHub for new versions.';
+    if (!P.isApp) status = 'The app checks GitHub for new versions.';
     else if (checking) status = 'Checking…';
     else if (available) status = `<b>v${U.esc(available.version)} is available.</b>`;
     else if (lastError) status = `<span class="err">Last check failed: ${U.esc(lastError)}</span>`;
@@ -111,7 +114,7 @@ Q.updates = (() => {
     return `
       <div class="toggle-row"><span><b>Version ${U.esc(version)}</b><span class="small muted">${status}</span></span>
         ${available ? `<button class="btn btn-small btn-primary" data-act="upd-install">Update now</button>` : `<button class="btn btn-small" data-act="upd-check" ${checking || !P.isApp ? 'disabled' : ''}>${I('sync')} Check now</button>`}</div>
-      <label class="toggle-row"><span><b>Check automatically</b><span class="small muted">On start and every 6 hours. Nothing installs without your click.</span></span>
+      <label class="toggle-row"><span><b>Check automatically</b><span class="small muted">On start and every 6 hours. Nothing installs without your ${P.isPhone ? 'tap' : 'click'}.</span></span>
         <input type="checkbox" class="switch" data-change="set" data-path="settings.autoUpdate" ${st.settings.autoUpdate ? 'checked' : ''}></label>
       <div class="row-btns"><a class="link" href="${RELEASES_URL}" target="_blank" rel="noopener" data-act="upd-releases">${I('list')} Release history</a></div>`;
   }

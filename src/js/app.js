@@ -28,6 +28,7 @@ Q.app = (() => {
 
   /* ---------------------------------------------------------- shell */
   function shell() {
+    if (Q.mobile.on) { document.getElementById('app').innerHTML = Q.mobile.shellHtml(); return; }
     document.getElementById('app').innerHTML = `
       <header class="titlebar" data-tauri-drag-region>
         <div class="tb-brand" data-tauri-drag-region><img class="px" src="${Q.sprites.render('sprigg')}" width="20" height="20" alt="">Questline</div>
@@ -56,10 +57,13 @@ Q.app = (() => {
   }
 
   function sideHud() {
-    const st = S();
     const el = document.getElementById('side-hud');
-    if (!el) return;
-    el.innerHTML = `
+    if (el) el.innerHTML = hudHtml();
+  }
+  /** Hero card: sidebar on PC, top of the "More" sheet on phones. */
+  function hudHtml() {
+    const st = S();
+    return `
       <div class="sh-top">${Q.sprites.trainer(st.profile.outfit, 40)}<div><b>${esc(st.profile.name)}</b><span class="small">Lv ${st.hero.level} ${G.title(st.hero.level)}</span></div></div>
       ${Q.comp.hpBar(true)}${Q.comp.xpBar(true)}
       <div class="sh-row">${Q.comp.gold()}<span class="sh-items" title="Potions · Shields · Capsule Tickets">${I('potion')}${st.inventory.potion} ${I('shield')}${st.inventory.shield} ${I('ticket')}${st.inventory.ticket || 0}</span></div>
@@ -95,6 +99,7 @@ Q.app = (() => {
     root.scrollTop = keep;
     root.dataset.view = current;
     sideHud();
+    Q.mobile.update(current);
     if (lastToggled) {
       root.querySelectorAll(`[data-id="${lastToggled}"] > .cbox.on`).forEach((b) => b.classList.add('pop'));
       lastToggled = null;
@@ -144,7 +149,7 @@ Q.app = (() => {
     if (!sk) return;
     if (sk.mode === 'dark') s.darkSkin = key; else s.skin = key;
     if (s.themeMode !== 'auto') s.themeMode = sk.mode;
-    else if (effectiveMode() !== sk.mode) Q.ui.toast(`${sk.name} will show when Windows is in ${sk.mode} mode.`);
+    else if (effectiveMode() !== sk.mode) Q.ui.toast(`${sk.name} will show when your ${P.isPhone ? 'phone' : 'PC'} is in ${sk.mode} mode.`);
     Q.store.commit('settings');
     applySettings();
   }
@@ -186,6 +191,7 @@ Q.app = (() => {
     document.documentElement.style.setProperty('--ui-scale', (s.uiScale || 100) / 100);
     document.body.classList.toggle('reduced-motion', !!s.reducedMotion);
     P.setCloseToTray(s.closeToTray);
+    Q.mobile.syncBars();
     Q.scheduler.refresh();
   }
 
@@ -214,7 +220,8 @@ Q.app = (() => {
   async function exportData() {
     const json = Q.store.exportJson();
     const stamp = `${U.ymd(new Date())}-${U.pad(new Date().getHours())}${U.pad(new Date().getMinutes())}`;
-    if (P.isApp) {
+    // Phones keep app files private, so they get the copy-the-text dialog instead.
+    if (P.isApp && !P.isPhone) {
       try { const path = await P.invoke('export_backup', { json, stamp }); Q.ui.toast(`Backup saved to ${path}`, { kind: 'ok', timeout: 7000 }); }
       catch (e) { Q.ui.toast(String(e), { kind: 'error' }); }
       return;
@@ -336,6 +343,7 @@ Q.app = (() => {
     applySettings();
     shell();
     Q.ui.initDelegation();
+    Q.mobile.init();
     bindActions();
     document.addEventListener('keydown', keys);
     if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener('change', () => { if (S().settings.themeMode === 'auto') applySettings(); });
@@ -384,7 +392,7 @@ Q.app = (() => {
   }
 
   return {
-    boot, go, render, applySettings, equipSkin, previewSkin, toggleMode, effectiveMode, flushGame, useItem, toggleInn, pauseNotifications, exportData, toggleMini, onAlarm,
+    boot, go, render, hudHtml, applySettings, equipSkin, previewSkin, toggleMode, effectiveMode, flushGame, useItem, toggleInn, pauseNotifications, exportData, toggleMini, onAlarm,
     current: () => current,
   };
 })();

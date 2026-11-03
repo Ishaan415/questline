@@ -66,6 +66,7 @@ Q.store = (() => {
         closeToTray: true,
         startMinimized: false,
         reducedMotion: false,
+        haptics: true,
         uiScale: 100,
         skin: 'meadow',
         darkSkin: 'night',

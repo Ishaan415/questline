@@ -98,7 +98,7 @@
   /* Path rules. '*' matches one id or key. First match wins. */
   const RULES = [
     ['dailies', byId], ['habits', byId], ['reminders', byId], ['events', byId], ['rewards', byId],
-    ['dailies.*.done', (b, l, r, p, c) => unionMap(b, l, r, p, c, (bb, ll) => clone(ll))],
+    ['dailies.*.done', (b, l, r, p, c) => unionMap(b, l, r, p, c, (bb, ll, rr) => clone(bb !== undefined && eq(ll, bb) ? rr : ll))],
     ['dailies.*.streak', max], ['dailies.*.best', max],
     ['hero.gold', delta], ['hero.hp', delta], ['hero.totalXp', delta],
     ['stats.*', delta], ['counters.*', delta], ['inventory.*', delta],

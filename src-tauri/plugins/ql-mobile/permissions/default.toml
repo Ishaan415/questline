@@ -1,0 +1,5 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "Lets the page trigger haptics, colour the Android system bars and turn the screen (focus mode)."
+permissions = ["allow-haptic", "allow-set-bars", "allow-set-orientation"]

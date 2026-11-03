@@ -705,6 +705,8 @@ form.readonly input, form.readonly textarea { background: var(--panel-2); }
 .backup-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
 .backup-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border: 2px solid var(--line-soft); border-radius: 10px; background: var(--panel-hi); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .backup-row:hover { border-color: var(--line); }
+.backup-row { flex-direction: column; align-items: flex-start; gap: 2px; }
+.backup-row.empty { opacity: .6; }
 .acct-out { margin-top: 14px; padding-top: 10px; border-top: 2px dashed var(--grid); }
 .credits { margin: 4px 0 8px; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
 .credits .link { vertical-align: baseline; }
@@ -911,6 +913,19 @@ form.readonly input, form.readonly textarea { background: var(--panel-2); }
 .focus.idle .fx-top, .focus.idle .fx-bottom, .focus.idle .fx-ctrl, .focus.idle .fx-modes, .focus.idle .fx-task, .focus.idle .fx-presets, .focus.idle .fx-note { opacity: 0; pointer-events: none; }
 .focus.idle .fx-card { background: rgba(255, 253, 244, .55); box-shadow: none; }
 .fx-ctrl, .fx-modes, .fx-task, .fx-presets, .fx-note { transition: opacity .4s; }
+/* Phone turned sideways (focus mode's Landscape button): timer left, controls right. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .fx-ui { justify-content: flex-start; gap: 8px; padding-block: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-bottom, 0px)); }
+  .fx-top { flex-wrap: nowrap; align-items: center; }
+  .fx-scenes { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+  .fx-top-right { flex-wrap: nowrap; flex: none; }
+  .fx-pill { padding: 3px 10px; font-size: 12.5px; white-space: nowrap; }
+  .fx-card { width: min(780px, 100%); margin: auto 0; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-auto-flow: row dense; align-items: center; justify-items: center; gap: 8px 22px; padding: 12px 18px; }
+  .fx-now, .fx-phase, .fx-time, .fx-bar, .fx-combo { grid-column: 1; }
+  .fx-modes, .fx-task, .fx-ctrl, .fx-presets, .fx-note { grid-column: 2; }
+  .fx-time { font-size: clamp(64px, 22vh, 104px); }
+  .fx-bottom { display: none; }
+}
 
 /* ---------------------------------------------------------------- mini mode */
 body.mini .sidebar, body.mini .tb-clock { display: none; }
@@ -1148,6 +1163,117 @@ body.mini .shell { grid-template-columns: minmax(0, 1fr); }
   .tb-demo { margin-left: auto; }
   .fx-card { padding: 14px; }
 }
+
+/* ---------------------------------------------------------------- phone
+   Android app (and the preview with ?phone). Big targets in thumb reach:
+   bottom tab bar, + button bottom-right, dialogs as bottom sheets. */
+.fab { display: none; }
+body.phone { -webkit-tap-highlight-color: transparent; font-size: 15px; }
+body.phone .titlebar, body.phone .tabbar, body.phone .fab, body.phone .btn, body.phone .tab, body.phone .more-tile, body.phone .cbox { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+body.phone .titlebar.phonebar { height: 56px; gap: 4px; padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(6px, env(safe-area-inset-right, 0px)); }
+.pb-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; font-family: var(--f-display); font-weight: 700; font-size: 21px; letter-spacing: .5px; white-space: nowrap; }
+.pb-title span { overflow: hidden; text-overflow: ellipsis; }
+.pb-title img { flex: none; }
+.pb-stats {
+  display: flex; align-items: center; gap: 9px; height: 36px; padding: 0 11px; margin-right: 2px; flex: none;
+  border: 2px solid var(--line-soft); border-radius: 999px; background: var(--panel-2); color: var(--ink);
+  font-family: var(--f-ui); font-weight: var(--w-ui); font-size: 13.5px; font-variant-numeric: tabular-nums;
+}
+.pb-stats span { display: inline-flex; align-items: center; gap: 4px; }
+.pb-stats .ico { width: 12px; height: 12px; }
+.pb-stats span:first-child .ico { color: var(--hp-lo); }
+.pb-stats span:nth-child(2) .ico { color: var(--gold); }
+.pb-stats .low { color: var(--danger); }
+.pb-stats .lv { color: var(--ink-soft); }
+@media (max-width: 380px) { .pb-stats .lv { display: none; } }
+body.phone .tb-btn { width: 44px; height: 44px; border-radius: 10px; }
+body.phone .tb-btn .ico { width: 18px; height: 18px; }
+
+body.phone .shell { display: flex; flex-direction: column; }
+body.phone .view {
+  flex: 1; min-height: 0; overscroll-behavior: contain;
+  padding-block: 16px 104px; padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px));
+}
+body.phone .view[data-view="calendar"] { padding-bottom: 88px; }
+.tabbar {
+  flex: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; background: var(--panel); border-top: 3px solid var(--line);
+  padding: 4px max(4px, env(safe-area-inset-right, 0px)) max(4px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px));
+}
+.tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 60px; min-width: 0; padding: 4px 0;
+  border: 0; border-radius: 12px; background: transparent; color: var(--ink-soft); font-family: var(--f-ui); font-weight: var(--w-ui); font-size: 12px;
+}
+.tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab .ico { width: 20px; height: 20px; padding: 5px 16px; box-sizing: content-box; border-radius: 999px; transition: background .15s; }
+.tab.on { color: var(--ink); }
+.tab.on .ico { background: var(--accent-soft); color: var(--accent); }
+.tab:active .ico { background: var(--hover); }
+
+body.phone .fab {
+  display: flex; position: fixed; z-index: 60; align-items: center; gap: 8px; height: 56px; padding: 0 20px 0 16px;
+  right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  border: 3px solid var(--line); border-radius: 16px; background: var(--accent); color: var(--accent-ink);
+  font-family: var(--f-ui); font-weight: var(--w-ui); font-size: 16px; box-shadow: 0 4px 0 var(--line);
+}
+body.phone .fab .ico { width: 18px; height: 18px; }
+body.phone .fab:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--line); }
+body.phone.fab-hidden .fab { display: none; }
+
+/* bigger targets */
+body.phone .btn { min-height: 44px; padding: 8px 16px; }
+body.phone .btn-small { min-height: 40px; padding: 6px 14px; font-size: 14px; }
+body.phone .icon-btn { width: 44px; height: 44px; }
+body.phone .icon-btn .ico { width: 16px; height: 16px; }
+body.phone .cbox { width: 34px; height: 34px; }
+body.phone .cbox .ico { width: 18px; height: 18px; }
+body.phone .task { min-height: 56px; padding: 10px 8px; }
+body.phone .seg-btn { min-height: 40px; padding: 6px 14px; }
+body.phone .switch { width: 54px; height: 32px; }
+body.phone .switch::after { width: 24px; height: 24px; }
+body.phone .switch:checked::after { transform: translateX(22px); }
+body.phone .toggle-row { min-height: 56px; }
+body.phone .check-line { min-height: 40px; margin: 0; }
+body.phone .check-line input { width: 20px; height: 20px; }
+body.phone input:not([type]), body.phone input[type=text], body.phone input[type=time], body.phone input[type=date], body.phone input[type=number], body.phone select, body.phone textarea { font-size: 16px; min-height: 44px; }
+body.phone .link { min-height: 36px; font-size: 14px; }
+body.phone .page-title { font-size: 26px; }
+body.phone select { min-width: 6.5em; padding-right: 26px; }
+body.phone kbd.hint-key, body.phone .qa-inline kbd, body.phone .focus-cta kbd { display: none; }
+/* Today first on the home page; your hero is also in the top bar. */
+body.phone .home-today { order: -1; }
+
+/* dialogs become bottom sheets, reachable with a thumb */
+body.phone .modal-wrap { place-items: end stretch; padding: 24px 0 0; }
+body.phone .modal-wrap > .modal {
+  width: 100%; max-width: none; margin: 0; align-self: end; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px);
+  border-radius: 18px 18px 0 0; border-bottom: 0; padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: inset 0 0 0 2px var(--panel-hi), 0 -8px 30px rgba(0, 0, 0, .22); animation: sheetUp .22s cubic-bezier(.2, .9, .3, 1);
+}
+body.phone .modal-head { padding: 10px 8px 0 18px; }
+body.phone .modal-body { padding: 12px 18px 20px; }
+body.phone .modal-actions .btn { flex: 1 1 auto; }
+body.phone .modal-actions .spacer { display: none; }
+@keyframes sheetUp { from { transform: translateY(40%); opacity: 0; } }
+
+body.phone .toasts { left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(86px + env(safe-area-inset-bottom, 0px)); max-width: none; align-items: stretch; }
+body.phone .toast-btn { min-height: 38px; padding: 4px 12px; font-size: 14px; }
+body.phone .toast-x { width: 38px; height: 38px; place-items: center; }
+body.phone .preview-bar { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+
+/* the More sheet */
+body.phone .more-hud { display: flex; margin-bottom: 14px; }
+.more-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.more-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 84px; padding: 8px 4px;
+  border: 3px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--ink); box-shadow: 0 3px 0 var(--line);
+  font-family: var(--f-ui); font-weight: var(--w-ui); font-size: 14.5px;
+}
+.more-tile .ico { width: 24px; height: 24px; color: var(--accent); }
+.more-tile:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line); }
+.more-inn { width: 100%; margin-top: 12px; flex-wrap: wrap; justify-content: flex-start; text-align: left; }
+.more-inn .small { flex-basis: 100%; font-family: var(--f-body); font-weight: 600; padding-left: 22px; }
+.more-inn.on { border-color: var(--accent-2); box-shadow: 0 3px 0 var(--accent-2); }
 
 /* ---------------------------------------------------------------- motion */
 @keyframes bob { 50% { transform: translateY(-3px); } }

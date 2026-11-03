@@ -4,7 +4,7 @@
  *
  * Drive layout (a normal, visible folder; Questline can only see what it made):
  *   My Drive/Questline/questline-sync.json      the shared save all devices merge into
- *   My Drive/Questline/Backups/questline-YYYY-MM-DD.json   one per day, last 30 kept
+ *   My Drive/Questline/Backups/questline-YYYY-MM-DD-HHMM.json   never overwritten, last 40 kept
  *
  * Sync = pull, three-way merge (merge.js), push. "base" is the last version
  * this device and Drive agreed on, kept in a side file. Device-only things
@@ -21,7 +21,7 @@ Q.cloud = (() => {
   const FOLDER = 'Questline';
   const BACKUPS = 'Backups';
   const SYNC_FILE = 'questline-sync.json';
-  const KEEP_BACKUPS = 30;
+  const KEEP_BACKUPS = 40;
   const AFTER_CHANGE = 15000;     // sync this long after your last change
   const EVERY = 3 * 60000;        // and every 3 minutes while the app is visible
 
@@ -29,7 +29,10 @@ Q.cloud = (() => {
   const LOCAL_TOP = ['calCache', 'lastAlarm', 'demo'];
   const LOCAL_SETTINGS = ['closeToTray', 'startMinimized', 'uiScale', 'sounds', 'volume', 'notifications', 'muteInFocus',
     'quietOn', 'quietFrom', 'quietTo', 'autoUpdate', 'lastUpdateCheck', 'google', 'spotify', 'reducedMotion',
-    'themeMode', 'skin', 'darkSkin', 'fontStyle', 'calView', 'showCompletedReminders'];
+    'themeMode', 'skin', 'darkSkin', 'fontStyle', 'calView', 'showCompletedReminders', 'haptics'];
+  /** Device settings worth bringing back when you restore a backup (not synced live). */
+  const PORTABLE = ['themeMode', 'skin', 'darkSkin', 'fontStyle', 'sounds', 'volume', 'notifications', 'muteInFocus',
+    'quietOn', 'quietFrom', 'quietTo', 'reducedMotion', 'uiScale', 'calView', 'showCompletedReminders', 'haptics'];
 
   let account = null;            // { connected, email, name, calendar, drive }
   let base; let baseLoaded = false;
@@ -47,25 +50,60 @@ Q.cloud = (() => {
     const o = M.clone(st);
     for (const k of LOCAL_TOP) delete o[k];
     for (const k of LOCAL_SETTINGS) delete o.settings[k];
+    // Your Spotify app's Client ID follows you (the sign-in itself stays on each device).
+    if (st.settings.spotify && st.settings.spotify.clientId) o.settings.spotifyClientId = st.settings.spotify.clientId;
     o._meta = { editedAt: G().editedAt || st.createdAt || 0, device: deviceName() };
     return o;
   }
-  const strip = (o) => { const c = M.clone(o); delete c._meta; return c; };
+  /** Backups also carry this device's look & sound, so a restore brings them back. */
+  function backupPayload(st) {
+    const o = payload(st);
+    o._prefs = Object.fromEntries(PORTABLE.filter((k) => st.settings[k] !== undefined).map((k) => [k, M.clone(st.settings[k])]));
+    return o;
+  }
+  const strip = (o) => { const c = M.clone(o); delete c._meta; delete c._prefs; return c; };
 
-  /** Put a merged save into the app, keeping this device's own settings. */
-  function apply(remote) {
+  /** Put a merged save into the app, keeping this device's own settings.
+   *  With prefs: also take the backup's look & sound (restores). */
+  function apply(remote, { prefs = false } = {}) {
     const st = S();
     const next = strip(remote);
     for (const k of LOCAL_TOP) next[k] = M.clone(st[k]);
-    next.settings = Object.assign(next.settings || {}, Object.fromEntries(LOCAL_SETTINGS.map((k) => [k, M.clone(st.settings[k])])));
+    const sets = next.settings || {};
+    const spId = sets.spotifyClientId;
+    delete sets.spotifyClientId;
+    next.settings = Object.assign(sets, Object.fromEntries(LOCAL_SETTINGS.map((k) => [k, M.clone(st.settings[k])])));
+    if (prefs && remote._prefs) for (const k of PORTABLE) if (remote._prefs[k] !== undefined) next.settings[k] = M.clone(remote._prefs[k]);
+    if (spId && !(next.settings.spotify && next.settings.spotify.clientId)) next.settings.spotify = Object.assign({}, next.settings.spotify, { clientId: spId });
     applying = true;
     try { Q.store.replace(next, 'cloud'); } finally { applying = false; }
+    if (prefs) Q.app.applySettings();
   }
+
+  /** How much is in a save: used to spot wipes and to describe backups. */
+  const itemCount = (o) => ['dailies', 'reminders', 'habits', 'events'].reduce((n, k) => n + ((o && o[k]) || []).length, 0);
 
   async function loadBase() {
     if (baseLoaded) return;
     try { const raw = await P.loadExtra('sync-base'); base = raw ? JSON.parse(raw) : null; } catch (e) { base = null; }
     baseLoaded = true;
+  }
+  /**
+   * The base only means something for the save it was made from. After
+   * "Start over", a reinstall, or a sign-in on a fresh save, an old base would
+   * make the merge read every missing task as "deleted here", so drop it and
+   * treat the sync as a first sync instead.
+   */
+  function baseFits(local) {
+    if (!base) return false;
+    if (base.createdAt !== local.createdAt) return false;
+    if (!G().syncFileId) return false;
+    return true;
+  }
+  /** Forget the base (e.g. after Start over). */
+  async function dropBase() {
+    base = null; baseLoaded = true;
+    try { await P.saveExtra('sync-base', ''); } catch (e) { /* ignore */ }
   }
   async function setBase(obj, file) {
     base = obj;
@@ -143,6 +181,7 @@ Q.cloud = (() => {
             await setBase(local, await write(null, folder, SYNC_FILE, local));
             return;
           }
+          if (base && !baseFits(local)) base = null;
           const remoteSame = base && meta.version === G().syncVersion;
           if (remoteSame && M.eq(strip(local), strip(base))) return; // nothing new on either side
           const remote = remoteSame ? base : JSON.parse((await P.invoke('drive_read', { id: meta.id })).content);
@@ -150,7 +189,13 @@ Q.cloud = (() => {
             const choice = await firstSyncChoice(local, remote);
             if (choice === 'cancel') { G().syncOn = false; Q.store.commit('cloud'); return; }
             if (!(choice === 'cloud' && looksFresh(S()))) await backupNow({ quiet: true, obj: choice === 'cloud' ? local : remote, tag: choice === 'cloud' ? 'this-device' : 'drive' });
-            if (choice === 'cloud') { apply(remote); await setBase(remote, meta); }
+            if (choice === 'cloud') {
+              const fresh = looksFresh(S());
+              apply(remote);
+              await setBase(remote, meta);
+              if (fresh) await lookFromBackups();
+              if (fresh && itemCount(remote)) Q.ui.toast(`Your progress is back from Google Drive: ${summary(remote)}.`, { kind: 'ok', icon: Q.sprites.icon('cloud'), timeout: 7000 });
+            }
             else await setBase(local, await write(meta.id, folder, SYNC_FILE, local));
             return;
           }
@@ -158,6 +203,9 @@ Q.cloud = (() => {
             xpToNext: Q.game.xpToNext,
             maxHp: (o) => 50 + Q.game.statLevel((o.stats && o.stats.str) || 0) * 2,
           });
+          // Safety net: if this merge would remove most of Drive's tasks, keep a copy first.
+          const had = itemCount(remote);
+          if (had >= 3 && itemCount(merged) < had / 2) await backupNow({ quiet: true, obj: remote, tag: 'before-big-change' });
           if (!M.eq(strip(merged), strip(local))) apply(merged);
           if (M.eq(strip(merged), strip(remote))) { await setBase(merged, meta); return; }
           // Someone uploaded while we merged? Start over with their version.
@@ -200,12 +248,14 @@ Q.cloud = (() => {
     if (!canDrive()) { if (!quiet) Q.ui.toast('Sign in with Google in Settings first.', { kind: 'info' }); return false; }
     try {
       const folder = await backupsFolder();
-      const name = `questline-${U.ymd(new Date())}${tag ? `-${tag}` : ''}.json`;
-      const existing = await P.invoke('drive_find', { name, parent: folder });
-      await write(existing && existing.id, folder, name, obj || payload(S()));
-      const list = await P.invoke('drive_list', { parent: folder });
-      const daily = list.filter((f) => /^questline-\d{4}-\d{2}-\d{2}(-[a-z-]+)?\.json$/.test(f.name));
-      for (const f of daily.slice(KEEP_BACKUPS)) await P.invoke('drive_trash', { id: f.id }).catch(() => {});
+      // Every backup is a new file (date + time): a later, emptier save can never replace a good one.
+      const now = new Date();
+      const name = `questline-${U.ymd(now)}-${U.pad(now.getHours())}${U.pad(now.getMinutes())}${tag ? `-${tag}` : ''}.json`;
+      await write(null, folder, name, obj || backupPayload(S()));
+      const list = (await P.invoke('drive_list', { parent: folder }))
+        .filter((f) => /^questline-\d{4}-\d{2}-\d{2}(-\d{4})?(-[a-z-]+)?\.json$/.test(f.name))
+        .sort((a, b) => String(b.modifiedTime).localeCompare(String(a.modifiedTime)));
+      for (const f of list.slice(KEEP_BACKUPS)) await P.invoke('drive_trash', { id: f.id }).catch(() => {});
       if (!tag) { G().lastBackupDay = U.ymd(new Date()); Q.store.commit('cloud'); }
       if (!quiet) Q.ui.toast('Backed up to Google Drive', { kind: 'ok', icon: Q.sprites.icon('cloud') });
       return true;
@@ -214,29 +264,83 @@ Q.cloud = (() => {
       return false;
     }
   }
-  function maybeDailyBackup() {
-    if (canDrive() && G().backupOn !== false && G().lastBackupDay !== U.ymd(new Date())) backupNow({ quiet: true });
+  let dailyRunning = false;
+  async function maybeDailyBackup() {
+    // A brand-new, empty save isn't worth a backup (and would only crowd out real ones).
+    if (dailyRunning || !canDrive() || G().backupOn === false || G().lastBackupDay === U.ymd(new Date()) || looksFresh(S())) return;
+    dailyRunning = true;
+    try { await backupNow({ quiet: true }); } finally { dailyRunning = false; }
   }
 
-  const listBackups = async () => P.invoke('drive_list', { parent: await backupsFolder() });
+  /** Backups newest first, each with a short description of what's inside. */
+  async function listBackups() {
+    const list = (await P.invoke('drive_list', { parent: await backupsFolder() }))
+      .filter((f) => /\.json$/.test(f.name))
+      .sort((a, b) => String(b.modifiedTime).localeCompare(String(a.modifiedTime)));
+    await Promise.all(list.map(async (f) => {
+      try {
+        const o = JSON.parse((await P.invoke('drive_read', { id: f.id })).content);
+        f.summary = `Lv ${o.hero.level} · ${o.dailies.length} dailies · ${(o.reminders || []).length} reminders · ${o.hero.gold} gold`;
+        f.device = (o._meta && o._meta.device) || '';
+        f.items = itemCount(o);
+      } catch (e) { f.summary = 'Couldn\'t read this file'; f.items = -1; }
+    }));
+    return list;
+  }
+
+  /** A fresh device also takes the look & sound from your newest backup (they don't sync live). */
+  async function lookFromBackups() {
+    try {
+      const list = (await P.invoke('drive_list', { parent: await backupsFolder() }))
+        .filter((f) => /\.json$/.test(f.name))
+        .sort((a, b) => String(b.modifiedTime).localeCompare(String(a.modifiedTime)));
+      for (const f of list.slice(0, 5)) {
+        const o = JSON.parse((await P.invoke('drive_read', { id: f.id })).content);
+        if (!o || !o._prefs) continue;
+        const sets = S().settings;
+        for (const k of PORTABLE) if (o._prefs[k] !== undefined) sets[k] = M.clone(o._prefs[k]);
+        applying = true;
+        try { Q.store.commit('cloud'); } finally { applying = false; }
+        Q.app.applySettings();
+        return;
+      }
+    } catch (e) { /* the look is a nice-to-have */ }
+  }
+
+  /** Take this device's save as the truth everywhere (after a restore or an import). */
+  async function adoptLocal() {
+    G().editedAt = Date.now();
+    if (!syncOn()) { await dropBase(); return; }
+    await withFolder(async (folder) => {
+      const meta = await P.invoke('drive_find', { name: SYNC_FILE, parent: folder });
+      const local = payload(S());
+      await setBase(local, await write(meta && meta.id, folder, SYNC_FILE, local));
+    });
+    G().lastSync = Date.now(); Q.store.commit('cloud');
+    setStatus('ok');
+  }
+
+  /** Import a backup file (Settings → Import): same as a restore, from a file. */
+  async function importSave(data) {
+    if (!data || !data.hero || !Array.isArray(data.dailies)) throw new Error('Not a Questline backup');
+    const o = M.clone(data);
+    const sets = o.settings || {};
+    o._prefs = Object.fromEntries(PORTABLE.filter((k) => sets[k] !== undefined).map((k) => [k, sets[k]]));
+    if (sets.spotify && sets.spotify.clientId) sets.spotifyClientId = sets.spotify.clientId;
+    if (canDrive() && !looksFresh(S())) await backupNow({ quiet: true, tag: 'before-import' });
+    apply(o, { prefs: true });
+    await adoptLocal();
+  }
 
   /** Replace progress everywhere with a backup (this device first, then Drive). */
   async function restore(id) {
     const raw = await P.invoke('drive_read', { id });
     const data = JSON.parse(raw.content);
     if (!data || !data.hero || !Array.isArray(data.dailies)) throw new Error('That file isn\'t a Questline backup.');
-    await backupNow({ quiet: true, tag: 'before-restore' });
-    G().editedAt = Date.now();
-    apply(data);
-    if (syncOn()) {
-      await withFolder(async (folder) => {
-        const meta = await P.invoke('drive_find', { name: SYNC_FILE, parent: folder });
-        const local = payload(S());
-        await setBase(local, await write(meta && meta.id, folder, SYNC_FILE, local));
-      });
-      G().lastSync = Date.now(); Q.store.commit('cloud');
-      setStatus('ok');
-    }
+    if (!looksFresh(S())) await backupNow({ quiet: true, tag: 'before-restore' });
+    apply(data, { prefs: true });
+    await adoptLocal();
+    return data;
   }
 
   /* ----------------------------------------------------------- account */
@@ -251,9 +355,9 @@ Q.cloud = (() => {
   }
 
   async function forget() {
-    account = null; base = null; baseLoaded = true;
+    account = null;
     Object.assign(G(), { folderId: '', backupsFolderId: '', syncFileId: '', syncVersion: '', lastSync: 0 });
-    try { await P.saveExtra('sync-base', ''); } catch (e) { /* ignore */ }
+    await dropBase();
     setStatus('off');
   }
 
@@ -279,7 +383,7 @@ Q.cloud = (() => {
   }
 
   return {
-    start, ready: () => ready, syncNow, backupNow, listBackups, restore, refreshAccount, forget,
+    start, ready: () => ready, syncNow, backupNow, listBackups, restore, importSave, adoptLocal, dropBase, refreshAccount, forget, summary,
     account: () => account, status: () => status, canDrive, syncOn,
     driveFolderUrl: () => (G().folderId ? `https://drive.google.com/drive/folders/${G().folderId}` : 'https://drive.google.com/drive/my-drive'),
     // for tests
