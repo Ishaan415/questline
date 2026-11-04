@@ -146,10 +146,9 @@ Q.updates = (() => {
     } catch (e) {
       if (progressModal) { progressModal(); progressModal = null; }
       const msg = String(e);
-      // Android: if the in-app download can't get through, the browser usually can.
-      if (P.isAndroid && !/install updates on the screen/.test(msg)) {
-        Q.ui.toast(`${msg}`, { kind: 'error', timeout: 0, actions: [{ label: 'Download in browser', fn: () => P.openExternal(APK_URL) }] });
-      } else Q.ui.toast(msg, { kind: 'error', timeout: 10000 });
+      // If the in-app download can't get through, the browser usually can.
+      if (P.isAndroid && /install updates on the screen/.test(msg)) Q.ui.toast(msg, { kind: 'error', timeout: 10000 });
+      else Q.ui.toast(msg, { kind: 'error', timeout: 0, actions: [{ label: 'Download in browser', fn: () => P.openExternal(P.isAndroid ? APK_URL : `${RELEASES_URL}/latest`) }] });
     }
   }
 

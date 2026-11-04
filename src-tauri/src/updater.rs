@@ -40,6 +40,32 @@ mod desktop {
 
     static PENDING: Mutex<Option<Update>> = Mutex::new(None);
 
+    /// latest.json (written by tauri-action) points the installer at GitHub's API
+    /// (`api.github.com/repos/…/releases/assets/<id>`). Unauthenticated API calls
+    /// are limited to 60 an hour per network, and on shared or mobile networks
+    /// that limit is often used up, which shows as "403 Forbidden". The normal
+    /// download link has no such limit, so we use it instead. The file name comes
+    /// from the update's signature ("file:Questline_0.6.1_x64-setup.exe"), and
+    /// the signature is still checked against the downloaded bytes.
+    fn direct_url(u: &Update) -> Option<tauri::Url> {
+        use base64::Engine;
+        let prefix = format!("https://api.github.com/repos/{REPO}/releases/assets/");
+        if !u.download_url.as_str().starts_with(&prefix) {
+            return None;
+        }
+        let sig = base64::engine::general_purpose::STANDARD.decode(u.signature.trim()).ok()?;
+        let text = String::from_utf8_lossy(&sig);
+        let file = text
+            .split(|c: char| c == '\t' || c.is_whitespace())
+            .find_map(|part| part.strip_prefix("file:"))?;
+        let safe = !file.is_empty() && file.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c));
+        if !safe {
+            return None;
+        }
+        let version: String = u.version.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == '-').collect();
+        tauri::Url::parse(&format!("https://github.com/{REPO}/releases/download/v{version}/{file}")).ok()
+    }
+
     pub async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
         let updater = app.updater().map_err(|e| e.to_string())?;
         let found = updater.check().await.map_err(|e| e.to_string())?;
@@ -53,12 +79,7 @@ mod desktop {
         Ok(info)
     }
 
-    pub async fn install(app: &AppHandle) -> Result<(), String> {
-        let update = PENDING
-            .lock()
-            .map_err(|e| e.to_string())?
-            .clone()
-            .ok_or("No update is waiting. Check for updates first.")?;
+    async fn run(app: &AppHandle, update: &Update) -> Result<(), String> {
         let mut downloaded: u64 = 0;
         let emitter = app.clone();
         update
@@ -70,13 +91,41 @@ mod desktop {
                 || {},
             )
             .await
-            .map_err(|e| format!("Update failed: {e}"))?;
+            .map_err(|e| e.to_string())
+    }
+
+    pub async fn install(app: &AppHandle) -> Result<(), String> {
+        let update = PENDING
+            .lock()
+            .map_err(|e| e.to_string())?
+            .clone()
+            .ok_or("No update is waiting. Check for updates first.")?;
+        // Direct download first; GitHub's API link only if that fails.
+        let mut result = Err(String::new());
+        if let Some(url) = direct_url(&update) {
+            let mut direct = update.clone();
+            direct.download_url = url;
+            result = run(app, &direct).await;
+        }
+        if result.is_err() {
+            result = run(app, &update).await;
+        }
+        if let Err(e) = result {
+            return Err(if e.contains("403") {
+                "Update failed: GitHub is limiting downloads from your network right now. Try again in an hour, or download the installer from the release page.".into()
+            } else {
+                format!("Update failed: {e}")
+            });
+        }
         // Windows exits during install; this covers other platforms.
         app.restart();
     }
 }
 
 // ------------------------------------------------------------------ Android
+
+/// This app's GitHub repository (releases and update files live here).
+const REPO: &str = "Ishaan415/questline";
 
 /// The phone build's file name in every release.
 #[cfg_attr(desktop, allow(dead_code))]
@@ -121,22 +170,63 @@ fn parse_version(v: &str) -> (u64, u64, u64) {
     (it.next().unwrap_or(0), it.next().unwrap_or(0), it.next().unwrap_or(0))
 }
 
+/// android.json, published next to every release by the workflow.
 #[cfg_attr(desktop, allow(dead_code))]
-async fn android_check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
-    let current = app.package_info().version.to_string();
+async fn android_manifest() -> Result<Option<AndroidRelease>, String> {
+    #[derive(Deserialize)]
+    struct Manifest {
+        version: String,
+        url: String,
+        #[serde(default)]
+        notes: Option<String>,
+        #[serde(default)]
+        date: Option<String>,
+    }
+    let res = crate::google::http()
+        .get(format!("https://github.com/{REPO}/releases/latest/download/android.json"))
+        .send()
+        .await
+        .map_err(|e| format!("Couldn't reach GitHub: {}", why(e)))?;
+    if res.status().as_u16() == 404 {
+        return Ok(None);
+    }
+    if !res.status().is_success() {
+        return Err(format!("GitHub returned {}", res.status()));
+    }
+    let m: Manifest = res.json().await.map_err(|e| format!("Couldn't read android.json: {}", why(e)))?;
+    Ok(Some(AndroidRelease { version: m.version, url: m.url, notes: m.notes, date: m.date }))
+}
+
+/// The newest release as GitHub's API describes it.
+#[cfg_attr(desktop, allow(dead_code))]
+async fn android_from_api() -> Result<Option<AndroidRelease>, String> {
     let Some(gh) = fetch_release(&format!("{RELEASES_API}/latest")).await? else {
         return Ok(None);
     };
-    // The newest release has no phone build (yet): nothing to offer.
     let Some(apk) = gh.assets.iter().find(|a| a.name == ANDROID_APK) else {
         return Ok(None);
     };
-    let rel = AndroidRelease {
+    Ok(Some(AndroidRelease {
         version: gh.tag_name.trim_start_matches('v').to_string(),
         url: apk.browser_download_url.clone(),
         notes: gh.body.clone(),
         date: gh.published_at.clone(),
+    }))
+}
+
+#[cfg_attr(desktop, allow(dead_code))]
+async fn android_check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
+    let current = app.package_info().version.to_string();
+    // android.json first (a plain download, no limit); GitHub's API if that fails.
+    let rel = match android_manifest().await {
+        Ok(rel) => rel,
+        Err(first) => match android_from_api().await {
+            Ok(rel) => rel,
+            Err(second) => return Err(format!("{second} (also tried android.json: {first})")),
+        },
     };
+    // The newest release has no phone build (yet): nothing to offer.
+    let Some(rel) = rel else { return Ok(None) };
     let newer = parse_version(&rel.version) > parse_version(&current) && rel.url.starts_with(RELEASE_PREFIX);
     let info = newer.then(|| UpdateInfo {
         version: rel.version.clone(),
