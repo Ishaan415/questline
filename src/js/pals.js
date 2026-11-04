@@ -75,12 +75,15 @@ Q.pals = (() => {
     return { pals, pct: pals.length * 15, type: bt };
   }
 
-  /** Sum of every active effect: team abilities + synergy. */
+  /** Sum of every active effect: team abilities + synergy + Shop upgrades. */
   function fx() {
     const out = Object.fromEntries(Object.keys(D.FX).map((k) => [k, 0]));
     for (const id of team()) out[line(id).fx] += abilityValue(id);
     const syn = synergy();
     if (syn) { out.palExpPct += syn.palExpPct; out.goldPct += syn.goldPct; }
+    // Permanent upgrades from the Shop stack on top.
+    const ups = (Q.game && Q.game.SHOP && Q.game.SHOP.upgrades) || {};
+    for (const [uid, u] of Object.entries(ups)) if (u.fx) out[u.fx] += u.per * (((S().upgrades || {})[uid]) || 0);
     out.dmgRed = Math.min(40, out.dmgRed);
     out.gachaDiscount = Math.min(30, out.gachaDiscount);
     out.critChance = Math.min(40, out.critChance);

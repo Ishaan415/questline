@@ -201,7 +201,7 @@ Q.cloud = (() => {
           }
           const merged = M.merge3(base, local, remote, {
             xpToNext: Q.game.xpToNext,
-            maxHp: (o) => 50 + Q.game.statLevel((o.stats && o.stats.str) || 0) * 2,
+            maxHp: (o) => 50 + Q.game.statLevel((o.stats && o.stats.str) || 0) * 2 + (((o.upgrades || {}).vitality) || 0) * 5,
           });
           // Safety net: if this merge would remove most of Drive's tasks, keep a copy first.
           const had = itemCount(remote);

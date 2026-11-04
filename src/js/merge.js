@@ -78,15 +78,19 @@
     return out;
   }
 
-  function boss(b, l, r, path, ctx) {
+  /** Weekly boss (keyed by week) and daily foe (keyed by day): newest period wins,
+   *  damage from both devices adds up within the same period. */
+  const bossBy = (key) => (b, l, r, path, ctx) => {
     if (!l || !r) return clone(l || r);
-    if (l.week !== r.week) return clone(l.week > r.week ? l : r);
-    const out = generic(b && b.week === l.week ? b : null, l, r, path, ctx);
-    if (b && b.week === l.week) out.hp = delta(b.hp, l.hp, r.hp);
+    if (l[key] !== r[key]) return clone(l[key] > r[key] ? l : r);
+    const out = generic(b && b[key] === l[key] ? b : null, l, r, path, ctx);
+    if (b && b[key] === l[key]) out.hp = delta(b.hp, l.hp, r.hp);
     out.defeated = !!(l.defeated || r.defeated);
     out.hp = out.defeated ? 0 : Math.max(0, Math.min(num(out.maxHp) || num(l.maxHp), num(out.hp)));
     return out;
-  }
+  };
+  const boss = bossBy('week');
+  const dailyBoss = bossBy('day');
 
   function log(b, l, r) {
     const key = (e) => `${e.t}|${e.text}`;
@@ -99,7 +103,7 @@
   const RULES = [
     ['dailies', byId], ['habits', byId], ['reminders', byId], ['events', byId], ['rewards', byId],
     ['dailies.*.done', (b, l, r, p, c) => unionMap(b, l, r, p, c, (bb, ll, rr) => clone(bb !== undefined && eq(ll, bb) ? rr : ll))],
-    ['dailies.*.streak', max], ['dailies.*.best', max],
+    ['dailies.*.streak', max], ['dailies.*.best', max], ['upgrades.*', max], ['bossLog.*.met', max], ['bossLog.*.beat', max], ['bossLog.*.last', max],
     ['hero.gold', delta], ['hero.hp', delta], ['hero.totalXp', delta],
     ['stats.*', delta], ['counters.*', delta], ['inventory.*', delta],
     ['achievements', (b, l, r, p, c) => unionMap(b, l, r, p, c, (bb, ll, rr) => Math.min(num(ll) || num(rr), num(rr) || num(ll)))],
@@ -108,7 +112,7 @@
     ['pals.owned', (b, l, r, p, c) => unionMap(b, l, r, p, c)],
     ['pals.owned.*.exp', delta], ['pals.owned.*.seen', max], ['pals.pulls', delta], ['pals.evolutions', delta],
     ['buffs.charmUntil', max], ['buffs.perfectDay', max], ['day.last', max],
-    ['boss', boss], ['log', log],
+    ['boss', boss], ['dailyBoss', dailyBoss], ['log', log],
     ['_meta', (b, l, r) => ({ editedAt: Math.max(num(l && l.editedAt), num(r && r.editedAt)), device: (num(l && l.editedAt) >= num(r && r.editedAt) ? l : r || {}).device || '' })],
   ];
   function rule(path) {

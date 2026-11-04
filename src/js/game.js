@@ -40,7 +40,31 @@ Q.game = (() => {
   const xpToNext = (lvl) => Math.round(25 * Math.pow(lvl, 1.35) + 60);
   const statLevel = (xp) => Math.floor(Math.sqrt((xp || 0) / 15));
   const sl = (k) => statLevel(S().stats[k]);
-  const maxHp = () => 50 + sl('str') * 2;
+  /* Permanent upgrades (Shop → Upgrades). */
+  const UPGRADE_HP = 5;
+  const upgradeLevel = (id) => Math.max(0, Math.floor((S().upgrades || {})[id] || 0));
+  const upgradePrice = (id) => { const u = SHOP.upgrades[id]; return Math.round(u.base * Math.pow(1.6, upgradeLevel(id)) / 5) * 5; };
+  const upgradeValue = (id, lvl = upgradeLevel(id)) => SHOP.upgrades[id].per * lvl;
+  function upgradeText(id, lvl = upgradeLevel(id)) {
+    const u = SHOP.upgrades[id];
+    if (u.hp) return `+${upgradeValue(id, lvl)} max HP`;
+    return Q.PALS.FX[u.fx].fmt(upgradeValue(id, lvl));
+  }
+  function buyUpgrade(id) {
+    const st = S(); const u = SHOP.upgrades[id];
+    if (!u) return { ok: false, msg: 'Unknown upgrade' };
+    if (upgradeLevel(id) >= u.max) return { ok: false, msg: `${u.name} is already at its best` };
+    const price = upgradePrice(id);
+    if (st.hero.gold < price) return { ok: false, msg: `You need ${price - st.hero.gold} more gold` };
+    st.hero.gold -= price;
+    st.upgrades = st.upgrades || {};
+    st.upgrades[id] = upgradeLevel(id) + 1;
+    if (u.hp) st.hero.hp = Math.min(maxHp(), st.hero.hp + UPGRADE_HP);
+    Q.store.log(`Upgraded ${u.name} to level ${st.upgrades[id]} (${upgradeText(id)})`, 'shop');
+    afterAction();
+    return { ok: true, msg: `${u.name} level ${st.upgrades[id]}: ${upgradeText(id)}` };
+  }
+  const maxHp = () => 50 + sl('str') * 2 + upgradeLevel('vitality') * UPGRADE_HP;
   const title = (lvl) => TITLES.filter(([l]) => lvl >= l).pop()[1];
   const today = () => U.gameDate(new Date(), S().settings.dayStart);
 
@@ -154,6 +178,8 @@ Q.game = (() => {
     const stat = (Q.store.CATEGORIES[category] || Q.store.CATEGORIES.home).stat;
     const adv = Q.pals.advantage(ensureBoss());
     const bossDmg = Math.round(xp * 0.9 * (1 + (fx.bossPct + adv.pct) / 100));
+    const advDay = Q.pals.advantage(ensureDailyBoss());
+    const dayDmg = Math.round(xp * 0.9 * (1 + (fx.bossPct + advDay.pct) / 100));
 
     gainXp(xp);
     st.hero.gold += gold;
@@ -161,10 +187,11 @@ Q.game = (() => {
     // Every pal in the team gets the same EXP; pals in storage get none.
     const pals = Q.pals.gain(xp * (1 + fx.palExpPct / 100));
     const hit = damageBoss(bossDmg);
+    const dayHit = damageDailyBoss(dayDmg);
     const drop = drops ? rollDrop() : null;
     if (drop) push({ type: 'drop', drop });
-    push({ type: 'reward', xp, gold, onTime, kind, bossDmg: hit, lucky, palExp: pals ? pals.amt : 0 });
-    return { xp, gold, stat, bossDmg: hit, drop, pals };
+    push({ type: 'reward', xp, gold, onTime, kind, bossDmg: hit || dayHit, lucky, palExp: pals ? pals.amt : 0 });
+    return { xp, gold, stat, bossDmg: hit, dayDmg: dayHit, day: today(), drop, pals };
   }
 
   function revert(g) {
@@ -175,6 +202,8 @@ Q.game = (() => {
     st.stats[g.stat] = Math.max(0, (st.stats[g.stat] || 0) - g.xp);
     Q.pals.revertGain(g.pals);
     if (st.boss && !st.boss.defeated) st.boss.hp = Math.min(st.boss.maxHp, st.boss.hp + (g.bossDmg || 0));
+    const db = st.dailyBoss;
+    if (db && !db.defeated && db.day === g.day) db.hp = Math.min(db.maxHp, db.hp + (g.dayDmg || 0));
     revertDrop(g.drop);
   }
 
@@ -330,21 +359,81 @@ Q.game = (() => {
 
   /* ------------------------------------------------------------------ boss */
   /**
-   * Boss health = the damage this week's scheduled dailies would deal (a daily hits
-   * for about 9 × its difficulty multiplier), so beating it takes roughly 4 in 5 of
-   * them once streak/on-time bonuses, reminders and focus sessions are counted.
-   * A little tougher as you level up; never below BOSS_MIN_HP.
+   * Boss health is measured in "dailies' worth of damage": a daily hits for about
+   * 9 × its difficulty multiplier (more with streak and on-time bonuses).
+   *   - Weekly boss: 1.15 × the whole week's scheduled dailies, so it takes the
+   *     week's dailies plus some reminders or focus sessions.
+   *   - Daily foe: 0.8 × today's dailies, so it falls to most of one day's work.
+   * Both get a little tougher as you level up.
    */
-  const BOSS_MIN_HP = 150;
-  function bossHpFor(wk) {
-    const st = S();
+  const BOSS = { weekFactor: 1.15, weekMin: 200, weekMax: 3000, dayFactor: 0.8, dayMin: 30, dayMax: 500 };
+  const levelScale = () => 1 + Math.min(0.6, Math.max(0, S().hero.level - 1) * 0.03);
+  function dailiesDamage(ds) {
     let dmg = 0;
-    for (let i = 0; i < 7; i++) {
-      const ds = U.ymd(U.addDays(U.parseYmd(wk), i));
-      for (const d of st.dailies) if (!d.archived && isScheduled(d, ds)) dmg += 9 * (DIFF[d.difficulty] || DIFF.easy).mult;
+    for (const d of S().dailies) if (!d.archived && isScheduled(d, ds)) dmg += 9 * (DIFF[d.difficulty] || DIFF.easy).mult;
+    return dmg;
+  }
+  function bossHpFor(wk) {
+    let dmg = 0;
+    for (let i = 0; i < 7; i++) dmg += dailiesDamage(U.ymd(U.addDays(U.parseYmd(wk), i)));
+    return U.clamp(Math.round(dmg * BOSS.weekFactor * levelScale()), BOSS.weekMin, BOSS.weekMax);
+  }
+  function dailyBossHpFor(day) {
+    return U.clamp(Math.round(dailiesDamage(day) * BOSS.dayFactor * levelScale()), BOSS.dayMin, BOSS.dayMax);
+  }
+
+  /**
+   * Today's foe: a wild pal (Common or Rare) that changes every day. Smaller than the
+   * weekly boss and with smaller loot; it simply leaves at the day reset if not beaten.
+   */
+  function ensureDailyBoss() {
+    const st = S();
+    const day = today();
+    const cur = st.dailyBoss;
+    if (cur && cur.day === day) {
+      if (!cur.defeated) {
+        const target = dailyBossHpFor(day);
+        if (target > cur.maxHp) { cur.hp += target - cur.maxHp; cur.maxHp = target; }
+      }
+      return cur;
     }
-    const levelScale = 1 + Math.min(0.6, Math.max(0, st.hero.level - 1) * 0.03);
-    return U.clamp(Math.round(dmg * levelScale), BOSS_MIN_HP, 2500);
+    const pool = Q.PALS.LINES.filter((l) => l.r === 'C' || l.r === 'R');
+    const line = pool[U.hash(`${day}foe`) % pool.length];
+    const stage = 1 + (U.hash(`${day}stage`) % 2);
+    const maxHp = dailyBossHpFor(day);
+    st.dailyBoss = { day, id: line.id, stage, name: `Wild ${line.names[stage - 1]}`, type: line.type, maxHp, hp: maxHp, defeated: false };
+    return st.dailyBoss;
+  }
+
+  function damageDailyBoss(n) {
+    const st = S();
+    const b = ensureDailyBoss();
+    if (b.defeated || n <= 0) return 0;
+    const hit = Math.min(b.hp, n);
+    b.hp -= hit;
+    if (b.hp <= 0) {
+      b.hp = 0; b.defeated = true;
+      st.counters.dailyBossesDefeated = (st.counters.dailyBossesDefeated || 0) + 1;
+      const gold = 15 + st.hero.level * 2;
+      st.hero.gold += gold;
+      // Every third foe also drops a Potion.
+      const potion = st.counters.dailyBossesDefeated % 3 === 0;
+      if (potion) st.inventory.potion = (st.inventory.potion || 0) + 1;
+      Q.store.log(`Beat today's foe, ${b.name}! +${gold} gold${potion ? ' and a Potion' : ''}`, 'boss');
+      push({ type: 'dailyBoss', name: b.name, gold, potion });
+      gainXp(10);
+    }
+    return hit;
+  }
+
+  /** Boss log for the Pals page: how often you met and beat each weekly boss. */
+  function noteBoss(id, what, week) {
+    const st = S();
+    st.bossLog = st.bossLog || {};
+    const e = st.bossLog[id] || (st.bossLog[id] = { met: 0, beat: 0, last: '' });
+    e[what] = (e[what] || 0) + 1;
+    if (what === 'beat' && e.met < e.beat) e.met = e.beat;
+    if (week > (e.last || '')) e.last = week;
   }
 
   function ensureBoss() {
@@ -364,6 +453,7 @@ Q.game = (() => {
     let pickB = list[U.hash(wk) % list.length];
     if (st.boss && st.boss.id === pickB.id) pickB = list[(list.indexOf(pickB) + 1) % list.length];
     const maxHpB = bossHpFor(wk);
+    noteBoss(pickB.id, 'met', wk);
     st.boss = { week: wk, id: pickB.id, name: pickB.name, taunt: pickB.taunt, type: pickB.type, maxHp: maxHpB, hp: maxHpB, defeated: false };
     return st.boss;
   }
@@ -377,6 +467,7 @@ Q.game = (() => {
     if (b.hp <= 0) {
       b.hp = 0; b.defeated = true;
       st.counters.bossesDefeated++;
+      noteBoss(b.id, 'beat', b.week);
       const gold = 50 + st.hero.level * 5;
       const items = ['shield', 'potion', 'charm', 'maxpotion'];
       const item = items[U.hash(b.week + 'loot') % items.length];
@@ -519,17 +610,38 @@ Q.game = (() => {
       shield: { name: 'Streak Shield', price: 40, desc: 'Auto-used on a missed day. Keeps every streak alive.', icon: 'shield', color: '#3C82C8' },
       charm: { name: 'Lucky Charm', price: 60, desc: '1.5× XP for the next 2 hours.', icon: 'star', color: '#F2C14E' },
     },
+    /*
+     * Permanent upgrades: each level adds a passive effect that stacks with pal
+     * abilities and team synergy (see Q.pals.fx). Price goes up each level.
+     */
+    upgrades: {
+      satchel: { name: "Scholar's Satchel", icon: 'note', color: '#3C82C8', fx: 'xpPct', per: 3, max: 5, base: 120, desc: 'More XP from everything.' },
+      purse: { name: "Merchant's Purse", icon: 'coin', color: '#E3A21A', fx: 'goldPct', per: 4, max: 5, base: 120, desc: 'More gold from everything.' },
+      blade: { name: "Hero's Blade", icon: 'sword', color: '#E8604C', fx: 'bossPct', per: 5, max: 5, base: 100, desc: 'Hit bosses and daily foes harder.' },
+      whistle: { name: "Trainer's Whistle", icon: 'paw', color: '#58B368', fx: 'palExpPct', per: 5, max: 5, base: 100, desc: 'Your team levels up faster.' },
+      vest: { name: 'Iron Vest', icon: 'shield', color: '#7D8597', fx: 'dmgRed', per: 4, max: 5, base: 110, desc: 'Take less HP damage for missed dailies.' },
+      vitality: { name: 'Vitality Charm', icon: 'heart', color: '#E85848', hp: true, per: 5, max: 5, base: 90, desc: 'Raises your maximum HP.' },
+      clover: { name: 'Four-Leaf Clover', icon: 'leaf', color: '#2FA58A', fx: 'dropPct', per: 10, max: 3, base: 150, desc: 'Find items more often.' },
+      lantern: { name: 'Focus Lantern', icon: 'hourglass', color: '#8E6BD1', fx: 'focusPct', per: 8, max: 3, base: 90, desc: 'Bigger rewards from focus rounds.' },
+      stew: { name: 'Hearty Stew', icon: 'potion', color: '#C9702E', fx: 'healDay', per: 1, max: 3, base: 140, desc: 'Heal a little more every new day.' },
+    },
     skins: {
       meadow: { mode: 'light', name: 'Meadow', price: 0, desc: 'Fresh greens and sky blue.', sw: ['#EAF4E4', '#58B368', '#3C82C8'] },
       ember: { mode: 'light', name: 'Ember Town', price: 150, desc: 'Warm brick reds and cream.', sw: ['#FBEFE6', '#E8604C', '#F2C14E'] },
       emerald: { mode: 'light', name: 'Emerald Coast', price: 150, desc: 'Teal greens with a gold trim.', sw: ['#E4F4EE', '#2FA58A', '#F2C14E'] },
       tide: { mode: 'light', name: 'Tide Route', price: 150, desc: 'Ocean blues and sea-foam.', sw: ['#E6F0FA', '#3C82C8', '#2FA58A'] },
       sakura: { mode: 'light', name: 'Blossom Lane', price: 200, desc: 'Cherry pinks with leaf green.', sw: ['#FBEFF3', '#E879A8', '#58B368'] },
+      sunflower: { mode: 'light', name: 'Sunflower Field', price: 200, desc: 'Golden yellows with a sky-blue trim.', sw: ['#FBF4DE', '#D99A1E', '#3C82C8'] },
+      lavender: { mode: 'light', name: 'Lavender Hill', price: 220, desc: 'Soft purples with mint.', sw: ['#F2EEFA', '#7E5FC4', '#3FAF8E'] },
+      autumn: { mode: 'light', name: 'Autumn Grove', price: 220, desc: 'Pumpkin orange and fallen-leaf browns.', sw: ['#F8EEE2', '#C8622A', '#8C6A2E'] },
       night: { mode: 'dark', name: 'Night Meadow', price: 0, desc: 'Meadow after sunset: mossy greens.', sw: ['#1C2724', '#6CCB7F', '#74B9F0'] },
       dusk: { mode: 'dark', name: 'Dusk Village', price: 200, desc: 'Twilight purples with lantern gold.', sw: ['#232B44', '#A68BE8', '#F2C14E'] },
       lava: { mode: 'dark', name: 'Lava Cave', price: 200, desc: 'Warm embers glowing in the dark.', sw: ['#271D1C', '#F2826A', '#F2C14E'] },
       deepsea: { mode: 'dark', name: 'Deep Sea', price: 200, desc: 'Midnight navy with bioluminescent teal.', sw: ['#15212E', '#5DB8EC', '#52D3B3'] },
       moonblossom: { mode: 'dark', name: 'Moonlit Blossom', price: 250, desc: 'Plum night with cherry-pink glow.', sw: ['#261E2C', '#F293BC', '#8ED69C'] },
+      aurora: { mode: 'dark', name: 'Aurora Peak', price: 250, desc: 'Polar night lit by green and violet lights.', sw: ['#141F27', '#5FE3B0', '#B28BF5'] },
+      crystal: { mode: 'dark', name: 'Crystal Cave', price: 250, desc: 'Deep slate with glowing cyan crystals.', sw: ['#1A1D2A', '#62D6EE', '#F07DC8'] },
+      harvest: { mode: 'dark', name: 'Harvest Moon', price: 250, desc: 'Woodsmoke browns under an amber moon.', sw: ['#241F1A', '#F0A84A', '#9CCB6B'] },
     },
     scenes: {
       meadow: { name: 'Sunny Meadow', price: 0 },
@@ -537,10 +649,16 @@ Q.game = (() => {
       night: { name: 'Firefly Camp', price: 150 },
       sea: { name: 'Seaside Dock', price: 150 },
       snow: { name: 'Snowy Pass', price: 150 },
+      autumn: { name: 'Autumn Grove', price: 180 },
+      blossom: { name: 'Blossom Garden', price: 180 },
+      desert: { name: 'Desert Oasis', price: 200 },
+      aurora: { name: 'Aurora Peak', price: 250 },
     },
     outfits: {
       classic: { price: 0, lvl: 1 }, meadow: { price: 80, lvl: 1 }, tide: { price: 80, lvl: 3 },
-      sunset: { price: 120, lvl: 5 }, sakura: { price: 120, lvl: 8 }, royal: { price: 300, lvl: 20 },
+      sunset: { price: 120, lvl: 5 }, sakura: { price: 120, lvl: 8 }, forest: { price: 140, lvl: 6 },
+      ember: { price: 160, lvl: 10 }, frost: { price: 180, lvl: 12 }, shadow: { price: 220, lvl: 15 },
+      royal: { price: 300, lvl: 20 }, aurora: { price: 400, lvl: 25 },
     },
   };
 
@@ -594,6 +712,8 @@ Q.game = (() => {
     { id: 'tide', name: 'Tide Badge', badge: '#3C82C8', desc: 'Have 5 perfect days.', reward: { gold: 50 }, test: (s) => s.counters.perfectDays >= 5 },
     { id: 'lantern', name: 'Lantern Badge', badge: '#F2C14E', desc: 'Finish 10 focus sessions.', reward: { gold: 40 }, test: (s) => s.counters.focusSessions >= 10 },
     { id: 'stone', name: 'Stone Badge', badge: '#7D8597', desc: 'Defeat a weekly boss.', reward: { gold: 50 }, test: (s) => s.counters.bossesDefeated >= 1 },
+    { id: 'skirmish', name: 'Skirmisher', desc: 'Beat a daily foe.', reward: { gold: 15 }, test: (s) => (s.counters.dailyBossesDefeated || 0) >= 1 },
+    { id: 'foes20', name: 'Foe Hunter', desc: 'Beat 20 daily foes.', reward: { gold: 80, ticket: 1 }, test: (s) => (s.counters.dailyBossesDefeated || 0) >= 20 },
     { id: 'ember', name: 'Ember Badge', badge: '#E8604C', desc: 'Reach a 30-day streak.', reward: { gold: 100, ticket: 1 }, test: (s) => s.counters.maxStreak >= 30 },
     { id: 'gale', name: 'Gale Badge', badge: '#2FA58A', desc: 'Complete 50 reminders.', reward: { gold: 60 }, test: (s) => s.counters.remindersDone >= 50 },
     { id: 'crown', name: 'Crown Badge', badge: '#8E6BD1', desc: 'Reach level 25.', reward: { gold: 100, ticket: 1 }, test: (s) => s.hero.level >= 25 },
@@ -689,6 +809,7 @@ Q.game = (() => {
 
   return {
     DIFF, STATS, SHOP, ACH, rewardText, isRestDay,
+    ensureDailyBoss, BOSS, upgradeLevel, upgradePrice, upgradeText, buyUpgrade,
     xpToNext, statLevel, maxHp, title, today, isScheduled, scheduleLabel, dueAt, isDone, todaysDailies,
     toggleDaily, toggleCheckItem, checklistState, habit, completeReminder, reopenReminder, nextOccurrence,
     checkRollover, finalizeDay, focusComplete, focusPreview, buy, useItem, buyReward, ensureBoss, heal,

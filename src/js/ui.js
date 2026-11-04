@@ -164,6 +164,12 @@ Q.ui = (() => {
         case 'palEvolve':
           setTimeout(() => Q.views.pals.evolveScene(e), 900);
           break;
+        case 'dailyBoss':
+          setTimeout(() => {
+            Q.sfx.drop();
+            toast(`You beat today's foe, ${e.name}! +${e.gold} gold · +10 XP${e.potion ? ' · Potion' : ''}`, { kind: 'badge', icon: I('sword'), timeout: 6000 });
+          }, 450);
+          break;
         case 'boss':
           setTimeout(() => {
             Q.sfx.victory();

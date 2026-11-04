@@ -20,6 +20,7 @@ mod google;
 mod media;
 mod mobile;
 mod secure;
+mod spotify_app;
 mod spotify_web;
 mod storage;
 mod updater;
@@ -126,6 +127,16 @@ async fn open_external(app: AppHandle, url: String) -> Result<(), String> {
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
+/// "Open Spotify": bring the running Spotify app forward (Windows), otherwise
+/// open the `spotify:` link so the system starts it.
+#[tauri::command]
+async fn open_spotify(app: AppHandle) -> Result<(), String> {
+    if spotify_app::bring_to_front() {
+        return Ok(());
+    }
+    app.opener().open_url("spotify:", None::<&str>).map_err(|e| e.to_string())
+}
+
 // --------------------------------------------------------------------- run
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -151,6 +162,7 @@ pub fn run() {
             hide_main,
             quit_app,
             open_external,
+            open_spotify,
             storage::load_state,
             storage::save_state,
             storage::export_backup,
@@ -183,6 +195,7 @@ pub fn run() {
             spotify_web::spotify_web_control,
             updater::update_check,
             updater::update_install,
+            updater::release_notes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Questline");

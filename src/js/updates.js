@@ -5,6 +5,9 @@
  * progress. The signature check and the actual install happen in Rust
  * (src-tauri/src/updater.rs). On Android the APK is downloaded the same way
  * and then handed to Android's installer, which asks you to confirm.
+ *
+ * "What's new": the notes of the installed version come from its GitHub
+ * release, are cached on this device, and are shown once after an update.
  */
 
 Q.updates = (() => {
@@ -18,11 +21,66 @@ Q.updates = (() => {
   let checking = false;
   let lastError = null;
   let offeredVersion = null;
+  let current = null; // { version, notes, date, url } for the installed version
+  const NOTES_KEY = 'questline.releaseNotes';
+  const SEEN_KEY = 'questline.lastVersion';
+  const ls = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+  };
+
+  /** Release notes are a commit message: plain lines and "- " bullets. */
+  function notesHtml(text) {
+    const lines = String(text || '').replace(/\r/g, '').split('\n')
+      .filter((l) => !/^\s*(co-authored-by|claude-session|signed-off-by)\s*:/i.test(l));
+    const inline = (s) => U.esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+    let out = ''; let list = false;
+    for (const raw of lines) {
+      const l = raw.trim();
+      const bullet = /^[-*•]\s+(.*)$/.exec(l);
+      if (bullet) { if (!list) { out += '<ul>'; list = true; } out += `<li>${inline(bullet[1])}</li>`; continue; }
+      if (list) { out += '</ul>'; list = false; }
+      if (!l) continue;
+      const head = /^#{1,4}\s+(.*)$/.exec(l) || (/:$/.test(l) && l.length < 60 ? [l, l.replace(/:$/, '')] : null);
+      out += head ? `<h4>${inline(head[1])}</h4>` : `<p>${inline(l)}</p>`;
+    }
+    if (list) out += '</ul>';
+    return out || '<p>Bug fixes and improvements.</p>';
+  }
+
+  async function loadNotes() {
+    const cached = ls.get(NOTES_KEY);
+    if (cached && cached.version === version && cached.notes) current = cached;
+    if (current) return current;
+    try {
+      const r = await P.invoke('release_notes', { version });
+      if (r && r.notes) { current = r; if (r.version === version) ls.set(NOTES_KEY, r); }
+    } catch (e) { /* offline: try again next start */ }
+    rerender();
+    return current;
+  }
+
+  function showCurrentNotes() {
+    if (!current) return;
+    Q.ui.modal({
+      title: `What's new in v${U.esc(current.version)}`, cls: 'modal-small',
+      body: `<div class="update-notes">${notesHtml(current.notes)}</div>
+        ${current.version !== version ? `<p class="small muted">Notes for the newest release; you have v${U.esc(version)}.</p>` : ''}
+        <div class="modal-actions"><span class="spacer"></span><button class="btn btn-primary" data-close>Nice</button></div>`,
+    });
+  }
 
   async function init() {
     try { version = P.isApp ? await P.invoke('plugin:app|version') : '0.1.0 (web preview)'; } catch (e) { version = '?'; }
     if (!P.isApp) return;
     P.listen('update-progress', onProgress);
+    // One "Updated to vX" note after an update (not on a fresh install).
+    const seen = ls.get(SEEN_KEY);
+    ls.set(SEEN_KEY, version);
+    loadNotes().then(() => {
+      if (!seen || seen === version) return;
+      Q.ui.toast(`Updated to v${version}.`, { kind: 'badge', icon: I('star'), timeout: 12000, actions: current ? [{ label: "See what's new", fn: showCurrentNotes }] : [] });
+    });
     setTimeout(() => { if (S().settings.autoUpdate) check(); }, 15000);
     setInterval(() => { if (S().settings.autoUpdate) check(); }, 6 * 3600000);
   }
@@ -63,7 +121,7 @@ Q.updates = (() => {
   function notes(info) {
     Q.ui.modal({
       title: `What's new in v${info.version}`, cls: 'modal-small',
-      body: `<div class="update-notes">${U.esc(info.notes || 'Bug fixes and improvements.').replace(/\n/g, '<br>')}</div>
+      body: `<div class="update-notes">${notesHtml(info.notes)}</div>
         <p class="small muted">You have v${U.esc(info.current_version)}.</p>
         <div class="modal-actions"><button class="btn" data-close>Later</button><span class="spacer"></span><button class="btn btn-primary" data-go>Update now</button></div>`,
       onMount(m, close) { m.querySelector('[data-go]').onclick = () => { close(); install(); }; },
@@ -116,6 +174,8 @@ Q.updates = (() => {
         ${available ? `<button class="btn btn-small btn-primary" data-act="upd-install">Update now</button>` : `<button class="btn btn-small" data-act="upd-check" ${checking || !P.isApp ? 'disabled' : ''}>${I('sync')} Check now</button>`}</div>
       <label class="toggle-row"><span><b>Check automatically</b><span class="small muted">On start and every 6 hours. Nothing installs without your ${P.isPhone ? 'tap' : 'click'}.</span></span>
         <input type="checkbox" class="switch" data-change="set" data-path="settings.autoUpdate" ${st.settings.autoUpdate ? 'checked' : ''}></label>
+ ${current ? `<details class="whats-new"><summary><b>What's new in v${U.esc(current.version)}</b>${current.date ? `<span class="small muted"> · ${U.esc(new Date(current.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }))}</span>` : ''}</summary>
+        <div class="update-notes">${notesHtml(current.notes)}</div></details>` : ''}
       <div class="row-btns"><a class="link" href="${RELEASES_URL}" target="_blank" rel="noopener" data-act="upd-releases">${I('list')} Release history</a></div>`;
   }
 
@@ -125,5 +185,9 @@ Q.updates = (() => {
     Q.ui.on('upd-releases', () => P.openExternal(RELEASES_URL));
   }
 
-  return { init, check, install, panel, bind, version: () => version };
+  return {
+    init, check, install, panel, bind, version: () => version, notesHtml, showNotes: showCurrentNotes,
+    /** Web preview / tests: show these notes as if they came from GitHub. */
+    previewNotes(n) { current = n; rerender(); },
+  };
 })();

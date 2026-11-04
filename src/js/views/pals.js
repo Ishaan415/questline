@@ -76,6 +76,32 @@ Q.views.pals = (() => {
     </section>`;
   }
 
+  /* ---------------------------------------------------------- boss log */
+  function bossLog() {
+    const st = S(); const log = st.bossLog || {}; const cur = Q.game.ensureBoss();
+    const wins = Math.max(st.counters.bossesDefeated || 0, Object.values(log).reduce((n, e) => n + (e.beat || 0), 0));
+    const met = D.BOSSES.filter((b) => (log[b.id] && log[b.id].met) || cur.id === b.id).length;
+    const cards = D.BOSSES.map((b) => {
+      const e = log[b.id] || { met: 0, beat: 0 };
+      const now = cur.id === b.id; const seen = e.met > 0 || now;
+      const escaped = Math.max(0, e.met - e.beat - (now && !cur.defeated ? 1 : 0));
+      const status = now ? (cur.defeated ? '<span class="bl-tag good">Beaten this week</span>' : '<span class="bl-tag now">This week</span>')
+        : escaped ? `<span class="bl-tag">Got away${escaped > 1 ? ` ×${escaped}` : ''}</span>` : '';
+      return `<div class="bl-card ${seen ? 'seen' : 'unseen'} ${now ? 'now' : ''}" title="${seen ? esc(b.taunt) : 'Not met yet'}">
+        <span class="bl-art">${Q.sprites.boss(b.id, 56, seen ? '' : 'boss-sil')}</span>
+        <b class="bl-name">${seen ? esc(b.name) : '???'}</b>
+        ${seen ? C().typeChip(b.type, true) : ''}
+        <span class="bl-count ${e.beat ? 'won' : ''}">${e.beat ? `${I('trophy')} Beaten ×${e.beat}` : seen ? 'Not beaten yet' : 'Not met yet'}</span>
+        ${status}
+      </div>`;
+    }).join('');
+    return `<section class="panel boss-log-panel">
+      <div class="panel-title">${I('sword')} Boss log <span class="small muted">${met}/${D.BOSSES.length} met · ${wins} weekly ${wins === 1 ? 'win' : 'wins'} · ${st.counters.dailyBossesDefeated || 0} daily foes beaten</span></div>
+      <p class="small muted bl-intro">A new boss shows up every week. Beat it before the week ends to fill in your log.</p>
+      <div class="bl-grid">${cards}</div>
+    </section>`;
+  }
+
   /* ------------------------------------------------------------ paldex */
   function dexCard(l) {
     const owned = P().isOwned(l.id);
@@ -112,7 +138,7 @@ Q.views.pals = (() => {
           <div class="stat-pill big-gold">${I('coin')}<b>${st.hero.gold.toLocaleString()}</b><span>gold</span></div>
         </div>
       </div>
-      <div class="pals-page">${teamPanel()}${capsulePanel()}${dex()}</div>`;
+      <div class="pals-page">${teamPanel()}${capsulePanel()}${bossLog()}${dex()}</div>`;
   }
 
   /* ----------------------------------------------------------- detail */
@@ -163,9 +189,10 @@ Q.views.pals = (() => {
               <button class="btn btn-small" data-rename>${I('edit')} ${st.pals.owned[id].nick ? 'Rename' : 'Nickname'}</button>
               <span class="spacer"></span>
               ${inTeam ? `${lead ? '' : `<button class="btn btn-small" data-lead>${I('star')} Make lead</button>`}<button class="btn btn-small" data-remove>Move to storage</button>`
-                : full ? `<span class="small muted">Swap with:</span>${P().team().map((t) => `<button class="btn btn-small" data-swap="${t}" title="Replace ${esc(P().name(t))}"><img class="px" src="${P().url(t, P().stage(t))}" width="24" height="24" alt="">${esc(P().name(t))}</button>`).join('')}`
-                : `<button class="btn btn-small btn-primary" data-add>${I('plus')} Add to team</button>`}
-            </div>` : ''}`;
+                : full ? '' : `<button class="btn btn-small btn-primary" data-add>${I('plus')} Add to team</button>`}
+            </div>
+            ${!inTeam && full ? `<div class="pd-swap"><span class="small muted">Team is full. Swap with:</span>
+              <div class="pd-swap-btns">${P().team().map((t) => `<button class="btn btn-small" data-swap="${t}" title="Replace ${esc(P().name(t))}"><img class="px" src="${P().url(t, P().stage(t))}" width="40" height="40" alt=""><span>${esc(P().name(t))}</span></button>`).join('')}</div></div>` : ''}` : ''}`;
           box.querySelector('[data-close]').onclick = () => close();
           const on = (sel, fn) => { const el = box.querySelector(sel); if (el) el.onclick = fn; };
           on('[data-add]', () => { P().addToTeam(id); Q.game.checkAchievements(); Q.app.flushGame(); Q.sfx.click(); draw(); });

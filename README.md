@@ -7,7 +7,7 @@
 ### Your to-do list, as a cozy pixel RPG.
 
 Dailies, reminders, a calendar and a focus timer, where getting things done levels you up,<br>
-grows a team of pixel pals and knocks down a weekly boss. For **Windows** and **Android**.
+grows a team of pixel pals and knocks down a daily foe and a weekly boss. For **Windows** and **Android**.
 
 [![Download for Windows](https://img.shields.io/badge/Download-Windows-2F4858?style=for-the-badge)](https://github.com/Ishaan415/questline/releases/latest)
 [![Download for Android](https://img.shields.io/badge/Download-Android-3E9E5A?style=for-the-badge)](https://github.com/Ishaan415/questline/releases/latest/download/Questline-android.apk)
@@ -23,7 +23,7 @@ grows a team of pixel pals and knocks down a weekly boss. For **Windows** and **
 
 Questline is a daily planner that plays like a little handheld RPG. Add your chores,
 reminders and events; tick them off and you earn **XP and gold**, your **pals** gain
-EXP and evolve, and the **weekly boss** takes damage. Skip things and you lose a bit
+EXP and evolve, and **today's foe** and the **weekly boss** take damage. Skip things and you lose a bit
 of HP. It's never punishing, just enough to make "I'll do it tomorrow" sting.
 
 It runs on your PC (quietly, from the system tray) and on your Android phone, and keeps
@@ -37,7 +37,7 @@ server in between.
 | **1. Add your day** | Type it the way you'd say it: `gym mon wed fri 7pm`, `dentist fri 3pm`, `pay rent tomorrow !h`. Questline works out the date, time and repeat. |
 | **2. Get it done** | Tick things off for XP, gold and loot. Doing a task within 30 minutes of its time pays an on-time bonus; streaks pay more. |
 | **3. Grow your team** | Your three pals share every bit of EXP you earn and evolve as they level up. Win new ones from the Capsule Machine: 50 to collect, three of them legendary. |
-| **4. Beat the boss** | Every completed task hits this week's boss; every miss heals it. Defeat it by the end of the week for gold, XP and a capsule ticket. |
+| **4. Beat the bosses** | Every completed task hits both today's foe (a wild pal that's beaten with about a day's work) and this week's boss (which takes the whole week); missed dailies heal the boss. Beat them for gold, XP, items and capsule tickets. |
 | **5. Go easy on yourself** | Sick or travelling? Rest at the Inn and nothing hurts. Weekends can be rest days. Forgot to tick something yesterday? Record it before the day settles. |
 
 ## On your phone
@@ -60,7 +60,7 @@ arrive as notifications even when the app is closed.
     <td width="50%"><img src="docs/screenshots/journey.png" alt="Journey page"><br><b>Journey</b>: trainer card, badges, stats with perks, your streak heatmap and achievements.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/shop.png" alt="Shop: themes, outfits and focus scenes"><br><b>Shop</b>: spend gold on your own real-life rewards, items, town themes, outfits and focus scenes.</td>
+    <td width="50%"><img src="docs/screenshots/shop.png" alt="Shop: themes, outfits and focus scenes"><br><b>Shop</b>: spend gold on your own real-life rewards, items, permanent upgrades, town themes, outfits and focus scenes.</td>
     <td width="50%"><img src="docs/screenshots/dark-mode.png" alt="Dailies in dark mode"><br><b>Dark mode</b>: every theme has a light and a dark version, and you can try any of them before buying.</td>
   </tr>
 </table>
@@ -68,7 +68,7 @@ arrive as notifications even when the app is closed.
 ## Features at a glance
 
 - **Planner**: timed dailies with checklists, habits (+/−), one-off and repeating reminders, events, snooze, and a full-page calendar.
-- **Game**: XP, gold, HP, levels and titles; 50 pals across 9 types with abilities and team synergy; weekly bosses; 34 achievements; loot drops; a shop for your own real-life rewards.
+- **Game**: XP, gold, HP, levels and titles; 50 pals across 9 types with abilities and team synergy; a daily foe and a weekly boss with a boss log; permanent upgrades; 36 achievements; loot drops; a shop for your own real-life rewards.
 - **Focus**: full-screen Pomodoro, timer and stopwatch with ambient pixel scenes, rain sounds and Spotify controls; landscape mode on phones.
 - **Sync & backups**: sign in with Google to sync PC and phone, with daily backups in a normal `Questline` folder in your Drive. Restore any backup in two taps.
 - **Calendar**: optional two-way Google Calendar, plus read-only iCal feeds (holidays, timetables, Outlook).
@@ -112,14 +112,14 @@ the [privacy policy](https://ishaan415.github.io/questline/privacy.html).
 
 | Area | What it does |
 |---|---|
-| **Home** | Trainer card (level, HP, XP, gold), your lead pal with a dialog box (teammates beside it), today's timeline merging timed dailies, reminders and events with a "now" line, weekly boss, Spotify player, what's coming up. |
+| **Home** | Trainer card (level, HP, XP, gold), your lead pal with a dialog box (teammates beside it), today's timeline merging timed dailies, reminders and events with a "now" line, today's foe and the weekly boss, Spotify player, what's coming up. |
 | **Dailies** | Recurring chores with an optional time of day, grouped Morning / Afternoon / Evening / Night. Schedules: every day, certain weekdays, every N days, monthly. Difficulty, category, checklist steps, heads-up notification, streaks. Habits (+/−) live here too. |
 | **Reminders** | One-off or repeating tasks with a date and time ("Book tickets for the show, Fri 10:00 AM"). Overdue / Today / Tomorrow / Next 7 days / Later / No date. Snooze 10 min, 1 hour, tonight, tomorrow, next week. |
 | **Calendar** | A full page, not a corner widget. Month, week (time grid) and agenda views; click a day for its details; click an empty hour in week view to add an event. Shows your events and reminders, **never dailies**. |
-| **Focus** | Full-screen Pomodoro, countdown timer or stopwatch over a slow pixel scene (meadow, rain, firefly camp, seaside, snow), optional soft rain sound, Spotify controls only. Controls fade out while it runs. Sessions earn XP. |
-| **Shop** | Your own real-life rewards priced in gold, items (Potions, Streak Shields, Lucky Charm), town themes (preview any theme across the whole app before buying), trainer outfits and focus scenes. |
+| **Focus** | Full-screen Pomodoro, countdown timer or stopwatch over a slow pixel scene (meadow, rain, firefly camp, seaside, snow, autumn grove, blossom garden, desert oasis, aurora peak), optional soft rain sound, Spotify controls only. Controls fade out while it runs. Sessions earn XP. |
+| **Shop** | Your own real-life rewards priced in gold, items (Potions, Streak Shields, Lucky Charm), permanent upgrades, town themes (8 light and 8 dark; preview any theme across the whole app before buying), 11 trainer outfits and 9 focus scenes. |
 | **Pals** | Your team of 3, team presets, the Capsule Machine, and the Paldex of all 50 pals (silhouettes for the ones you haven't caught). Click any pal for its evolution line, level, ability and lore. |
-| **Journey** | Trainer card with 8 badges, five stats with perks, your team, 20-week heatmap, 14-day chart, 34 achievements with rewards, adventure log. |
+| **Journey** | Trainer card with 8 badges, five stats with perks, your team, 20-week heatmap, 14-day chart, 36 achievements with rewards, adventure log. |
 
 ### Quality-of-life features
 
@@ -143,7 +143,7 @@ the [privacy policy](https://ishaan415.github.io/questline/privacy.html).
 - **Custom day start** (default 4 AM) so late nights still count as "today".
 - Undo after completing or deleting, repeating reminders that roll forward,
   "move all overdue to tomorrow", starter packs, 12/24-hour clock, Monday/Sunday weeks,
-  six colour themes, interface size, reduced motion, sound volume.
+  16 colour themes, interface size, reduced motion, sound volume.
 - **Backups**: a daily local copy kept for 14 days, export/import as a file, and (if you
   sign in) daily backups in your Google Drive.
 
@@ -199,11 +199,22 @@ companion (here: a collectable team), Duolingo's streak freeze, and a solo versi
     own, and each new pal raises the price (80 gold, then +8 per pal). Tickets come from
     weekly bosses, achievements and rare drops.
   - **Presets**: save up to 3 teams (e.g. Focus team, Boss team) and swap in one click.
+  - **Boss log**: every weekly boss you've met, how many times you beat it, and the
+    ones still waiting to show up.
   - Your lead pal's mood follows your day.
-- **Weekly boss**: its HP matches the dailies you have scheduled that week (harder ones
-  count more) and grows if you add dailies mid-week, so beating it takes most of your
-  week's dailies. Every completion hits it; every miss heals it. Beat it by the end of the week for
-  gold, XP and loot.
+- **Today's foe**: a wild pal that changes every day. Its HP is about 80% of the
+  damage your dailies for that day would deal, so most of one day's work beats it.
+  Rewards: gold, a little XP, and a Potion every third win. It leaves at the day reset.
+- **Weekly boss**: its HP is about 115% of the damage your dailies for the whole week
+  would deal (harder dailies count more), so it takes the full week plus some reminders
+  or focus sessions. It grows if you add dailies mid-week. Every completion hits it;
+  every missed daily heals it. Beat it for gold, XP, an item and a Capsule Ticket.
+- Both get a little tougher as you level up, and each team pal with a type advantage
+  adds +15% damage.
+- **Permanent upgrades** (Shop → Upgrades): gear bought with gold that never wears off
+  and stacks with your team's abilities: more XP, gold, pal EXP, boss damage, item finds,
+  focus rewards and daily healing, less HP damage, and a higher max HP. Each has 3–5
+  levels and gets pricier per level.
 - **Drops**: completing tasks sometimes finds gold pouches, Potions, a shield or, rarely,
   a Capsule Ticket (max 6 a day).
 - **Achievements** pay gold and sometimes Capsule Tickets when they unlock.
@@ -309,7 +320,8 @@ On first launch, allow notifications so reminders can reach you.
 **Updates**: both apps check for new versions on start and every few hours, and tell
 you when one is ready (**Settings → Updates** to check now or turn this off). Nothing
 installs without your OK. On Windows the app closes, updates and reopens by itself; on
-Android, the system installer asks you to confirm.
+Android, the system installer asks you to confirm. After an update, **Settings → Updates →
+What's new** shows that version's release notes.
 
 **Your data**: saved on your device (Windows: `%APPDATA%\com.questline.app`, reachable
 via **Settings → Open data folder**; Android: the app's private storage), plus your

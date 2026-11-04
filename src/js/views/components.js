@@ -101,6 +101,28 @@ Q.comp = (() => {
     </section>`;
   }
 
+  /** Today's foe: a smaller fight that resets every day. */
+  function dailyBossCard() {
+    const b = G.ensureDailyBoss();
+    const f = b.hp / b.maxHp;
+    const st = S();
+    const end = U.parseYmd(b.day); end.setHours(st.settings.dayStart + 24, 0, 0, 0);
+    const hrs = Math.max(0, Math.ceil((end - Date.now()) / 3600000));
+    const adv = Q.pals.advantage(b);
+    return `<section class="panel boss-card daily-foe ${b.defeated ? 'defeated' : ''}">
+      <div class="panel-title">${I('bolt')} Today's foe <span class="muted small">${b.defeated ? 'Beaten!' : `${hrs} ${hrs === 1 ? 'hour' : 'hours'} left`}</span></div>
+      <div class="boss-body">
+        <div class="boss-sprite"><img class="px" src="${Q.pals.url(b.id, b.stage || 1)}" width="56" height="56" alt=""></div>
+        <div class="boss-info">
+          <div class="boss-name">${esc(b.name)} ${typeChip(b.type, true)}</div>
+          <div class="bar-row"><span class="bar-tag tag-boss">HP</span><div class="bar bar-boss"><div class="bar-fill" style="width:${f * 100}%"></div></div></div>
+          <div class="small muted">${b.defeated ? 'Loot collected. A new foe appears tomorrow.' : `${Math.ceil(b.hp)} / ${b.maxHp} · beat it before the day resets`}</div>
+          ${adv.pals.length && !b.defeated ? `<div class="small boss-adv">${I('bolt')} ${adv.pals.map((id) => esc(Q.pals.name(id))).join(' & ')}: +${adv.pct}% damage</div>` : ''}
+        </div>
+      </div>
+    </section>`;
+  }
+
   /* ---------- task rows ---------- */
   function dueChip(d, now = new Date()) {
     if (G.isDone(d)) return '<span class="chip chip-done">Done</span>';
@@ -166,5 +188,5 @@ Q.comp = (() => {
 
   const empty = (title, text, btn = '') => `<div class="empty"><div class="empty-art">${Q.sprites.companion(56)}</div><b>${title}</b><p>${text}</p>${btn}</div>`;
 
-  return { hpBar, xpBar, gold, trainerCard, companionBox, bossCard, dailyRow, reminderRow, eventRow, dueChip, stars, catDot, empty, typeChip, rarityChip, palExpBar };
+  return { hpBar, xpBar, gold, trainerCard, companionBox, bossCard, dailyBossCard, dailyRow, reminderRow, eventRow, dueChip, stars, catDot, empty, typeChip, rarityChip, palExpBar };
 })();

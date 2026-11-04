@@ -23,15 +23,26 @@ Q.views.home = (() => {
       }
     }
     for (const ev of Q.sync.itemsBetween(dayStart.getTime(), dayEnd.getTime() - 1, { reminders: false })) {
-      rows.push({ t: ev.allDay ? dayStart.getTime() - 2 : ev.start, kind: 'event', html: C.eventRow(ev) });
+      // When the day starts after midnight, the end of "today" already overlaps the next
+      // date. An all-day event for that next date belongs at midnight in the timeline,
+      // after tonight's tasks, not at the top with today's all-day events.
+      const nextDate = ev.allDay && U.ymd(new Date(ev.start)) > day;
+      rows.push({ t: ev.allDay && !nextDate ? dayStart.getTime() - 2 : ev.start, kind: 'event', allDay: ev.allDay, html: C.eventRow(ev) });
     }
     const timed = rows.filter((r) => r.t != null).sort((a, b) => a.t - b.t);
+    // Things on the next calendar date (after midnight, before the day resets) get the weekday.
+    const timeLabel = (r) => {
+      if (r.t < dayStart.getTime()) return r.kind === 'event' ? 'All day' : 'Overdue';
+      const d = new Date(r.t);
+      const when = r.allDay ? 'All day' : U.fmtTime(d);
+      return U.ymd(d) > day ? `<b class="tl-next">${U.DAYS[d.getDay()]}</b> ${when}` : when;
+    };
     const anytime = rows.filter((r) => r.t == null);
     let html = '';
     let nowPlaced = false;
     for (const r of timed) {
       if (!nowPlaced && r.t > now.getTime()) { html += nowLine(now); nowPlaced = true; }
-      html += `<div class="tl-row tl-${r.kind}"><span class="tl-time">${r.t < dayStart.getTime() ? (r.kind === 'event' ? 'All day' : 'Overdue') : U.fmtTime(new Date(r.t))}</span><span class="tl-dot"></span>${r.html}</div>`;
+      html += `<div class="tl-row tl-${r.kind}"><span class="tl-time">${timeLabel(r)}</span><span class="tl-dot"></span>${r.html}</div>`;
     }
     if (!nowPlaced && timed.length) html += nowLine(now);
     if (anytime.length) html += `<div class="tl-sub">Any time today</div>${anytime.map((r) => `<div class="tl-row tl-${r.kind}"><span class="tl-time">—</span><span class="tl-dot"></span>${r.html}</div>`).join('')}`;
@@ -81,6 +92,7 @@ Q.views.home = (() => {
           <div class="timeline">${timeline()}</div>
         </section>
         <div class="home-right">
+          ${C.dailyBossCard()}
           ${C.bossCard()}
           <section class="panel">
             <div class="panel-title">${I('note')} Now playing</div>

@@ -159,6 +159,143 @@ Q.focus = (() => {
         }
       },
     },
+    autumn: {
+      base: '#C98A3E',
+      bake(g) {
+        bands(g, 0, ['#F3C894', '#F6D3A2', '#F8DDB0', '#FAE6C0', '#FBEED0'], 0, 92);
+        g.fillStyle = '#FFE9B8'; g.fillRect(36, 20, 12, 12); g.fillStyle = '#FFF4D6'; g.fillRect(38, 22, 8, 8);
+        hill(g, '#D9A15A', 90, 6, 0.03, 2); hill(g, '#C98A3E', 102, 5, 0.045, 0.7);
+        // Round-topped trees in reds, oranges and gold.
+        const cols = ['#E8742E', '#C8382E', '#E3A21A', '#D2562A'];
+        for (let i = 0; i < 8; i++) {
+          const x = 12 + i * 30 + Math.floor(rnd() * 8); const y = 78 + Math.floor(rnd() * 12); const r = 9 + Math.floor(rnd() * 4);
+          g.fillStyle = '#5B3A2E'; g.fillRect(x - 1, y, 3, 22);
+          g.fillStyle = cols[i % cols.length];
+          for (let dy = -r; dy <= r; dy++) { const w = Math.floor(Math.sqrt(r * r - dy * dy)); g.fillRect(x - w, y + dy - 4, w * 2 + 1, 1); }
+          g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(x - r + 3, y - r - 1, r, 2);
+        }
+        g.fillStyle = '#8C5A2A'; g.fillRect(0, 114, W, 21);
+        for (let i = 0; i < 90; i++) { g.fillStyle = cols[i % 4]; g.fillRect(Math.floor(rnd() * W), 115 + Math.floor(rnd() * 20), 2, 1); }
+        g.fillStyle = '#A8763E'; for (let x = 0; x < W; x++) { const y = 124 + Math.round(Math.sin(x * 0.04 + 1) * 2); g.fillRect(x, y, 1, 3); }
+      },
+      init() { particles = Array.from({ length: 34 }, (_, i) => ({ x: rnd() * W, y: rnd() * H, v: 0.25 + rnd() * 0.35, p: rnd() * 6, c: ['#E8742E', '#C8382E', '#E3A21A', '#F29A4E'][i % 4] })); },
+      draw(g, t, dt) {
+        for (const p of particles) {
+          p.y += p.v * dt * 0.02; p.x += Math.sin(t / 700 + p.p) * 0.12 + 0.05;
+          if (p.y > H) { p.y = -3; p.x = rnd() * W; }
+          if (p.x > W) p.x -= W;
+          const flip = Math.floor(t / 260 + p.p) % 2;
+          g.fillStyle = p.c; g.fillRect(Math.floor(p.x), Math.floor(p.y), flip ? 2 : 1, flip ? 1 : 2);
+        }
+      },
+    },
+    blossom: {
+      base: '#9ED68C',
+      bake(g) {
+        bands(g, 0, ['#F8D3E2', '#FADCE8', '#FBE4ED', '#FCEBF1', '#FDF2F6'], 0, 88);
+        // Far mountain with a snowy top.
+        g.fillStyle = '#C9B5D8';
+        for (let x = 0; x < W; x++) { const y = Math.floor(70 - Math.max(0, 34 - Math.abs(x - 150) * 0.45)); g.fillRect(x, y, 1, 90 - y); }
+        g.fillStyle = '#FFFFFF'; for (let x = 140; x <= 160; x++) { const y = Math.floor(70 - Math.max(0, 34 - Math.abs(x - 150) * 0.45)); g.fillRect(x, y, 1, 4); }
+        hill(g, '#9ED68C', 92, 4, 0.035, 1.2); hill(g, '#7CC66A', 104, 3, 0.05, 2.4);
+        // Pond.
+        g.fillStyle = '#7CC1D9'; g.fillRect(70, 112, 110, 12); g.fillRect(76, 110, 98, 2); g.fillRect(76, 124, 98, 2);
+        g.fillStyle = '#A8DCEB'; g.fillRect(84, 115, 30, 1); g.fillRect(130, 119, 26, 1);
+        // Cherry trees.
+        for (const [x, y, r] of [[28, 80, 13], [214, 76, 15], [120, 86, 8]]) {
+          g.fillStyle = '#6B4436'; g.fillRect(x - 1, y, 3, 30); g.fillRect(x - 5, y + 6, 5, 2); g.fillRect(x + 2, y + 9, 5, 2);
+          for (let dy = -r; dy <= r; dy++) { const w = Math.floor(Math.sqrt(r * r - dy * dy) * 1.3); g.fillStyle = dy < -r / 3 ? '#FBC8DC' : '#F48FB1'; g.fillRect(x - w, y + dy - 2, w * 2 + 1, 1); }
+          for (let i = 0; i < 12; i++) { g.fillStyle = '#FFFFFF'; g.fillRect(x - r + Math.floor(rnd() * r * 2), y - r + Math.floor(rnd() * r * 1.6), 1, 1); }
+        }
+        g.fillStyle = '#58B368'; g.fillRect(0, 126, W, 9);
+      },
+      init() { particles = Array.from({ length: 40 }, () => ({ x: rnd() * W, y: rnd() * H, v: 0.15 + rnd() * 0.3, p: rnd() * 6 })); },
+      draw(g, t, dt) {
+        for (const p of particles) {
+          p.y += p.v * dt * 0.018; p.x += 0.08 + Math.sin(t / 800 + p.p) * 0.1;
+          if (p.y > H) { p.y = -2; p.x = rnd() * W; }
+          if (p.x > W) p.x -= W;
+          g.fillStyle = (Math.floor(t / 300 + p.p) % 2) ? '#F7B6D0' : '#FFFFFF';
+          g.fillRect(Math.floor(p.x), Math.floor(p.y), 1, 1);
+        }
+        g.fillStyle = '#C8EAF3';
+        for (const [cx, cy] of [[100, 117], [150, 121]]) { const r = Math.floor((t / 160) % 9); g.fillRect(cx - r, cy, r * 2 + 1, 1); }
+        // A koi now and then.
+        const kx = 72 + Math.floor((t * 0.01) % 106); g.fillStyle = '#F29A4E'; g.fillRect(kx, 118, 3, 1); g.fillStyle = '#FFFDF4'; g.fillRect(kx - 1, 118, 1, 1);
+      },
+    },
+    desert: {
+      base: '#E9B672',
+      bake(g) {
+        bands(g, 0, ['#E8865A', '#F09A64', '#F6AE70', '#F8C084', '#F9D19A', '#FADEB0'], 0, 80);
+        g.fillStyle = '#FFE08A'; g.fillRect(160, 34, 18, 18); g.fillStyle = '#FFF1A8'; g.fillRect(163, 37, 12, 12);
+        // Mesas.
+        g.fillStyle = '#C47048'; g.fillRect(14, 58, 40, 24); g.fillRect(20, 54, 28, 4); g.fillRect(196, 62, 34, 20); g.fillRect(200, 58, 24, 4);
+        g.fillStyle = '#A85A38'; g.fillRect(14, 70, 40, 2); g.fillRect(196, 72, 34, 2);
+        hill(g, '#F0C88A', 86, 5, 0.025, 0.5); hill(g, '#E9B672', 98, 6, 0.04, 2); hill(g, '#D69A55', 114, 4, 0.05, 4);
+        // Oasis pool + palm.
+        g.fillStyle = '#3C9EC8'; g.fillRect(150, 110, 52, 6); g.fillRect(154, 108, 44, 2); g.fillRect(154, 116, 44, 2);
+        g.fillStyle = '#7FD0EE'; g.fillRect(158, 111, 14, 1);
+        g.fillStyle = '#7CB85A'; g.fillRect(150, 107, 4, 2); g.fillRect(198, 107, 5, 2); g.fillRect(146, 116, 5, 2);
+        // Palm: a leaning trunk and drooping fronds.
+        const top = [212, 74];
+        g.fillStyle = '#8A6A4A'; for (let i = 0; i < 34; i++) g.fillRect(206 + Math.round(Math.sin(i / 34 * 1.4) * 6), 108 - i, 3, 1);
+        g.fillStyle = '#6E5236'; for (let i = 2; i < 34; i += 4) g.fillRect(206 + Math.round(Math.sin(i / 34 * 1.4) * 6), 108 - i, 3, 1);
+        for (const [dx, col] of [[-16, '#3E9E5A'], [-9, '#58B368'], [9, '#58B368'], [16, '#3E9E5A'], [-3, '#7CC66A'], [4, '#7CC66A']]) {
+          g.fillStyle = col;
+          for (let k = 0; k <= 12; k++) { const t = k / 12; g.fillRect(top[0] + Math.round(dx * t), top[1] - 3 + Math.round(-4 * t + 14 * t * t * (Math.abs(dx) > 6 ? 1 : 0.4)), 2, 2); }
+        }
+        g.fillStyle = '#6E5236'; g.fillRect(top[0] - 1, top[1] - 1, 3, 3);
+        // Cactus.
+        g.fillStyle = '#4E8C4A'; g.fillRect(48, 96, 3, 16); g.fillRect(44, 100, 2, 6); g.fillRect(44, 100, 4, 2); g.fillRect(53, 98, 2, 6); g.fillRect(51, 103, 4, 2);
+      },
+      init() { particles = Array.from({ length: 40 }, () => ({ x: rnd() * W, y: 90 + rnd() * 45, v: 0.5 + rnd() * 0.8, p: rnd() * 6 })); },
+      draw(g, t, dt) {
+        // Heat shimmer over the dunes.
+        g.fillStyle = 'rgba(255,241,200,.35)';
+        for (let i = 0; i < 4; i++) { const y = 84 + i * 3; const off = Math.floor(Math.sin(t / 400 + i) * 3); for (let x = (i * 9 + off + 60) % 18; x < W; x += 18) g.fillRect(x, y, 6, 1); }
+        g.fillStyle = '#F6DDB0';
+        for (const p of particles) { p.x += p.v * dt * 0.03; if (p.x > W) { p.x = -2; p.y = 90 + rnd() * 45; } g.fillRect(Math.floor(p.x), Math.floor(p.y + Math.sin(t / 300 + p.p)), 1, 1); }
+        // Tumbleweed.
+        const tx = Math.floor((t * 0.02) % (W + 40)) - 20; const ty = 118 - Math.abs(Math.round(Math.sin(t / 220) * 4));
+        g.fillStyle = '#A8763E'; g.fillRect(tx, ty, 5, 5); g.fillStyle = '#C99A5E'; g.fillRect(tx + 1, ty + 1, 3, 3); g.fillStyle = '#8A6A4A'; g.fillRect(tx + ((Math.floor(t / 120)) % 4), ty + 2, 1, 1);
+        g.fillStyle = '#9FE0F6'; g.fillRect(158 + Math.floor((t / 250) % 32), 113, 4, 1);
+      },
+    },
+    aurora: {
+      base: '#DDE8F2',
+      bake(g) {
+        bands(g, 0, ['#0B1426', '#0F1A2E', '#132036', '#17263F', '#1C2D49', '#223553'], 0, 96);
+        g.fillStyle = '#4E6E94';
+        for (let x = 0; x < W; x++) { const y = Math.floor(96 - Math.max(0, 30 - Math.abs(x - 60) * 0.6) - Math.max(0, 22 - Math.abs(x - 180) * 0.5)); g.fillRect(x, y, 1, 100 - y); }
+        g.fillStyle = '#F4F8FC';
+        for (let x = 0; x < W; x++) {
+          const a = 30 - Math.abs(x - 60) * 0.6; const b = 22 - Math.abs(x - 180) * 0.5;
+          if (a > 14) g.fillRect(x, Math.floor(96 - a), 1, Math.floor((a - 14) * 0.6) + 2);
+          if (b > 10) g.fillRect(x, Math.floor(96 - b), 1, Math.floor((b - 10) * 0.6) + 2);
+        }
+        g.fillStyle = '#DDE8F2'; g.fillRect(0, 98, W, 14);
+        g.fillStyle = '#2B4466'; g.fillRect(0, 112, W, 23); // frozen lake
+        g.fillStyle = '#3E5F86'; for (let i = 0; i < 12; i++) g.fillRect(Math.floor(rnd() * W), 114 + Math.floor(rnd() * 20), 10 + Math.floor(rnd() * 14), 1);
+        for (let i = 0; i < 5; i++) pine(g, 16 + i * 52 + Math.floor(rnd() * 10), 86 + Math.floor(rnd() * 6), 14, '#16283A', true);
+      },
+      init() { particles = Array.from({ length: 60 }, () => ({ x: rnd() * W, y: rnd() * 80, p: rnd() * 10 })); },
+      draw(g, t) {
+        for (const p of particles) if (Math.sin(t / 700 + p.p * 3) > -0.2) { g.fillStyle = '#FFF6DA'; g.fillRect(Math.floor(p.x), Math.floor(p.y), 1, 1); }
+        // Two rippling curtains of light.
+        for (const [col, y0, sp, ph] of [['rgba(95,227,176,', 26, 1400, 0], ['rgba(178,139,245,', 40, 1900, 2]]) {
+          for (let x = 0; x < W; x += 2) {
+            const y = Math.floor(y0 + Math.sin(x * 0.035 + t / sp + ph) * 8 + Math.sin(x * 0.09 - t / (sp * 0.7)) * 3);
+            const h = 10 + Math.floor((Math.sin(x * 0.05 + t / 900 + ph) + 1) * 6);
+            g.fillStyle = col + '.10)'; g.fillRect(x, y - h, 2, h);
+            g.fillStyle = col + '.22)'; g.fillRect(x, y - Math.floor(h / 2), 2, Math.floor(h / 2));
+            g.fillStyle = col + '.45)'; g.fillRect(x, y, 2, 2);
+            // Faint reflection on the ice.
+            g.fillStyle = col + '.10)'; g.fillRect(x, 134 - Math.floor((y - y0 + 8) / 2), 2, 1);
+          }
+        }
+      },
+    },
   };
 
   function setScene(key) {
@@ -307,12 +444,17 @@ Q.focus = (() => {
         </div>
       </div>
       <div class="fx-card ${f.mode === 'pomo' && f.phase !== 'work' ? 'is-break' : ''}">
+        <div class="fx-side">
         <div class="seg seg-small fx-modes">${[['pomo', 'Pomodoro'], ['timer', 'Timer'], ['stop', 'Stopwatch']].map(([k, n]) => `<button class="seg-btn ${f.mode === k ? 'on' : ''}" data-act="fx-mode" data-m="${k}" ${f.running ? 'disabled' : ''}>${n}</button>`).join('')}</div>
+        </div>
+        <div class="fx-main">
         <div class="fx-now" title="Current time"></div>
         <div class="fx-phase">${phaseName}${f.mode === 'pomo' ? ` <span>· round ${f.round} of ${fs.rounds}</span>` : ''}</div>
         <div class="fx-time" aria-live="off">00:00</div>
         <div class="fx-bar">${Array.from({ length: 24 }, () => '<i class="fx-cell"></i>').join('')}</div>
         ${f.mode === 'pomo' ? comboHtml() : ''}
+        </div>
+        <div class="fx-side">
         <select class="fx-task" data-change="fx-task" aria-label="What are you focusing on?">${taskOptions()}</select>
         <div class="fx-ctrl">
           <button class="btn" data-act="fx-reset" title="Reset (R)">Reset</button>
@@ -326,6 +468,7 @@ Q.focus = (() => {
             <label>Rounds <input type="number" min="2" max="8" value="${fs.rounds}" data-change="fx-len" data-k="rounds" aria-label="Rounds before a long break"></label></div>`
           : f.mode === 'timer' ? `<div class="fx-presets">${[15, 25, 45, 60, 90].map((m) => `<button class="fx-pill ${f.timerMin === m ? 'on' : ''}" data-act="fx-tmin" data-m="${m}">${m}m</button>`).join('')}
             <label>Custom <input type="number" min="1" max="600" value="${f.timerMin}" data-change="fx-tmin-in" aria-label="Timer minutes"></label></div>` : '<p class="fx-note">Stopwatch sessions over 5 minutes earn XP when you press Finish.</p>') : `<p class="fx-note">Notifications are muted while you focus. ${Q.platform.isPhone ? 'Tap the screen' : 'Move the mouse'} to show controls.</p>`}
+        </div>
       </div>
       <div class="fx-bottom">${Q.spotify.markup('focus')}</div>`;
     paintTime();

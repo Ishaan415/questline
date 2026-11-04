@@ -219,7 +219,8 @@ Q.spotify = (() => {
     on('sp-toggle', () => control('toggle'));
     on('sp-next', () => control('next'));
     on('sp-prev', () => control('prev'));
-    on('sp-open', () => P.openExternal(P.isApp ? 'spotify:' : 'https://open.spotify.com'));
+    // The app: bring Spotify forward if it's running, otherwise start it.
+    on('sp-open', () => (P.isApp ? P.invoke('open_spotify').catch((e) => Q.ui.toast(String(e), { kind: 'error' })) : P.openExternal('https://open.spotify.com')));
     on('sp-mute', () => {
       Q.sfx.click();
       if (state.volume > 0) { lastVol = state.volume; setVolume(0, true); } else setVolume(lastVol || 60, true);

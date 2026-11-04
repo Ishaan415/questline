@@ -1,5 +1,5 @@
 'use strict';
-/* Shop: items, your own real-life rewards, and cosmetics (skins, outfits, focus scenes). */
+/* Shop: items, permanent upgrades, your own real-life rewards, and cosmetics (skins, outfits, focus scenes). */
 
 Q.views.shop = (() => {
   const U = Q.util;
@@ -20,6 +20,25 @@ Q.views.shop = (() => {
           ${k !== 'shield' ? `<button class="btn btn-small" data-act="use-item" data-item="${k}" ${st.inventory[k] ? '' : 'disabled'}>Use</button>` : '<span class="small muted">Auto-used</span>'}
         </div>
       </div>`).join('')}</div>`;
+  }
+
+  function upgrades() {
+    const st = S();
+    const cards = Object.entries(G.SHOP.upgrades).map(([k, u]) => {
+      const lvl = G.upgradeLevel(k); const maxed = lvl >= u.max; const price = G.upgradePrice(k);
+      const pips = Array.from({ length: u.max }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('');
+      return `<div class="shop-item upgrade ${maxed ? 'maxed' : ''}">
+        <div class="si-icon" style="--c:${u.color}">${I(u.icon)}</div>
+        <div class="si-main"><b>${u.name}</b><p>${u.desc}</p>
+          <div class="up-level"><span class="up-pips" aria-label="Level ${lvl} of ${u.max}">${pips}</span><span class="small muted">Lv ${lvl}/${u.max}</span></div>
+          <span class="small">${lvl ? `<b class="up-now">${G.upgradeText(k)}</b>` : '<span class="muted">Not bought yet</span>'}${maxed ? '' : ` <span class="muted">→ ${G.upgradeText(k, lvl + 1)}</span>`}</span>
+        </div>
+        <div class="si-actions">${maxed ? `<span class="up-max">${I('star')} Maxed</span>`
+          : `<button class="btn btn-small btn-buy" data-act="buy-upgrade" data-key="${k}" ${st.hero.gold < price ? 'disabled' : ''}>${lvl ? 'Upgrade' : 'Buy'} · ${I('coin')} ${price}</button>`}</div>
+      </div>`;
+    }).join('');
+    return `<p class="muted pad-x">Permanent boosts that never wear off. They stack with your team's abilities and synergy, and sync to all your devices.</p>
+      <div class="shop-grid">${cards}</div>`;
   }
 
   function rewards() {
@@ -80,8 +99,8 @@ Q.views.shop = (() => {
         <div><div class="eyebrow">Spend what you earned</div><h1 class="page-title">Shop</h1></div>
         <div class="head-stats"><div class="stat-pill big-gold">${I('coin')}<b>${st.hero.gold.toLocaleString()}</b><span>gold</span></div></div>
       </div>
-      <div class="tabs" role="tablist">${[['rewards', 'Your rewards', 'chest'], ['items', 'Items', 'potion'], ['looks', 'Looks', 'sun']].map(([k, n, ic]) => `<button class="tab ${tab === k ? 'on' : ''}" data-act="shop-tab" data-t="${k}" role="tab" aria-selected="${tab === k}">${I(ic)}<span>${n}</span></button>`).join('')}</div>
-      <section class="panel shop-panel">${tab === 'items' ? items() : tab === 'looks' ? looks() : rewards()}</section>`;
+      <div class="tabs" role="tablist">${[['rewards', 'Your rewards', 'chest'], ['items', 'Items', 'potion'], ['upgrades', 'Upgrades', 'bolt'], ['looks', 'Looks', 'sun']].map(([k, n, ic]) => `<button class="tab ${tab === k ? 'on' : ''}" data-act="shop-tab" data-t="${k}" role="tab" aria-selected="${tab === k}">${I(ic)}<span>${n}</span></button>`).join('')}</div>
+      <section class="panel shop-panel">${tab === 'items' ? items() : tab === 'upgrades' ? upgrades() : tab === 'looks' ? looks() : rewards()}</section>`;
   }
 
   function bind() {
@@ -92,6 +111,12 @@ Q.views.shop = (() => {
       if (!r.ok) return Q.ui.toast(r.msg, { kind: 'error' });
       Q.sfx.coin(); Q.app.flushGame();
       Q.ui.toast('Purchased!', { kind: 'ok', icon: I('bag') });
+    });
+    on('buy-upgrade', (el) => {
+      const r = G.buyUpgrade(el.dataset.key);
+      if (!r.ok) return Q.ui.toast(r.msg, { kind: 'error' });
+      Q.sfx.coin(); Q.app.flushGame();
+      Q.ui.toast(r.msg, { kind: 'ok', icon: I('bolt') });
     });
     on('buy-reward', async (el) => {
       const r = S().rewards.find((x) => x.id === el.dataset.id);

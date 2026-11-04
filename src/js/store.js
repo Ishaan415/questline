@@ -42,9 +42,11 @@ Q.store = (() => {
       inventory: { potion: 1, maxpotion: 0, shield: 1, charm: 0, ticket: 1 },
       owned: { skins: ['meadow', 'night'], scenes: ['meadow', 'rain'], outfits: ['classic'] },
       buffs: { charmUntil: 0, perfectDay: null },
+      upgrades: {},
       boss: null,
+      dailyBoss: null,
       achievements: {},
-      counters: { completions: 0, remindersDone: 0, focusSessions: 0, focusMinutes: 0, perfectDays: 0, bossesDefeated: 0, faints: 0, drops: 0, maxStreak: 0, earlyBird: 0 },
+      counters: { completions: 0, remindersDone: 0, focusSessions: 0, focusMinutes: 0, perfectDays: 0, bossesDefeated: 0, dailyBossesDefeated: 0, faints: 0, drops: 0, maxStreak: 0, earlyBird: 0 },
       dayLog: {},
       log: [],
       day: { last: today, dropsToday: 0, dropsDate: today },
@@ -131,6 +133,24 @@ Q.store = (() => {
     if (!ownedIds.length) st.pals.owned.sprigg = { exp: 0, nick: '', got: Date.now(), seen: 1 };
     st.pals.team = [0, 1, 2].map((i) => (st.pals.team[i] && st.pals.owned[st.pals.team[i]] ? st.pals.team[i] : null));
     if (!st.pals.team.some(Boolean)) st.pals.team[0] = Object.keys(st.pals.owned)[0];
+    // v0.6: boss log, rebuilt from the activity log the first time.
+    if (!st.bossLog || typeof st.bossLog !== 'object') {
+      const byName = new Map(Q.PALS.BOSSES.map((b) => [b.name, b.id]));
+      const log = {};
+      const add = (name, what) => { const id = byName.get(name); if (!id) return; const e = log[id] || (log[id] = { met: 0, beat: 0, last: '' }); e[what]++; };
+      for (const e of st.log || []) {
+        const m = /^Defeated (.+?)! /.exec(e.text || ''); if (m) { add(m[1], 'beat'); add(m[1], 'met'); continue; }
+        const s = /^(.+) slipped away at the end of the week\./.exec(e.text || ''); if (s) add(s[1], 'met');
+      }
+      const b = st.boss;
+      if (b && b.id) {
+        const e = log[b.id] || (log[b.id] = { met: 0, beat: 0, last: '' });
+        if (!b.defeated) e.met++;
+        else if (!e.beat) { e.beat = 1; e.met = Math.max(1, e.met); }
+        e.last = b.week || '';
+      }
+      st.bossLog = log;
+    }
     if (!Array.isArray(st.pals.presets) || st.pals.presets.length < 3) st.pals.presets = [0, 1, 2].map((i) => (st.pals.presets || [])[i] || null);
   }
 

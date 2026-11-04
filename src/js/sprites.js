@@ -13,6 +13,11 @@ Q.sprites = (() => {
     sunset: { name: 'Sunset Ranger', C: '#F29A4E', c: '#C9702E', t: '#8E6BD1', T: '#6A4CA8', p: '#4A3A5A' },
     royal: { name: 'Champion', C: '#F2C14E', c: '#C99A2E', t: '#FFFFFF', T: '#D8E2EA', p: '#2F4858' },
     sakura: { name: 'Blossom', C: '#F48FB1', c: '#D0678C', t: '#FFFDF4', T: '#F0D8E0', p: '#5A6A8A' },
+    forest: { name: 'Forest Warden', C: '#6B8E3A', c: '#4E6B28', t: '#8C6A3E', T: '#6B4E2A', p: '#3E4A2E' },
+    ember: { name: 'Ember Knight', C: '#C8382E', c: '#8E2420', t: '#3A3A44', T: '#26262E', p: '#5A2A24' },
+    frost: { name: 'Frost Mage', C: '#9FD8F2', c: '#6FB4D8', t: '#F4FAFF', T: '#C8DDEA', p: '#3E5F86' },
+    shadow: { name: 'Shadow Ninja', C: '#4A3E6A', c: '#2F2748', t: '#5A5A6E', T: '#3E3E50', p: '#26232F' },
+    aurora: { name: 'Aurora Sage', C: '#5FE3B0', c: '#2FA58A', t: '#B28BF5', T: '#7E5FC4', p: '#1F2F4A' },
   };
 
   function render(key, opts = {}) {
