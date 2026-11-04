@@ -123,6 +123,26 @@ Q.comp = (() => {
     </section>`;
   }
 
+  /** Today's three bounties, with progress. Clearing all three pays a Capsule Ticket. */
+  function bountyCard() {
+    const QQ = Q.quests; const bs = QQ.ensureBounties();
+    if (!bs.list.length) return '';
+    const doneN = bs.list.filter((b) => b.claimed).length;
+    return `<section class="panel bounty-card ${bs.board ? 'cleared' : ''}">
+      <div class="panel-title">${I('list')} Bounties <span class="muted small">${bs.board ? 'Board cleared!' : `${doneN}/${bs.list.length} today`}</span></div>
+      <div class="bounties">${bs.list.map((b) => {
+        const p = QQ.progressOf(b);
+        return `<div class="bounty ${b.claimed ? 'done' : ''}">
+          <span class="bt-ico">${I(b.claimed ? 'check' : QQ.icon(b))}</span>
+          <div class="bt-main"><span class="bt-text">${esc(QQ.text(b))}</span>
+            <div class="bt-bar"><i style="width:${(p / b.target) * 100}%"></i></div></div>
+          <span class="bt-side"><span class="small muted">${p}/${b.target}</span><span class="bt-gold">${I('coin')}${b.gold}</span></span>
+        </div>`;
+      }).join('')}</div>
+      <div class="bt-foot small ${bs.board ? 'good' : 'muted'}">${I('ticket')} ${bs.board ? 'Capsule Ticket earned. New bounties tomorrow.' : 'Clear all three for a Capsule Ticket'}</div>
+    </section>`;
+  }
+
   /* ---------- task rows ---------- */
   function dueChip(d, now = new Date()) {
     if (G.isDone(d)) return '<span class="chip chip-done">Done</span>';
@@ -188,5 +208,5 @@ Q.comp = (() => {
 
   const empty = (title, text, btn = '') => `<div class="empty"><div class="empty-art">${Q.sprites.companion(56)}</div><b>${title}</b><p>${text}</p>${btn}</div>`;
 
-  return { hpBar, xpBar, gold, trainerCard, companionBox, bossCard, dailyBossCard, dailyRow, reminderRow, eventRow, dueChip, stars, catDot, empty, typeChip, rarityChip, palExpBar };
+  return { hpBar, xpBar, gold, trainerCard, companionBox, bossCard, dailyBossCard, bountyCard, dailyRow, reminderRow, eventRow, dueChip, stars, catDot, empty, typeChip, rarityChip, palExpBar };
 })();

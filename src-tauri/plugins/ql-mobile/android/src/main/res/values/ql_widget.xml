@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ql_w_bg">#FFFDF4</color>
+    <color name="ql_w_line">#2F4858</color>
+    <color name="ql_w_ink">#23343B</color>
+    <color name="ql_w_ink_soft">#5A6E73</color>
+    <color name="ql_w_accent">#3E9E5A</color>
+    <color name="ql_w_accent_ink">#FFFFFF</color>
+    <color name="ql_w_box">#FFFFFF</color>
+    <color name="ql_w_bell">#C9702E</color>
+    <color name="ql_w_late">#C8402E</color>
+
+    <string name="ql_widget_name">Questline · Today</string>
+    <string name="ql_widget_desc">Today\'s dailies and reminders. Tap one to tick it off.</string>
+    <string name="ql_widget_today">Today</string>
+    <string name="ql_widget_open_app">Open Questline once to fill this in</string>
+    <string name="ql_widget_new_day">A new day! Open Questline to start it.</string>
+    <string name="ql_widget_empty">Nothing left for today. Nice work!</string>
+    <string name="ql_widget_add">Add a task</string>
+    <string name="ql_widget_stats">Lv %1$d · HP %2$d/%3$d · %4$d gold</string>
+</resources>

@@ -136,11 +136,13 @@ Q.onboarding = (() => {
     const st = S();
     const d = U.parseYmd(rv.date);
     const dmg = U.sum(rv.missed, (x) => Q.game.DIFF[x.difficulty]?.dmg || 2);
+    const fromWidget = Q.widget.pendingYesterday(rv.date);
     Q.ui.modal({
       title: '', cls: 'modal-review', dismissable: false,
       body: `<div class="rv-head">${Q.sprites.companion(64)}
           <div class="textbox"><p>Welcome back! Before the new day starts: did you do any of these on <b>${U.DAYS_LONG[d.getDay()]}</b> and forget to tick them?</p></div></div>
-        <div class="rv-list">${rv.missed.map((x) => `<label class="rv-item"><input type="checkbox" value="${x.id}"><span class="cbox">${I('check')}</span><span>${esc(x.title)}${x.time ? ` <span class="small muted">${U.fmtTime(x.time)}</span>` : ''}</span></label>`).join('')}</div>
+        <div class="rv-list">${rv.missed.map((x) => `<label class="rv-item"><input type="checkbox" value="${x.id}" ${fromWidget.has(x.id) ? 'checked' : ''}><span class="cbox">${I('check')}</span><span>${esc(x.title)}${x.time ? ` <span class="small muted">${U.fmtTime(x.time)}</span>` : ''}</span></label>`).join('')}</div>
+        ${fromWidget.size ? '<p class="small rv-note">Ticks you made on the home-screen widget are already checked.</p>' : ''}
         <p class="small muted rv-note">${st.settings.inn ? 'You\'re resting at the Inn, so nothing here will hurt you.' : Q.game.isRestDay(rv.date) ? 'That was a weekend rest day, so missed dailies cost nothing and streaks are safe. Ticking them still earns rewards.' : `Unticked ones cost about ${Math.round(dmg)} HP in total${st.inventory.shield ? ' (your Streak Shield will protect streaks)' : ''}.`}</p>
         <div class="modal-actions"><span class="spacer"></span><button class="btn btn-primary" data-go>Start today</button></div>`,
       onMount(m, close) {

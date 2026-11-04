@@ -453,6 +453,7 @@ Q.focus = (() => {
         <div class="fx-time" aria-live="off">00:00</div>
         <div class="fx-bar">${Array.from({ length: 24 }, () => '<i class="fx-cell"></i>').join('')}</div>
         ${f.mode === 'pomo' ? comboHtml() : ''}
+        ${st.expedition ? `<div class="fx-exp"><img class="px" src="${Q.pals.url(st.expedition.id, Q.pals.stage(st.expedition.id))}" width="28" height="28" alt=""><span><b>${U.esc(Q.pals.name(st.expedition.id))}</b> is exploring · ${Math.floor(st.expedition.progress)}/${st.expedition.need} min</span></div>` : ''}
         </div>
         <div class="fx-side">
         <select class="fx-task" data-change="fx-task" aria-label="What are you focusing on?">${taskOptions()}</select>

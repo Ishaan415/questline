@@ -183,6 +183,7 @@ Q.game = (() => {
 
     gainXp(xp);
     st.hero.gold += gold;
+    Q.quests.bump('x', xp);
     st.stats[stat] = (st.stats[stat] || 0) + xp;
     // Every pal in the team gets the same EXP; pals in storage get none.
     const pals = Q.pals.gain(xp * (1 + fx.palExpPct / 100));
@@ -199,6 +200,7 @@ Q.game = (() => {
     const st = S();
     gainXp(-g.xp);
     st.hero.gold = Math.max(0, st.hero.gold - g.gold);
+    if (g.day) Q.quests.bump('x', -g.xp, g.day);
     st.stats[g.stat] = Math.max(0, (st.stats[g.stat] || 0) - g.xp);
     Q.pals.revertGain(g.pals);
     if (st.boss && !st.boss.defeated) st.boss.hp = Math.min(st.boss.maxHp, st.boss.hp + (g.bossDmg || 0));
@@ -230,6 +232,7 @@ Q.game = (() => {
       st.counters.maxStreak = Math.max(st.counters.maxStreak, d.streak);
       const g = grant({ base: 10, diff: d.difficulty, category: d.category, onTime, streak: d.streak, kind: 'daily' });
       g.at = Date.now();
+      if (onTime) g.onTime = true;
       d.done[day] = g;
       st.counters.completions++;
       pruneDone(d);
@@ -312,6 +315,7 @@ Q.game = (() => {
     const g = grant({ base: 12, diff: r.difficulty, category: r.category, onTime: onTime && !!r.due, kind: 'reminder' });
     st.counters.completions++;
     st.counters.remindersDone++;
+    Q.quests.noteReminder(r.id);
     Q.store.log(r.title, 'reminder', { xp: g.xp, gold: g.gold });
     const next = r.due && r.repeat && r.repeat !== 'none' ? nextOccurrence(r) : null;
     if (next) {
@@ -449,6 +453,8 @@ Q.game = (() => {
       return b;
     }
     if (st.boss && !st.boss.defeated) Q.store.log(`${st.boss.name} slipped away at the end of the week.`, 'boss');
+    // Kept for the weekly review.
+    if (st.boss) st.lastBoss = { week: st.boss.week, id: st.boss.id, name: st.boss.name, defeated: !!st.boss.defeated, maxHp: st.boss.maxHp, hp: st.boss.hp };
     const list = Q.PALS.BOSSES;
     let pickB = list[U.hash(wk) % list.length];
     if (st.boss && st.boss.id === pickB.id) pickB = list[(list.indexOf(pickB) + 1) % list.length];
@@ -562,6 +568,9 @@ Q.game = (() => {
       st.hero.gold += 15;
       Q.store.log('Perfect day! +15 gold and +10% XP today.', 'perfect');
     }
+    // A week just ended: perfect-week bonus (the review shows on the next check).
+    const wkDone = U.weekKey(U.parseYmd(day), st.settings.weekStart);
+    if (wkDone !== U.weekKey(U.parseYmd(t), st.settings.weekStart)) Q.quests.endOfWeek(wkDone);
     st.day.last = t;
     st.day.dropsToday = 0; st.day.dropsDate = t;
     st.hero.hp = Math.min(maxHp(), st.hero.hp + 2 + fx.healDay); // a good night's sleep (+ team healing)
@@ -585,7 +594,8 @@ Q.game = (() => {
     st.counters.focusSessions++;
     st.counters.focusMinutes += minutes;
     const day = today();
-    st.dayLog[day] = Object.assign(st.dayLog[day] || {}, { f: ((st.dayLog[day] || {}).f || 0) + minutes });
+    st.dayLog[day] = Object.assign(st.dayLog[day] || {}, { f: ((st.dayLog[day] || {}).f || 0) + minutes, fs: ((st.dayLog[day] || {}).fs || 0) + 1 });
+    Q.quests.onFocus(minutes);
     const comboTxt = mult > 1 ? ` (combo ×${mult.toFixed(2)})` : '';
     Q.store.log(`Focused for ${minutes} min${linked ? ` on ${linked.title}` : ''}${comboTxt}`, 'focus', { xp: g.xp, gold: g.gold });
     afterAction();
@@ -722,6 +732,9 @@ Q.game = (() => {
     { id: 'hoard', name: 'Treasure Keeper', desc: 'Hold 500 gold at once.', reward: { gold: 25 }, test: (s) => s.hero.gold >= 500 },
     { id: 'treat', name: 'Earned It', desc: 'Buy one of your own rewards.', reward: { gold: 20 }, test: (s) => (s.counters.rewardsBought || 0) >= 1 },
     { id: 'century', name: 'Centurion', desc: 'Complete 100 tasks.', reward: { gold: 75 }, test: (s) => s.counters.completions >= 100 },
+    { id: 'bounty1', name: 'Bounty Hunter', desc: 'Clear a whole bounty board in one day.', reward: { gold: 20 }, test: (s) => (s.counters.bountyBoards || 0) >= 1 },
+    { id: 'bounty15', name: 'Most Wanted', desc: 'Clear 15 bounty boards.', reward: { gold: 100, ticket: 1 }, test: (s) => (s.counters.bountyBoards || 0) >= 15 },
+    { id: 'pweek', name: 'Perfect Week', desc: 'Every daily done, every day of a week.', reward: { gold: 50 }, test: (s) => (s.counters.perfectWeeks || 0) >= 1 },
     { id: 'phoenix', name: 'Back on Your Feet', desc: 'Faint once, and keep going.', reward: { gold: 30 }, test: (s) => s.counters.faints >= 1 },
     // Pals
     { id: 'team3', pal: true, name: 'Full Party', desc: 'Fill all 3 team slots.', reward: { gold: 30 }, test: () => P().team().length >= 3 },
@@ -742,6 +755,8 @@ Q.game = (() => {
     { id: 'final1', pal: true, name: 'Final Form', desc: 'A pal reaches its final evolution.', reward: { gold: 150, ticket: 1 }, test: () => P().finals() >= 1 },
     { id: 'final5', pal: true, name: 'Apex Team', desc: '5 pals at their final evolution.', reward: { gold: 300, ticket: 1 }, test: () => P().finals() >= 5 },
     { id: 'mono', pal: true, name: 'Type Specialist', desc: 'Field a team of 3 pals of one type.', reward: { gold: 50, ticket: 1 }, test: () => P().sameTypeTeam() },
+    { id: 'trip1', pal: true, name: 'Scout', desc: 'Bring a pal home from an expedition.', reward: { gold: 20 }, test: (s) => (s.counters.expeditions || 0) >= 1 },
+    { id: 'trip10', pal: true, name: 'Globetrotter', desc: 'Finish 10 expeditions.', reward: { gold: 80, ticket: 1 }, test: (s) => (s.counters.expeditions || 0) >= 10 },
     { id: 'advantage', pal: true, name: 'Super Effective', desc: 'Defeat a boss with a type advantage in your team.', reward: { gold: 50, ticket: 1 }, test: (s) => (s.counters.advantageWins || 0) >= 1 },
   ];
   const rewardText = (r) => (r ? [r.gold ? `+${r.gold} gold` : '', r.ticket ? `+${r.ticket} Capsule Ticket${r.ticket > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ') : '');
@@ -762,6 +777,7 @@ Q.game = (() => {
   }
 
   function afterAction() {
+    Q.quests.check();
     checkAchievements();
     Q.store.commit('game');
   }

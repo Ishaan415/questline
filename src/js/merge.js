@@ -89,6 +89,26 @@
     out.hp = out.defeated ? 0 : Math.max(0, Math.min(num(out.maxHp) || num(l.maxHp), num(out.hp)));
     return out;
   };
+  /** Today's bounties: the newest day wins; the same day merges normally. */
+  function bounties(b, l, r, path, ctx) {
+    if (!l || !r) return clone(l || r);
+    if (l.day !== r.day) return clone(l.day > r.day ? l : r);
+    return generic(b && b.day === l.day ? b : undefined, l, r, path, ctx);
+  }
+  /** A pal's expedition: focus minutes from both devices add up. A trip that
+   *  ended (or was recalled) on one device stays ended. */
+  function expedition(b, l, r, path, ctx) {
+    const same = (x, y) => x && y && x.start === y.start;
+    if (!l || !r) {
+      const live = l || r;
+      if (!live) return null;
+      return same(live, b) ? null : clone(live);
+    }
+    if (l.start !== r.start) return clone(l.start > r.start ? l : r);
+    const out = clone(ctx.localWins ? l : r);
+    out.progress = Math.min(num(out.need), same(b, l) ? delta(b.progress, l.progress, r.progress) : Math.max(num(l.progress), num(r.progress)));
+    return out;
+  }
   const boss = bossBy('week');
   const dailyBoss = bossBy('day');
 
@@ -113,6 +133,8 @@
     ['pals.owned.*.exp', delta], ['pals.owned.*.seen', max], ['pals.pulls', delta], ['pals.evolutions', delta],
     ['buffs.charmUntil', max], ['buffs.perfectDay', max], ['day.last', max],
     ['boss', boss], ['dailyBoss', dailyBoss], ['log', log],
+    ['bounties', bounties], ['bounties.remDone', unionList], ['bounties.list', (b, l, r, p, c) => (eq(l, r) ? clone(l) : (l || []).map((x, i) => Object.assign(clone(x), { claimed: !!(x.claimed || ((r || [])[i] || {}).claimed) })))],
+    ['expedition', expedition], ['weekly.perfect', unionList],
     ['_meta', (b, l, r) => ({ editedAt: Math.max(num(l && l.editedAt), num(r && r.editedAt)), device: (num(l && l.editedAt) >= num(r && r.editedAt) ? l : r || {}).device || '' })],
   ];
   function rule(path) {

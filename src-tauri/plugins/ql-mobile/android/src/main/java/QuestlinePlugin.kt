@@ -25,6 +25,7 @@ import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
+import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
@@ -61,6 +62,11 @@ class TokenArgs {
 }
 
 @InvokeArg
+class WidgetArgs {
+  var json: String = ""
+}
+
+@InvokeArg
 class ApkArgs {
   var path: String = ""
 }
@@ -83,6 +89,48 @@ class QuestlinePlugin(private val activity: Activity) : Plugin(activity) {
       fitSystemBars()
       addBackHandler()
     }
+    // Started from the widget's + button.
+    noteLaunch(activity.intent)
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    if (noteLaunch(intent)) {
+      activity.runOnUiThread {
+        webView?.evaluateJavascript("window.Q&&Q.widget&&Q.widget.pull()", null)
+      }
+    }
+  }
+
+  /** Remembers a widget action (e.g. "quickadd") for the page to pick up. */
+  private fun noteLaunch(intent: Intent?): Boolean {
+    val action = intent?.getStringExtra(QlWidgetProvider.EXTRA_LAUNCH) ?: return false
+    intent.removeExtra(QlWidgetProvider.EXTRA_LAUNCH)
+    WidgetStore.setAction(activity.applicationContext, action)
+    return true
+  }
+
+  // ------------------------------------------------------------ home-screen widget
+
+  /** The page sends a snapshot of today; the widget redraws from it. */
+  @Command
+  fun widgetUpdate(invoke: Invoke) {
+    val args = invoke.parseArgs(WidgetArgs::class.java)
+    try {
+      WidgetStore.save(activity.applicationContext, args.json)
+    } catch (e: Exception) {
+      // No widget placed, or the launcher is busy: nothing to redraw.
+    }
+    invoke.resolve()
+  }
+
+  /** Ticks made on the widget since the last call, and a pending "quick add". */
+  @Command
+  fun widgetTake(invoke: Invoke) {
+    val (queue, action) = WidgetStore.take(activity.applicationContext)
+    val ret = JSObject()
+    ret.put("queue", queue)
+    ret.put("action", action ?: "")
+    invoke.resolve(ret)
   }
 
   // ------------------------------------------------------------ layout

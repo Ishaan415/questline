@@ -44,7 +44,10 @@ server in between.
 
 The Android app is the same Questline with a layout made for one thumb: tabs along the
 bottom, a big **+ Add** button, dialogs that slide up, haptics, and reminders that
-arrive as notifications even when the app is closed.
+arrive as notifications even when the app is closed. Add the **Questline · Today**
+widget to your home screen to see today's dailies and reminders and tick them off
+without opening the app (rewards are added the next time you open it); its **+**
+opens Quick add.
 
 <img src="docs/screenshots/phones.png" alt="Questline on Android: dailies, quick add, the More menu and dark mode" width="100%">
 
@@ -67,8 +70,9 @@ arrive as notifications even when the app is closed.
 
 ## Features at a glance
 
+- **Weekly review**: every new week starts with how the last one went: completion rate, best and toughest day, focus time, the boss result, and which dailies keep slipping. Plus a perfect-week bonus and a streak calendar.
 - **Planner**: timed dailies with checklists, habits (+/−), one-off and repeating reminders, events, snooze, and a full-page calendar.
-- **Game**: XP, gold, HP, levels and titles; 50 pals across 9 types with abilities and team synergy; a daily foe and a weekly boss with a boss log; permanent upgrades; 36 achievements; loot drops; a shop for your own real-life rewards.
+- **Game**: XP, gold, HP, levels and titles; 50 pals across 9 types with abilities and team synergy; a daily foe and a weekly boss with a boss log; three daily bounties; pal expeditions; permanent upgrades; 41 achievements; loot drops; a shop for your own real-life rewards.
 - **Focus**: full-screen Pomodoro, timer and stopwatch with ambient pixel scenes, rain sounds and Spotify controls; landscape mode on phones.
 - **Sync & backups**: sign in with Google to sync PC and phone, with daily backups in a normal `Questline` folder in your Drive. Restore any backup in two taps.
 - **Calendar**: optional two-way Google Calendar, plus read-only iCal feeds (holidays, timetables, Outlook).
@@ -112,14 +116,14 @@ the [privacy policy](https://ishaan415.github.io/questline/privacy.html).
 
 | Area | What it does |
 |---|---|
-| **Home** | Trainer card (level, HP, XP, gold), your lead pal with a dialog box (teammates beside it), today's timeline merging timed dailies, reminders and events with a "now" line, today's foe and the weekly boss, Spotify player, what's coming up. |
+| **Home** | Trainer card (level, HP, XP, gold), your lead pal with a dialog box (teammates beside it), today's timeline merging timed dailies, reminders and events with a "now" line, today's bounties, today's foe and the weekly boss, Spotify player, what's coming up. |
 | **Dailies** | Recurring chores with an optional time of day, grouped Morning / Afternoon / Evening / Night. Schedules: every day, certain weekdays, every N days, monthly. Difficulty, category, checklist steps, heads-up notification, streaks. Habits (+/−) live here too. |
 | **Reminders** | One-off or repeating tasks with a date and time ("Book tickets for the show, Fri 10:00 AM"). Overdue / Today / Tomorrow / Next 7 days / Later / No date. Snooze 10 min, 1 hour, tonight, tomorrow, next week. |
 | **Calendar** | A full page, not a corner widget. Month, week (time grid) and agenda views; click a day for its details; click an empty hour in week view to add an event. Shows your events and reminders, **never dailies**. |
 | **Focus** | Full-screen Pomodoro, countdown timer or stopwatch over a slow pixel scene (meadow, rain, firefly camp, seaside, snow, autumn grove, blossom garden, desert oasis, aurora peak), optional soft rain sound, Spotify controls only. Controls fade out while it runs. Sessions earn XP. |
 | **Shop** | Your own real-life rewards priced in gold, items (Potions, Streak Shields, Lucky Charm), permanent upgrades, town themes (8 light and 8 dark; preview any theme across the whole app before buying), 11 trainer outfits and 9 focus scenes. |
-| **Pals** | Your team of 3, team presets, the Capsule Machine, and the Paldex of all 50 pals (silhouettes for the ones you haven't caught). Click any pal for its evolution line, level, ability and lore. |
-| **Journey** | Trainer card with 8 badges, five stats with perks, your team, 20-week heatmap, 14-day chart, 36 achievements with rewards, adventure log. |
+| **Pals** | Your team of 3, team presets, the Capsule Machine, expeditions, the boss log, and the Paldex of all 50 pals (silhouettes for the ones you haven't caught). Click any pal for its evolution line, level, ability and lore. |
+| **Journey** | Trainer card with 8 badges, five stats with perks, your team, last week's review, a month-by-month streak calendar (all dailies or one at a time), 20-week heatmap, 14-day chart, 41 achievements with rewards, adventure log. |
 
 ### Quality-of-life features
 
@@ -201,6 +205,9 @@ companion (here: a collectable team), Duolingo's streak freeze, and a solo versi
   - **Presets**: save up to 3 teams (e.g. Focus team, Boss team) and swap in one click.
   - **Boss log**: every weekly boss you've met, how many times you beat it, and the
     ones still waiting to show up.
+  - **Expeditions**: send a pal from storage on a short (25 min), day (50 min) or
+    grand (100 min) trip. Your focus minutes move it along; it comes home with gold,
+    items, maybe a Capsule Ticket, and EXP of its own. One trip at a time.
   - Your lead pal's mood follows your day.
 - **Today's foe**: a wild pal that changes every day. Its HP is about 80% of the
   damage your dailies for that day would deal, so most of one day's work beats it.
@@ -211,6 +218,11 @@ companion (here: a collectable team), Duolingo's streak freeze, and a solo versi
   every missed daily heals it. Beat it for gold, XP, an item and a Capsule Ticket.
 - Both get a little tougher as you level up, and each team pal with a type advantage
   adds +15% damage.
+- **Daily bounties**: three small goals a day, picked from what fits your day ("finish
+  2 dailies before noon", "focus for 50 minutes", "clear all overdue reminders"...). Each
+  pays gold; clearing all three pays a Capsule Ticket. Undoing a task takes the reward back.
+- **Perfect week**: every daily done on every day of a week (rest days don't count
+  against you) pays 100 gold and a Capsule Ticket.
 - **Permanent upgrades** (Shop → Upgrades): gear bought with gold that never wears off
   and stacks with your team's abilities: more XP, gold, pal EXP, boss damage, item finds,
   focus rewards and daily healing, less HP damage, and a higher max HP. Each has 3–5

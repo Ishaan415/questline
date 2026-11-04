@@ -71,7 +71,7 @@ Q.updates = (() => {
   }
 
   async function init() {
-    try { version = P.isApp ? await P.invoke('plugin:app|version') : '0.1.0 (web preview)'; } catch (e) { version = '?'; }
+    try { version = P.isApp ? await P.invoke('plugin:app|version') : `${window.QUESTLINE_VERSION || 'dev'} (web preview)`; } catch (e) { version = '?'; }
     if (!P.isApp) return;
     P.listen('update-progress', onProgress);
     // One "Updated to vX" note after an update (not on a fresh install).

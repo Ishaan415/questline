@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ql_w_bg">#283833</color>
+    <color name="ql_w_line">#0E1513</color>
+    <color name="ql_w_ink">#EEF3E6</color>
+    <color name="ql_w_ink_soft">#A9BDB2</color>
+    <color name="ql_w_accent">#6CCB7F</color>
+    <color name="ql_w_accent_ink">#0F1E14</color>
+    <color name="ql_w_box">#1F2C28</color>
+    <color name="ql_w_bell">#F2A65E</color>
+    <color name="ql_w_late">#FF8A78</color>
+</resources>

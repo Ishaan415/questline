@@ -93,10 +93,10 @@ Q.pals = (() => {
   }
 
   /* ---------------------------------------------------------------- EXP */
-  /** Give every team pal the same EXP. Returns an undo record. */
-  function gain(amount) {
+  /** Give every team pal (or just `only`) the same EXP. Returns an undo record. */
+  function gain(amount, only = null) {
     const st = S();
-    const ids = team();
+    const ids = only || team();
     amount = Math.max(0, Math.round(amount));
     if (!amount || !ids.length) return null;
     for (const id of ids) {
@@ -123,7 +123,7 @@ Q.pals = (() => {
   /* ------------------------------------------------------- team editing */
   function addToTeam(id, slot = null) {
     const t = S().pals.team;
-    if (!isOwned(id)) return false;
+    if (!isOwned(id) || (Q.quests && Q.quests.away(id))) return false;
     const cur = t.indexOf(id);
     if (slot === null) slot = cur >= 0 ? cur : t.findIndex((x) => !x || !isOwned(x));
     if (slot < 0) return false;
@@ -159,7 +159,7 @@ Q.pals = (() => {
   function loadPreset(i) {
     const p = S().pals.presets[i];
     if (!p || !p.team) return false;
-    const t = p.team.filter((id) => id && isOwned(id));
+    const t = p.team.filter((id) => id && isOwned(id) && !(Q.quests && Q.quests.away(id)));
     if (!t.length) return false;
     S().pals.team = [0, 1, 2].map((k) => t[k] || null);
     Q.store.commit('pals');

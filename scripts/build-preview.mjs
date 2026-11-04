@@ -4,10 +4,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'src');
 const out = process.argv[2] || resolve(root, '..', 'questline-preview.html');
 const html = readFileSync(join(root, 'index.html'), 'utf8');
+const version = execFileSync(process.execPath, [join(root, '..', 'scripts', 'version.mjs')], { encoding: 'utf8' }).trim();
 
 let css = readFileSync(join(root, 'css', 'app.css'), 'utf8');
 css = css.replace(/url\('\.\.\/fonts\/([^']+)'\)/g, (_, f) => {
@@ -26,7 +28,7 @@ const page = `<title>Questline</title>
 ${css}
 </style>
 ${body}
-<script>window.QUESTLINE_DEMO = true;</script>
+<script>window.QUESTLINE_DEMO = true; window.QUESTLINE_VERSION = ${JSON.stringify(version)};</script>
 <script>
 ${js}
 </script>

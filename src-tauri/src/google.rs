@@ -110,12 +110,15 @@ pub struct Account {
 
 static CACHE: Mutex<Option<Tokens>> = Mutex::new(None);
 
+/// The app's version (from tauri.conf.json), set once at start; used in the User-Agent.
+pub(crate) static APP_VERSION: OnceLock<String> = OnceLock::new();
+
 pub(crate) fn http() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
             .timeout(Duration::from_secs(25))
-            .user_agent("Questline/0.1")
+            .user_agent(format!("Questline/{}", APP_VERSION.get().map(String::as_str).unwrap_or("dev")))
             .build()
             .expect("http client")
     })

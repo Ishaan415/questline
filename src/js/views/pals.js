@@ -12,6 +12,8 @@ Q.views.pals = (() => {
   let show = 'all';        // all | owned | missing
   let typeF = '';          // '' or a type key
   let pulling = false;
+  let expPal = '';         // pal picked for the next expedition
+  let expTrip = 'mid';
 
   const no = (id) => `#${String(D.byId[id].no).padStart(2, '0')}`;
 
@@ -73,6 +75,34 @@ Q.views.pals = (() => {
       <div class="odds">${Object.entries(odds).map(([r, o]) => `<div class="odd ${o.left ? '' : 'none'}"><i style="background:${D.RARITY[r].color}"></i><span>${D.RARITY[r].name}</span><b>${o.pct}%</b><span class="muted small">${o.left} left</span></div>`).join('')}</div>`
         : '<p class="pad-x">You collected every pal. Legendary work.</p>'}
       <p class="small muted cap-note">Tickets come from weekly bosses, achievements and rare drops.</p>
+    </section>`;
+  }
+
+  /* -------------------------------------------------------- expeditions */
+  function expeditionPanel() {
+    const QQ = Q.quests; const ex = S().expedition;
+    const head = `<div class="panel-title">${I('leaf')} Expedition <span class="small muted">Pals in storage explore while you focus</span></div>`;
+    if (ex) {
+      const t = QQ.TRIPS[ex.trip] || QQ.TRIPS.short; const pct = Math.min(100, (ex.progress / ex.need) * 100);
+      return `<section class="panel exp-panel" id="expedition">${head}
+        <div class="exp-live">
+          <div class="exp-walk">${P().sprite(ex.id, 72, { cls: 'exp-sprite' })}<div class="exp-path"></div></div>
+          <div class="exp-info"><p class="exp-where"><b>${esc(P().name(ex.id))}</b> is on a ${esc(t.name.toLowerCase())} to ${esc(t.place)}.</p>
+            <div class="bar-row"><div class="bar bar-xp"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-num">${Math.floor(ex.progress)}/${ex.need} min</span></div>
+            <p class="small muted">Every focus minute brings it closer to home. Loot: gold, items, maybe a Capsule Ticket, and EXP for ${esc(P().name(ex.id))}.</p>
+            <div class="row-btns"><button class="btn btn-small btn-primary" data-act="focus-open">${I('hourglass')} Focus now</button><button class="btn btn-small" data-act="exp-recall">Call back early</button></div>
+          </div>
+        </div></section>`;
+    }
+    const free = P().ownedIds().filter((id) => !P().inTeam(id));
+    if (!free.includes(expPal)) expPal = free[0] || '';
+    return `<section class="panel exp-panel" id="expedition">${head}
+      ${free.length ? `
+        <div class="exp-trips seg">${Object.entries(QQ.TRIPS).map(([k, t]) => `<button class="seg-btn ${expTrip === k ? 'on' : ''}" data-act="exp-trip" data-k="${k}"><b>${t.name}</b><span>${t.min} min focus</span></button>`).join('')}</div>
+        <p class="small muted exp-odds">${(() => { const t = QQ.TRIPS[expTrip]; return `About ${t.gold + S().hero.level * 2} gold, ${t.items >= 1 ? `${Math.floor(t.items)}${t.items % 1 ? '–' + Math.ceil(t.items) : ''} item${t.items > 1 ? 's' : ''}` : 'maybe an item'}, a ${Math.round(t.ticket * 100)}% chance of a Capsule Ticket, and ${t.min * 4} EXP for the pal.`; })()}</p>
+        <div class="exp-pick">${free.map((id) => `<button class="exp-pal ${expPal === id ? 'on' : ''}" data-act="exp-pal" data-id="${id}" title="${esc(P().name(id))}"><img class="px" src="${P().url(id, P().stage(id))}" width="44" height="44" alt=""><span>${esc(P().name(id))}</span></button>`).join('')}</div>
+        <div class="row-btns"><button class="btn btn-primary" data-act="exp-send">${I('leaf')} Send ${esc(P().name(expPal))}</button></div>`
+        : '<p class="small muted pad-x">Only pals in storage can go exploring, and all of yours are in your team. Pull another pal from the Capsule Machine and keep it in storage to send it off.</p>'}
     </section>`;
   }
 
@@ -138,7 +168,7 @@ Q.views.pals = (() => {
           <div class="stat-pill big-gold">${I('coin')}<b>${st.hero.gold.toLocaleString()}</b><span>gold</span></div>
         </div>
       </div>
-      <div class="pals-page">${teamPanel()}${capsulePanel()}${bossLog()}${dex()}</div>`;
+      <div class="pals-page">${teamPanel()}${capsulePanel()}${expeditionPanel()}${bossLog()}${dex()}</div>`;
   }
 
   /* ----------------------------------------------------------- detail */
@@ -164,6 +194,7 @@ Q.views.pals = (() => {
         const box = m.querySelector('.pal-detail');
         const draw = () => {
           const inTeam = P().inTeam(id); const full = P().team().length >= P().TEAM_SIZE;
+          const away = Q.quests.away(id); const ex = S().expedition;
           const nxt = owned && P().nextEvoLevel(id);
           const lead = st.pals.team[0] === id;
           box.innerHTML = `
@@ -189,15 +220,17 @@ Q.views.pals = (() => {
               <button class="btn btn-small" data-rename>${I('edit')} ${st.pals.owned[id].nick ? 'Rename' : 'Nickname'}</button>
               <span class="spacer"></span>
               ${inTeam ? `${lead ? '' : `<button class="btn btn-small" data-lead>${I('star')} Make lead</button>`}<button class="btn btn-small" data-remove>Move to storage</button>`
-                : full ? '' : `<button class="btn btn-small btn-primary" data-add>${I('plus')} Add to team</button>`}
+                : away ? `<span class="small exp-away">${I('leaf')} Exploring · ${Math.floor(ex.progress)}/${ex.need} focus min</span>`
+                : `${ex ? '' : `<button class="btn btn-small" data-trip>${I('leaf')} Send exploring</button>`}${full ? '' : `<button class="btn btn-small btn-primary" data-add>${I('plus')} Add to team</button>`}`}
             </div>
-            ${!inTeam && full ? `<div class="pd-swap"><span class="small muted">Team is full. Swap with:</span>
+            ${!inTeam && full && !away ? `<div class="pd-swap"><span class="small muted">Team is full. Swap with:</span>
               <div class="pd-swap-btns">${P().team().map((t) => `<button class="btn btn-small" data-swap="${t}" title="Replace ${esc(P().name(t))}"><img class="px" src="${P().url(t, P().stage(t))}" width="40" height="40" alt=""><span>${esc(P().name(t))}</span></button>`).join('')}</div></div>` : ''}` : ''}`;
           box.querySelector('[data-close]').onclick = () => close();
           const on = (sel, fn) => { const el = box.querySelector(sel); if (el) el.onclick = fn; };
           on('[data-add]', () => { P().addToTeam(id); Q.game.checkAchievements(); Q.app.flushGame(); Q.sfx.click(); draw(); });
           on('[data-remove]', () => { if (P().removeFromTeam(id) === 'last') Q.ui.toast('Your team needs at least one pal.', { kind: 'error' }); draw(); });
           on('[data-lead]', () => { P().makeLead(id); draw(); });
+          on('[data-trip]', () => { expPal = id; close(); Q.app.go('pals'); setTimeout(() => document.getElementById('expedition')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); });
           on('[data-rename]', () => { renaming = true; draw(); const inp = box.querySelector('input'); inp && (inp.focus(), inp.select()); });
           box.querySelectorAll('[data-swap]').forEach((b) => { b.onclick = () => { P().addToTeam(id, S().pals.team.indexOf(b.dataset.swap)); Q.game.checkAchievements(); Q.app.flushGame(); draw(); }; });
           const f = box.querySelector('.pd-rename');
@@ -302,6 +335,18 @@ Q.views.pals = (() => {
     on('pal-open', (el) => palModal(el.dataset.id));
     on('pal-pick', (el) => pickModal(+el.dataset.slot));
     on('pal-pull', (el) => pull(!!el.dataset.ticket));
+    on('exp-trip', (el) => { expTrip = el.dataset.k; Q.app.render(); });
+    on('exp-pal', (el) => { expPal = el.dataset.id; Q.app.render(); });
+    on('exp-send', () => {
+      const r = Q.quests.send(expPal, expTrip);
+      Q.ui.toast(r.msg, { kind: r.ok ? 'ok' : 'error', icon: I('leaf') });
+      if (r.ok) Q.sfx.click();
+    });
+    on('exp-recall', async () => {
+      const ex = S().expedition; if (!ex) return;
+      if (!(await Q.ui.confirm(`Call ${P().name(ex.id)} back now? It comes home with nothing.`, { ok: 'Call back', title: 'End the expedition' }))) return;
+      Q.quests.recall();
+    });
     on('dex-show', (el) => { show = el.dataset.k; Q.app.render(); });
     on('dex-type', (el) => { typeF = typeF === el.dataset.k ? '' : el.dataset.k; Q.app.render(); });
     on('preset-load', (el) => { if (P().loadPreset(+el.dataset.i)) { Q.sfx.click(); Q.game.checkAchievements(); Q.app.flushGame(); Q.ui.toast(`Loaded ${S().pals.presets[+el.dataset.i].name}`, { kind: 'ok', icon: I('paw') }); } });

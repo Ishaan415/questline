@@ -4,8 +4,10 @@
 #   2. android: Questline-android.apk + android.json, added to the same release
 #
 # Runs when you push changes to the app (src/, src-tauri/, package files) to main,
-# or manually from the Actions tab. Versions are SERIES.<n>: the first release in
-# a series is .0, then .1, .2… To start a new series (e.g. 0.4), change SERIES below.
+# or manually from the Actions tab. Versions are <series>.<n>: the series is the
+# major.minor of "version" in package.json (e.g. 0.6.0 → 0.6), the first release in
+# a series is .0, then .1, .2… To start a new series, change package.json's version
+# (scripts/version.mjs has the details).
 # Add [skip ci] to a commit message to push without releasing.
 name: Build and release
 
@@ -21,9 +23,6 @@ on:
 
 permissions:
   contents: write   # needed to create releases
-
-env:
-  SERIES: '0.5'
 
 concurrency:
   group: release
@@ -55,19 +54,12 @@ jobs:
         id: ver
         shell: bash
         run: |
-          # Count releases already tagged vSERIES.* (e.g. v0.3.0, v0.3.1) and use the next number.
-          # (awk, not grep: grep exits 1 when nothing matches, which fails the step on the first release)
-          n=$(git ls-remote --tags origin "refs/tags/v${SERIES}.*" | awk '!/\^\{\}/' | wc -l | tr -d ' ')
-          VERSION="${SERIES}.${n}"
+          # Counts the series' release tags on GitHub and takes the next number,
+          # then writes it into package.json (tauri.conf.json reads it from there).
+          VERSION=$(node scripts/version.mjs next)
           echo "Building version $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          node -e "
-            const fs = require('fs');
-            const f = 'src-tauri/tauri.conf.json';
-            const c = JSON.parse(fs.readFileSync(f, 'utf8'));
-            c.version = process.argv[1];
-            fs.writeFileSync(f, JSON.stringify(c, null, 2));
-          " "$VERSION"
+          node scripts/version.mjs write "$VERSION"
 
       - uses: actions/setup-node@v6
         with:
@@ -122,14 +114,7 @@ jobs:
           fi
 
       - name: Use the same version as the Windows build
-        run: |
-          node -e "
-            const fs = require('fs');
-            const f = 'src-tauri/tauri.conf.json';
-            const c = JSON.parse(fs.readFileSync(f, 'utf8'));
-            c.version = process.argv[1];
-            fs.writeFileSync(f, JSON.stringify(c, null, 2));
-          " "$VERSION"
+        run: node scripts/version.mjs write "$VERSION"
 
       - uses: actions/setup-node@v6
         with:

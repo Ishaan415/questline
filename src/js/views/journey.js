@@ -1,5 +1,5 @@
 'use strict';
-/* Journey: trainer card, badges, stats & perks, companion, activity heatmap, log. */
+/* Journey: trainer card, badges, stats & perks, team, weekly review, streak calendar, heatmap, log. */
 
 Q.views.journey = (() => {
   const U = Q.util;
@@ -7,6 +7,8 @@ Q.views.journey = (() => {
   const S = () => Q.store.state;
   const I = (n) => Q.sprites.icon(n);
   const esc = U.esc;
+  let calMonth = null;   // first day of the month shown in the streak calendar
+  let calDaily = 'all';  // 'all' or a daily id
 
   function dayStats(ds) {
     const st = S();
@@ -58,6 +60,121 @@ Q.views.journey = (() => {
     <div class="chart-legend small"><span><i class="lg-done"></i>Dailies done</span><span><i class="lg-sched"></i>Scheduled</span><span><i class="lg-focus"></i>Focus minutes (max ${maxF})</span></div>`;
   }
 
+  /* ------------------------------------------------------- weekly review */
+  const pct = (x) => `${Math.round(x * 100)}%`;
+  const weekLabel = (wk) => { const a = U.parseYmd(wk); const b = U.addDays(a, 6); return `${a.getDate()} ${U.MONTHS[a.getMonth()]} – ${b.getDate()} ${U.MONTHS[b.getMonth()]}`; };
+
+  function reviewHtml(sum, { full = true } = {}) {
+    const QQ = Q.quests;
+    const tiles = [
+      ['check', sum.rate === null ? '–' : pct(sum.rate), `dailies done (${sum.totalDone}/${sum.totalSched})`],
+      ['hourglass', `${sum.focus}`, `focus minutes · ${sum.sessions} ${sum.sessions === 1 ? 'session' : 'sessions'}`],
+      ['bell', `${sum.reminders}`, 'reminders done'],
+      ['list', `${sum.bounties}`, 'bounties done'],
+    ];
+    if (sum.xp) tiles.push(['bolt', `${sum.xp}`, 'XP earned']);
+    const day = (x) => (x ? `${U.fmtDate(U.parseYmd(x.ds))} · ${x.d}/${x.t}` : '–');
+    const boss = sum.boss ? `${Q.sprites.boss(sum.boss.id, 40)}<span><b>${esc(sum.boss.name)}</b> ${sum.boss.defeated ? '<span class="good">defeated</span>' : `<span class="muted">got away with ${Math.ceil(sum.boss.hp)}/${sum.boss.maxHp} HP</span>`}</span>` : '<span class="muted">No boss record for this week.</span>';
+    const struggling = sum.per.filter((x) => x.sched >= 3 && x.rate < 0.5);
+    return `<div class="wr">
+      <div class="wr-tiles">${tiles.map(([ic, v, l]) => `<div class="wr-tile"><span class="wr-ico">${I(ic)}</span><b>${v}</b><span class="small muted">${l}</span></div>`).join('')}</div>
+      <div class="wr-row"><div class="wr-cell"><span class="eyebrow">Best day</span><span>${day(sum.best)}</span></div><div class="wr-cell"><span class="eyebrow">Toughest day</span><span>${day(sum.worst)}</span></div></div>
+      <div class="wr-boss">${boss}</div>
+      ${sum.perfect ? `<div class="wr-perfect">${I('star')} Perfect week! +100 gold and a Capsule Ticket.</div>` : ''}
+      ${full && sum.per.length ? `<div class="wr-dailies"><div class="eyebrow">Each daily</div>
+        ${sum.per.map((x) => `<div class="wr-d ${x.rate < 0.5 && x.sched >= 3 ? 'weak' : ''}"><span class="wr-dt">${esc(x.title)}</span><div class="wr-bar"><i style="width:${x.rate * 100}%"></i></div><span class="small wr-dn">${x.done}/${x.sched}</span>
+          ${x.rate < 0.5 && x.sched >= 3 ? `<button class="btn btn-small" data-act="edit" data-type="daily" data-id="${x.id}">Adjust</button>` : '<span></span>'}</div>`).join('')}
+      </div>` : ''}
+      ${full && struggling.length ? `<p class="small muted wr-tip">${I('note')} ${struggling.length === 1 ? `“${esc(struggling[0].title)}” was done less than half the time.` : `${struggling.length} dailies were done less than half the time.`} Making them easier, moving them to a better time or giving them fewer days usually beats dropping them.</p>` : ''}
+    </div>`;
+  }
+
+  function showWeekly(wk) {
+    const sum = Q.quests.weekSummary(wk);
+    Q.ui.modal({
+      title: `Your week · ${weekLabel(wk)}`, cls: 'modal-form modal-review',
+      body: `${reviewHtml(sum)}<div class="modal-actions"><span class="spacer"></span><button class="btn btn-primary" data-close>Start the new week</button></div>`,
+      onMount(m, close) { m.querySelectorAll('[data-act="edit"]').forEach((b) => b.addEventListener('click', () => close())); },
+    });
+  }
+
+  function reviewPanel() {
+    const cur = Q.quests.weekOf(G.today());
+    const prev = U.ymd(U.addDays(U.parseYmd(cur), -7));
+    const sum = Q.quests.weekSummary(prev);
+    return `<section class="panel wide">
+      <div class="panel-title">${I('calendar')} Last week <span class="small muted">${weekLabel(prev)} · ${S().counters.perfectWeeks || 0} perfect ${S().counters.perfectWeeks === 1 ? 'week' : 'weeks'} so far</span>
+        <button class="btn btn-small pt-btn" data-act="weekly-open" data-wk="${prev}">Full review</button></div>
+      ${sum.totalSched || sum.focus ? reviewHtml(sum, { full: false }) : '<p class="small muted pad-x">Your first weekly review shows up on the first day of next week.</p>'}
+    </section>`;
+  }
+
+  /* ------------------------------------------------------ streak calendar */
+  function perfectStreak() {
+    const st = S(); let cur = 0; let best = 0; let run = 0;
+    const days = Object.keys(st.dayLog).sort();
+    for (const ds of days) {
+      const l = st.dayLog[ds];
+      if (!l.t) continue;
+      if (l.d >= l.t) { run++; best = Math.max(best, run); } else if (!G.isRestDay(ds)) run = 0;
+    }
+    // Current: walk back from yesterday (today counts once it's perfect).
+    const t = dayStats(G.today());
+    if (t.t && t.d >= t.t) cur++;
+    for (let d = U.addDays(U.parseYmd(G.today()), -1); ; d = U.addDays(d, -1)) {
+      const l = st.dayLog[U.ymd(d)];
+      if (!l) break;
+      if (!l.t) continue;
+      if (l.d >= l.t) cur++; else if (G.isRestDay(U.ymd(d))) continue; else break;
+    }
+    return { cur, best: Math.max(best, cur) };
+  }
+
+  function streakCalendar() {
+    const st = S(); const today = G.today();
+    if (!calMonth) { const t = U.parseYmd(today); calMonth = new Date(t.getFullYear(), t.getMonth(), 1); }
+    const daily = calDaily === 'all' ? null : st.dailies.find((d) => d.id === calDaily);
+    if (calDaily !== 'all' && !daily) calDaily = 'all';
+    const first = calMonth; const lead = (first.getDay() - st.settings.weekStart + 7) % 7;
+    const n = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    const heads = Array.from({ length: 7 }, (_, i) => U.DAYS[(i + st.settings.weekStart) % 7].slice(0, 2));
+    let cells = '';
+    for (let i = 0; i < lead; i++) cells += '<span class="sc-cell blank"></span>';
+    for (let k = 1; k <= n; k++) {
+      const ds = U.ymd(new Date(first.getFullYear(), first.getMonth(), k));
+      const future = ds > today; const rest = G.isRestDay(ds);
+      let cls = ''; let tip = U.fmtDate(U.parseYmd(ds));
+      if (future) cls = 'future';
+      else if (daily) {
+        const sched = G.isScheduled(daily, ds) && (daily.createdAt || 0) <= U.at(ds, '23:59').getTime();
+        const did = !!(daily.done && daily.done[ds]);
+        cls = did ? 'hit' : !sched ? 'off' : ds === today ? 'open' : rest ? 'rest' : 'miss';
+        tip += did ? ': done' : !sched ? ': not scheduled' : ds === today ? ': not yet' : rest ? ': rest day' : ': missed';
+      } else {
+        const s = dayStats(ds);
+        if (!s.t) cls = 'off';
+        else if (s.d >= s.t) cls = 'perfect';
+        else cls = ds === today ? `open l${s.d ? 2 : 0}` : s.d / s.t >= 0.5 ? 'part' : s.d ? 'low' : rest ? 'rest' : 'miss';
+        tip += s.t ? `: ${s.d}/${s.t} dailies` : ': no dailies';
+      }
+      cells += `<span class="sc-cell ${cls} ${ds === today ? 'today' : ''}" title="${tip}"><b>${k}</b>${cls === 'perfect' || cls === 'hit' ? I(cls === 'perfect' ? 'star' : 'check') : ''}</span>`;
+    }
+    const ps = perfectStreak();
+    const stat = daily ? `Current streak <b>${daily.streak || 0}</b> · best <b>${daily.best || 0}</b>` : `Perfect-day streak <b>${ps.cur}</b> · best <b>${ps.best}</b>`;
+    const atNow = U.ymd(first) === U.ymd(new Date(U.parseYmd(today).getFullYear(), U.parseYmd(today).getMonth(), 1));
+    return `<section class="panel wide streak-cal">
+      <div class="panel-title">${I('flame')} Streak calendar <span class="small muted sc-stat">${stat}</span></div>
+      <div class="sc-bar">
+        <select data-change="sc-daily" aria-label="Show"><option value="all">All dailies (perfect days)</option>${st.dailies.filter((d) => !d.archived).map((d) => `<option value="${d.id}" ${calDaily === d.id ? 'selected' : ''}>${esc(d.title)}</option>`).join('')}</select>
+        <div class="sc-nav"><button class="icon-btn" data-act="sc-month" data-d="-1" aria-label="Previous month">${I('left')}</button><b>${U.MONTHS_LONG[first.getMonth()]} ${first.getFullYear()}</b><button class="icon-btn" data-act="sc-month" data-d="1" aria-label="Next month" ${atNow ? 'disabled' : ''}>${I('right')}</button></div>
+      </div>
+      <div class="sc-grid">${heads.map((h) => `<span class="sc-head">${h}</span>`).join('')}${cells}</div>
+      <div class="sc-legend small muted">${daily
+        ? '<span><i class="sc-cell hit"></i>Done</span><span><i class="sc-cell miss"></i>Missed</span><span><i class="sc-cell rest"></i>Rest day</span><span><i class="sc-cell off"></i>Not scheduled</span>'
+        : '<span><i class="sc-cell perfect"></i>Perfect day</span><span><i class="sc-cell part"></i>Half or more</span><span><i class="sc-cell low"></i>Some</span><span><i class="sc-cell miss"></i>None</span><span><i class="sc-cell rest"></i>Rest day</span>'}</div>
+    </section>`;
+  }
+
   function render(root) {
     const st = S(); const h = st.hero;
     const badges = G.ACH.filter((a) => a.badge);
@@ -101,6 +218,8 @@ Q.views.journey = (() => {
           <div class="row-btns"><button class="btn btn-small" data-act="go" data-view="pals">${I('paw')} Open Pals</button></div>
         </section>
 
+        ${reviewPanel()}
+        ${streakCalendar()}
         <section class="panel wide">
           <div class="panel-title">${I('calendar')} Last 20 weeks</div>
           ${heatmap()}
@@ -123,7 +242,12 @@ Q.views.journey = (() => {
       </div>`;
   }
 
-  function bind() {}
+  function bind() {
+    const on = Q.ui.on;
+    on('weekly-open', (el) => showWeekly(el.dataset.wk));
+    on('sc-month', (el) => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + +el.dataset.d, 1); Q.app.render(); });
+    Q.ui.onChange('sc-daily', (el) => { calDaily = el.value; Q.app.render(); });
+  }
 
-  return { render, bind };
+  return { render, bind, showWeekly };
 })();

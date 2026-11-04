@@ -92,6 +92,7 @@ Q.views.home = (() => {
           <div class="timeline">${timeline()}</div>
         </section>
         <div class="home-right">
+          ${C.bountyCard()}
           ${C.dailyBossCard()}
           ${C.bossCard()}
           <section class="panel">

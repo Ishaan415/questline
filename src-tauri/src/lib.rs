@@ -141,6 +141,8 @@ async fn open_spotify(app: AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let context = tauri::generate_context!();
+    let _ = google::APP_VERSION.set(context.package_info().version.to_string());
     let builder = tauri::Builder::default();
     #[cfg(desktop)]
     let builder = desktop_setup(builder);
@@ -197,7 +199,7 @@ pub fn run() {
             updater::update_install,
             updater::release_notes,
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running Questline");
 }
 

@@ -170,6 +170,34 @@ Q.ui = (() => {
             toast(`You beat today's foe, ${e.name}! +${e.gold} gold · +10 XP${e.potion ? ' · Potion' : ''}`, { kind: 'badge', icon: I('sword'), timeout: 6000 });
           }, 450);
           break;
+        case 'bounty':
+          setTimeout(() => { Q.sfx.coin(); toast(`Bounty done: ${e.text} · +${e.gold} gold`, { kind: 'ok', icon: I('list'), timeout: 5000 }); }, 550);
+          break;
+        case 'bountyBoard':
+          setTimeout(() => { Q.sfx.victory(); toast('Bounty board cleared! +1 Capsule Ticket', { kind: 'badge', icon: I('ticket'), timeout: 6500 }); }, 900);
+          break;
+        case 'perfectWeek':
+          setTimeout(() => { Q.sfx.victory(); toast('Perfect week! +100 gold and a Capsule Ticket', { kind: 'badge', icon: I('star'), timeout: 8000 }); }, 800);
+          break;
+        case 'expedition':
+          setTimeout(() => {
+            Q.sfx.victory();
+            const L = e.loot; const trip = Q.quests.TRIPS[e.trip] || {};
+            modal({
+              cls: 'modal-celebrate',
+              body: `<div class="celebrate">${Q.pals.sprite(e.id, 96)}
+                <div class="big-title">Welcome back!</div>
+                <p><b>${U.esc(Q.pals.name(e.id))}</b> is home from ${U.esc(trip.place || 'its trip')}.</p>
+                <div class="exp-loot">
+                  <span>${I('coin')} +${L.gold} gold</span>
+                  ${L.items.map((k) => `<span>${I(Q.game.SHOP.items[k].icon)} ${Q.game.SHOP.items[k].name}</span>`).join('')}
+                  ${L.ticket ? `<span>${I('ticket')} Capsule Ticket</span>` : ''}
+                  <span>${I('paw')} +${L.exp} EXP for ${U.esc(Q.pals.name(e.id))}</span>
+                </div>
+                <button class="btn btn-primary" data-close>Collect</button></div>`,
+            });
+          }, 700);
+          break;
         case 'boss':
           setTimeout(() => {
             Q.sfx.victory();

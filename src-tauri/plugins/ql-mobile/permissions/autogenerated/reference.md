@@ -1,12 +1,14 @@
 ## Default Permission
 
-Lets the page trigger haptics, colour the Android system bars and turn the screen (focus mode).
+Lets the page trigger haptics, colour the Android system bars, turn the screen (focus mode) and feed the home-screen widget.
 
 #### This default permission set includes the following:
 
 - `allow-haptic`
 - `allow-set-bars`
 - `allow-set-orientation`
+- `allow-widget-update`
+- `allow-widget-take`
 
 ## Permission Table
 
@@ -91,6 +93,58 @@ Enables the set_orientation command without any pre-configured scope.
 <td>
 
 Denies the set_orientation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`ql-mobile:allow-widget-take`
+
+</td>
+<td>
+
+Enables the widget_take command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`ql-mobile:deny-widget-take`
+
+</td>
+<td>
+
+Denies the widget_take command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`ql-mobile:allow-widget-update`
+
+</td>
+<td>
+
+Enables the widget_update command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`ql-mobile:deny-widget-update`
+
+</td>
+<td>
+
+Denies the widget_update command without any pre-configured scope.
 
 </td>
 </tr>

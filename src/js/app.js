@@ -265,7 +265,7 @@ Q.app = (() => {
   function checkDay() {
     if (reviewing || !Q.cloud.ready()) return;
     const rv = G.checkRollover();
-    if (!rv) return;
+    if (!rv) { Q.quests.maybeShowWeekly(); return; }
     if (!rv.missed.length) { G.finalizeDay(rv, []); flushGame(); return; }
     reviewing = true;
     Q.onboarding.review(rv);
@@ -344,6 +344,7 @@ Q.app = (() => {
     shell();
     Q.ui.initDelegation();
     Q.mobile.init();
+    Q.widget.init();
     bindActions();
     document.addEventListener('keydown', keys);
     if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener('change', () => { if (S().settings.themeMode === 'auto') applySettings(); });
