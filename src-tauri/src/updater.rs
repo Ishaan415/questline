@@ -7,10 +7,11 @@
 //! app, and runs the installer. On Windows the installer closes Questline,
 //! updates it and starts it again.
 //!
-//! Android: the same release carries `Questline-android.apk` and `android.json`.
-//! `update_install` downloads the APK into the app's cache folder and opens
-//! Android's installer. Android itself refuses an APK that isn't signed with the
-//! same key as the installed app.
+//! Android: `update_check` asks the GitHub API for the newest release (the same
+//! endpoint the "What's new" notes use) and looks for `Questline-android.apk`
+//! among its files. `update_install` downloads the APK into the app's cache
+//! folder and opens Android's installer. Android itself refuses an APK that
+//! isn't signed with the same key as the installed app.
 
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -77,22 +78,37 @@ mod desktop {
 
 // ------------------------------------------------------------------ Android
 
-/// Published next to every release by the workflow.
+/// The phone build's file name in every release.
 #[cfg_attr(desktop, allow(dead_code))]
-const ANDROID_MANIFEST: &str = "https://github.com/Ishaan415/questline/releases/latest/download/android.json";
+const ANDROID_APK: &str = "Questline-android.apk";
 /// Only APKs from this repository's releases are downloaded.
 #[cfg_attr(desktop, allow(dead_code))]
 const RELEASE_PREFIX: &str = "https://github.com/Ishaan415/questline/releases/download/";
 
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
 #[cfg_attr(desktop, allow(dead_code))]
 struct AndroidRelease {
     version: String,
     url: String,
-    #[serde(default)]
     notes: Option<String>,
-    #[serde(default)]
     date: Option<String>,
+}
+
+/// "error sending request: client error (Connect): dns error: …": the whole
+/// chain of causes, so a failure says what actually went wrong.
+pub(crate) fn why(e: reqwest::Error) -> String {
+    let e = e.without_url();
+    let mut out = e.to_string();
+    let mut src = std::error::Error::source(&e);
+    while let Some(s) = src {
+        let t = s.to_string();
+        if !out.contains(&t) {
+            out.push_str(": ");
+            out.push_str(&t);
+        }
+        src = s.source();
+    }
+    out
 }
 
 #[cfg_attr(desktop, allow(dead_code))]
@@ -108,19 +124,19 @@ fn parse_version(v: &str) -> (u64, u64, u64) {
 #[cfg_attr(desktop, allow(dead_code))]
 async fn android_check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
     let current = app.package_info().version.to_string();
-    let res = crate::google::http()
-        .get(ANDROID_MANIFEST)
-        .send()
-        .await
-        .map_err(|e| format!("Couldn't reach GitHub: {e}"))?;
-    if res.status().as_u16() == 404 {
-        // The newest release has no phone build (yet).
+    let Some(gh) = fetch_release(&format!("{RELEASES_API}/latest")).await? else {
         return Ok(None);
-    }
-    if !res.status().is_success() {
-        return Err(format!("GitHub returned {}", res.status()));
-    }
-    let rel: AndroidRelease = res.json().await.map_err(|e| e.to_string())?;
+    };
+    // The newest release has no phone build (yet): nothing to offer.
+    let Some(apk) = gh.assets.iter().find(|a| a.name == ANDROID_APK) else {
+        return Ok(None);
+    };
+    let rel = AndroidRelease {
+        version: gh.tag_name.trim_start_matches('v').to_string(),
+        url: apk.browser_download_url.clone(),
+        notes: gh.body.clone(),
+        date: gh.published_at.clone(),
+    };
     let newer = parse_version(&rel.version) > parse_version(&current) && rel.url.starts_with(RELEASE_PREFIX);
     let info = newer.then(|| UpdateInfo {
         version: rel.version.clone(),
@@ -155,14 +171,14 @@ async fn android_install(app: &AppHandle) -> Result<(), String> {
         .timeout(std::time::Duration::from_secs(15 * 60))
         .send()
         .await
-        .map_err(|e| format!("Download failed: {e}"))?;
+        .map_err(|e| format!("Download failed: {}", why(e)))?;
     if !res.status().is_success() {
         return Err(format!("Download failed: GitHub returned {}", res.status()));
     }
     let total = res.content_length();
     let mut file = tokio::fs::File::create(&path).await.map_err(|e| e.to_string())?;
     let mut downloaded: u64 = 0;
-    while let Some(chunk) = res.chunk().await.map_err(|e| format!("Download failed: {e}"))? {
+    while let Some(chunk) = res.chunk().await.map_err(|e| format!("Download failed: {}", why(e)))? {
         file.write_all(&chunk).await.map_err(|e| e.to_string())?;
         downloaded += chunk.len() as u64;
         let _ = app.emit("update-progress", Progress { downloaded, total });
@@ -185,6 +201,12 @@ pub struct ReleaseNotes {
 }
 
 #[derive(Deserialize)]
+struct GhAsset {
+    name: String,
+    browser_download_url: String,
+}
+
+#[derive(Deserialize)]
 struct GhRelease {
     tag_name: String,
     #[serde(default)]
@@ -193,6 +215,8 @@ struct GhRelease {
     published_at: Option<String>,
     #[serde(default)]
     html_url: Option<String>,
+    #[serde(default)]
+    assets: Vec<GhAsset>,
 }
 
 async fn fetch_release(url: &str) -> Result<Option<GhRelease>, String> {
@@ -201,9 +225,12 @@ async fn fetch_release(url: &str) -> Result<Option<GhRelease>, String> {
         .header("Accept", "application/vnd.github+json")
         .send()
         .await
-        .map_err(|e| format!("Couldn't reach GitHub: {e}"))?;
+        .map_err(|e| format!("Couldn't reach GitHub: {}", why(e)))?;
     if res.status().as_u16() == 404 {
         return Ok(None);
+    }
+    if res.status().as_u16() == 403 || res.status().as_u16() == 429 {
+        return Err("GitHub is limiting checks from this network right now. Try again in an hour.".into());
     }
     if !res.status().is_success() {
         return Err(format!("GitHub returned {}", res.status()));

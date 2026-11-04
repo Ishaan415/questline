@@ -19,8 +19,10 @@ Q.views.journey = (() => {
     return st.dayLog[ds] || { d: 0, t: 0, f: 0 };
   }
 
+  // Phones show fewer weeks so the grid fits the screen.
+  const heatWeeks = () => (Q.platform.isPhone ? 10 : 20);
   function heatmap() {
-    const weeks = 20;
+    const weeks = heatWeeks();
     const today = U.parseYmd(G.today());
     const end = U.addDays(today, 6 - ((today.getDay() - S().settings.weekStart + 7) % 7));
     const start = U.addDays(end, -(weeks * 7 - 1));
@@ -221,7 +223,7 @@ Q.views.journey = (() => {
         ${reviewPanel()}
         ${streakCalendar()}
         <section class="panel wide">
-          <div class="panel-title">${I('calendar')} Last 20 weeks</div>
+          <div class="panel-title">${I('calendar')} Last ${heatWeeks()} weeks</div>
           ${heatmap()}
         </section>
         <section class="panel wide">

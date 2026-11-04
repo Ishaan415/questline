@@ -7,7 +7,7 @@
 ### Your to-do list, as a cozy pixel RPG.
 
 Dailies, reminders, a calendar and a focus timer, where getting things done levels you up,<br>
-grows a team of pixel pals and knocks down a daily foe and a weekly boss. For **Windows** and **Android**.
+grows a team of pixel pals, clears daily bounties and knocks down a daily foe and a weekly boss. For **Windows** and **Android**.
 
 [![Download for Windows](https://img.shields.io/badge/Download-Windows-2F4858?style=for-the-badge)](https://github.com/Ishaan415/questline/releases/latest)
 [![Download for Android](https://img.shields.io/badge/Download-Android-3E9E5A?style=for-the-badge)](https://github.com/Ishaan415/questline/releases/latest/download/Questline-android.apk)
@@ -15,7 +15,7 @@ grows a team of pixel pals and knocks down a daily foe and a weekly boss. For **
 [![Latest release](https://img.shields.io/github/v/release/Ishaan415/questline?style=flat-square&label=latest&color=3E9E5A)](https://github.com/Ishaan415/questline/releases)
 [![Homepage](https://img.shields.io/badge/homepage-ishaan415.github.io%2Fquestline-3C82C8?style=flat-square)](https://ishaan415.github.io/questline/)
 
-<img src="docs/screenshots/hero.png" alt="Questline on a PC and a phone: today's timeline, your trainer, your pal and the weekly boss" width="100%">
+<img src="docs/screenshots/hero.png" alt="Questline on a PC and a phone: today's timeline, your trainer, your pal, today's bounties and bosses" width="100%">
 
 </div>
 
@@ -37,8 +37,10 @@ server in between.
 | **1. Add your day** | Type it the way you'd say it: `gym mon wed fri 7pm`, `dentist fri 3pm`, `pay rent tomorrow !h`. Questline works out the date, time and repeat. |
 | **2. Get it done** | Tick things off for XP, gold and loot. Doing a task within 30 minutes of its time pays an on-time bonus; streaks pay more. |
 | **3. Grow your team** | Your three pals share every bit of EXP you earn and evolve as they level up. Win new ones from the Capsule Machine: 50 to collect, three of them legendary. |
-| **4. Beat the bosses** | Every completed task hits both today's foe (a wild pal that's beaten with about a day's work) and this week's boss (which takes the whole week); missed dailies heal the boss. Beat them for gold, XP, items and capsule tickets. |
-| **5. Go easy on yourself** | Sick or travelling? Rest at the Inn and nothing hurts. Weekends can be rest days. Forgot to tick something yesterday? Record it before the day settles. |
+| **4. Chase bounties** | Three small goals every day ("finish 2 dailies before noon", "focus for 50 minutes"). Each pays gold; clear all three for a Capsule Ticket. Pals waiting in storage can go on expeditions while you focus and come back with loot. |
+| **5. Beat the bosses** | Every completed task hits both today's foe (a wild pal that's beaten with about a day's work) and this week's boss (which takes the whole week); missed dailies heal the boss. Beat them for gold, XP, items and capsule tickets. |
+| **6. Look back** | Each new week opens with a short review: how much you got done, your best and toughest day, focus time, the boss result and which dailies keep slipping. A streak calendar shows every perfect day. |
+| **7. Go easy on yourself** | Sick or travelling? Rest at the Inn and nothing hurts. Weekends can be rest days. Forgot to tick something yesterday? Record it before the day settles. |
 
 ## On your phone
 
@@ -51,20 +53,25 @@ opens Quick add.
 
 <img src="docs/screenshots/phones.png" alt="Questline on Android: dailies, quick add, the More menu and dark mode" width="100%">
 
+<img src="docs/screenshots/quests.png" alt="On Android: today's bounties, a pal on an expedition, and the streak calendar" width="100%">
+
 ## A look around
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/pals.png" alt="Pals page"><br><b>Pals</b>: your team of three, presets, the Capsule Machine and the Paldex.</td>
+    <td width="50%"><img src="docs/screenshots/pals.png" alt="Pals page"><br><b>Pals</b>: your team of three, presets, the Capsule Machine, expeditions, the boss log and the Paldex.</td>
     <td width="50%"><img src="docs/screenshots/calendar.png" alt="Calendar page"><br><b>Calendar</b>: month, week and agenda views, with your Google Calendar if you like.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/focus.png" alt="Focus mode"><br><b>Focus mode</b>: Pomodoro, timer or stopwatch over a slow pixel scene. Sessions earn XP.</td>
-    <td width="50%"><img src="docs/screenshots/journey.png" alt="Journey page"><br><b>Journey</b>: trainer card, badges, stats with perks, your streak heatmap and achievements.</td>
+    <td width="50%"><img src="docs/screenshots/focus.png" alt="Focus mode"><br><b>Focus mode</b>: Pomodoro, timer or stopwatch over one of nine animated pixel scenes (here, Aurora Peak). Sessions earn XP and move pal expeditions along.</td>
+    <td width="50%"><img src="docs/screenshots/journey.png" alt="Journey page"><br><b>Journey</b>: last week at a glance, a streak calendar, stats with perks, badges and achievements.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/shop.png" alt="Shop: themes, outfits and focus scenes"><br><b>Shop</b>: spend gold on your own real-life rewards, items, permanent upgrades, town themes, outfits and focus scenes.</td>
+    <td width="50%"><img src="docs/screenshots/shop.png" alt="Shop: permanent upgrades"><br><b>Shop</b>: spend gold on your own real-life rewards, items, permanent upgrades, 16 town themes, outfits and focus scenes.</td>
     <td width="50%"><img src="docs/screenshots/dark-mode.png" alt="Dailies in dark mode"><br><b>Dark mode</b>: every theme has a light and a dark version, and you can try any of them before buying.</td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/review.png" alt="Weekly review dialog"><br><b>Weekly review</b>: opens on the first day of each week, with a bar for every daily and an <i>Adjust</i> button for the ones that keep slipping.</td>
   </tr>
 </table>
 

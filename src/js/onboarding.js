@@ -180,7 +180,9 @@ Q.onboarding = (() => {
     st.stats = { str: 420, int: 690, end: 520, cha: 160, spi: 240 };
     st.inventory = { potion: 2, maxpotion: 0, shield: 1, charm: 1, ticket: 1 };
     st.owned = { skins: ['meadow', 'ember'], scenes: ['meadow', 'rain', 'night'], outfits: ['classic', 'meadow'] };
-    st.counters = { completions: 214, remindersDone: 23, focusSessions: 12, focusMinutes: 395, perfectDays: 6, bossesDefeated: 2, faints: 0, drops: 31, maxStreak: 19, earlyBird: 9, rewardsBought: 3 };
+    st.counters = { completions: 214, remindersDone: 23, focusSessions: 12, focusMinutes: 395, perfectDays: 6, bossesDefeated: 3, dailyBossesDefeated: 14, bountyBoards: 9, expeditions: 3, perfectWeeks: 1, faints: 0, drops: 31, maxStreak: 19, earlyBird: 9, rewardsBought: 3 };
+    st.upgrades = { satchel: 2, purse: 1, vitality: 1 };
+    st.expedition = { id: 'boolet', trip: 'mid', need: 50, progress: 32, start: Date.now() - 26 * 3600000 };
     st.settings.calShowReminders = true;
 
     const add = (it, streak, rate) => {
@@ -202,7 +204,8 @@ Q.onboarding = (() => {
         tot++;
         if (rand() < d._rate || n > -6) { d.done[ds] = { xp: 12, gold: 5, stat: 'end' }; dn++; d.streak++; d.best = Math.max(d.best, d.streak); } else d.streak = 0;
       }
-      st.dayLog[ds] = { d: dn, t: tot, f: rand() < 0.35 ? Math.round(25 + rand() * 60) : 0 };
+      const f = rand() < 0.45 ? Math.round(25 + rand() * 60) : 0;
+      st.dayLog[ds] = { d: dn, t: tot, f, fs: f ? 1 + Math.floor(f / 45) : 0, r: Math.floor(rand() * 3), x: dn * 13 + f, b: Math.min(3, Math.floor(rand() * 4)) };
     }
     // Today: the morning is done.
     const today = ymd(0);
@@ -226,10 +229,11 @@ Q.onboarding = (() => {
       R('Order a new notebook', at(0, '08:00'), { done: true, doneAt: Date.now() - 2 * 3600000 }),
     ];
     st.events = [
+      { id: U.uid(), title: 'Coffee with Sam', start: at(0, '16:30'), end: at(0, '17:15'), allDay: false, location: 'Bean Counter Café', notes: '', color: '#C9702E', repeat: 'none' },
       { id: U.uid(), title: 'Robotics club meetup', start: at(nextDow(4), '16:00'), end: at(nextDow(4), '17:30'), allDay: false, location: 'Lab 3', notes: '', color: '#2FA58A', repeat: 'none' },
       { id: U.uid(), title: 'Movie night', start: at(nextDow(6), '20:00'), end: at(nextDow(6), '22:30'), allDay: false, location: '', notes: '', color: '#E879A8', repeat: 'none' },
       { id: U.uid(), title: 'Dentist', start: at(10, '11:00'), end: at(10, '11:30'), allDay: false, location: '', notes: '', color: '#F29A4E', repeat: 'none' },
-      { id: U.uid(), title: 'Cousin\'s birthday', start: U.addDays(todayD, 13).getTime(), end: U.addDays(todayD, 14).getTime(), allDay: true, location: '', notes: '', color: '#8E6BD1', repeat: 'none' },
+      { id: U.uid(), title: 'Maya\'s birthday', start: U.addDays(todayD, 13).getTime(), end: U.addDays(todayD, 14).getTime(), allDay: true, location: '', notes: '', color: '#8E6BD1', repeat: 'none' },
     ];
     const g = [];
     for (let n = -14; n < 40; n++) {
@@ -249,11 +253,21 @@ Q.onboarding = (() => {
       { t: Date.now() - 3 * 3600000, text: 'Morning stretch', kind: 'daily', xp: 15, gold: 5 },
       { t: Date.now() - 3.2 * 3600000, text: 'Make the bed', kind: 'daily', xp: 7, gold: 2 },
       { t: Date.now() - 20 * 3600000, text: 'Focused for 50 min on Study block (90 min)', kind: 'focus', xp: 44, gold: 13 },
-      { t: Date.now() - 26 * 3600000, text: 'Defeated Snooze Slime! +80 gold and a Streak Shield', kind: 'boss' },
+      { t: Date.now() - 26 * 3600000, text: 'Beat today\'s foe, Wild Fluffle! +29 gold', kind: 'boss' },
+      { t: Date.now() - 4 * 86400000, text: 'Defeated Snooze Slime! +80 gold and a Streak Shield', kind: 'boss' },
+      { t: Date.now() - 18 * 86400000, text: 'Defeated Dust Bunny King! +70 gold, a Potion and a Capsule Ticket', kind: 'boss' },
+      { t: Date.now() - 25 * 86400000, text: 'Inbox Kraken slipped away at the end of the week.', kind: 'boss' },
+      { t: Date.now() - 32 * 86400000, text: 'Defeated Clutter Golem! +65 gold, a Potion and a Capsule Ticket', kind: 'boss' },
     ];
+    // Last week's review is already "seen", so the preview doesn't open on a dialog.
+    const wk = Q.quests.weekOf(today); const prevWk = U.ymd(U.addDays(U.parseYmd(wk), -7));
+    st.weekly = { seen: wk, checked: prevWk, perfect: [U.ymd(U.addDays(U.parseYmd(wk), -21))] };
+    st.lastBoss = { week: prevWk, id: 'snooze', name: 'Snooze Slime', defeated: true, hp: 0, maxHp: 410 };
+    Object.assign(st.achievements, { skirmish: st.createdAt + 86400000 * 5, bounty1: st.createdAt + 86400000 * 6, trip1: st.createdAt + 86400000 * 12, pweek: st.createdAt + 86400000 * 41 });
     Q.store.replace(st);
     const b = Q.game.ensureBoss();
     b.hp = Math.round(b.maxHp * 0.58);
+    Q.quests.check();
     Q.store.commit('demo');
   }
 

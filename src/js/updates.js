@@ -16,6 +16,7 @@ Q.updates = (() => {
   const S = () => Q.store.state;
   const I = (n) => Q.sprites.icon(n);
   const RELEASES_URL = 'https://github.com/Ishaan415/questline/releases';
+  const APK_URL = `${RELEASES_URL}/latest/download/Questline-android.apk`;
   let version = '';
   let available = null;
   let checking = false;
@@ -101,7 +102,7 @@ Q.updates = (() => {
       else if (manual && !available) Q.ui.toast(`You're on the latest version (v${version}).`, { kind: 'ok' });
     } catch (e) {
       lastError = String(e);
-      if (manual) Q.ui.toast(`Couldn't check for updates: ${lastError}`, { kind: 'error', timeout: 8000 });
+      if (manual) Q.ui.toast(`Couldn't check for updates: ${lastError}`, { kind: 'error', timeout: 10000, actions: P.isAndroid ? [{ label: 'Open release page', fn: () => P.openExternal(`${RELEASES_URL}/latest`) }] : [] });
     } finally {
       checking = false;
       rerender();
@@ -144,7 +145,11 @@ Q.updates = (() => {
       if (P.isAndroid && progressModal) { progressModal(); progressModal = null; }
     } catch (e) {
       if (progressModal) { progressModal(); progressModal = null; }
-      Q.ui.toast(String(e), { kind: 'error', timeout: 10000 });
+      const msg = String(e);
+      // Android: if the in-app download can't get through, the browser usually can.
+      if (P.isAndroid && !/install updates on the screen/.test(msg)) {
+        Q.ui.toast(`${msg}`, { kind: 'error', timeout: 0, actions: [{ label: 'Download in browser', fn: () => P.openExternal(APK_URL) }] });
+      } else Q.ui.toast(msg, { kind: 'error', timeout: 10000 });
     }
   }
 

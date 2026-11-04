@@ -709,7 +709,7 @@ kbd {
 .theme-group { padding: 8px 0 4px; border-bottom: 1px dashed var(--grid); }
 .theme-group .skin-row { margin: 6px 0 4px; }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--grid); }
-.toggle-row > span { display: flex; flex-direction: column; min-width: 0; }
+.toggle-row > span { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
 .toggle-row b { font-weight: 700; }
 .switch { appearance: none; width: 44px; height: 24px; flex: none; border: 2px solid var(--line); border-radius: 999px; background: var(--track); position: relative; cursor: pointer; transition: background .15s; }
 .switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 4px; background: var(--panel); border: 2px solid var(--line); box-sizing: border-box; transition: transform .15s; }
@@ -1090,7 +1090,8 @@ body.mini .shell { grid-template-columns: minmax(0, 1fr); }
 .wr-boss .good { color: var(--ok); font-weight: 800; }
 .wr-perfect { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; background: var(--done-bg); color: var(--done-fg); font-weight: 800; }
 .wr-dailies { display: flex; flex-direction: column; gap: 6px; }
-.wr-d { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(60px, 1fr) 42px auto; gap: 8px; align-items: center; }
+.wr-d { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(60px, 1fr) 42px 74px; gap: 8px; align-items: center; min-height: 30px; }
+.wr-d .btn { justify-self: end; }
 .wr-dt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 13.5px; }
 .wr-bar { height: 9px; border-radius: 5px; background: var(--track); border: 2px solid var(--line); overflow: hidden; }
 .wr-bar i { display: block; height: 100%; background: var(--ok); }
@@ -1140,6 +1141,7 @@ body.mini .shell { grid-template-columns: minmax(0, 1fr); }
 .reduced-motion .exp-sprite { animation: none; }
 .exp-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .exp-away { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-weight: 700; }
+@media (max-width: 560px) { .exp-live { flex-direction: column; align-items: stretch; gap: 6px; } .exp-walk { align-self: center; } }
 .bl-intro { margin: -4px 0 10px; }
 .bl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
 .bl-card { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px 9px; border: 2px solid var(--line-soft); border-radius: 12px; background: var(--panel-2); text-align: center; min-width: 0; }
