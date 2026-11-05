@@ -1564,3 +1564,5 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
 .web-paused-card { display: grid; gap: 10px; max-width: 360px; padding: 22px 24px; text-align: center; color: var(--ink); background: var(--panel); border: 3px solid var(--line); border-radius: 14px; box-shadow: 0 6px 0 var(--line); }
 .web-paused-card p { margin: 0; color: var(--ink-soft); }
 .ob-signin { margin: 8px 0 0; }
+.get-apps { padding-bottom: 10px; margin-bottom: 4px; border-bottom: 2px dashed var(--line-soft); }
+.get-apps p { margin: 0 0 8px; }

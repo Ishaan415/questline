@@ -95,6 +95,20 @@ Q.views.settings = (() => {
       ${builtin && !P.isAndroid ? `<button class="link small" data-act="g-own">${ownClient ? 'Use Questline\'s built-in sign-in' : 'Advanced: use my own Google Cloud app'}</button>` : ''}`;
   }
 
+  /** The web app: links to the Windows and Android apps, which can do more. */
+  function getApps() {
+    const win = 'https://github.com/Ishaan415/questline/releases/latest';
+    const apk = 'https://github.com/Ishaan415/questline/releases/latest/download/Questline-android.apk';
+    return `<div class="get-apps">
+        <p class="small"><b>Get the apps.</b> They add notifications when Questline is closed, the Android home-screen widget and, on Windows, the tray and quick add from anywhere. Sign in with the same Google account and they share your progress with this page.</p>
+        <div class="row-btns">
+          <button class="btn btn-small" data-act="open-url" data-url="${win}">${I('down')} Download for Windows</button>
+          <button class="btn btn-small" data-act="open-url" data-url="${apk}">${I('down')} Download for Android</button>
+        </div>
+        ${P.isIos ? '<p class="small muted">On iPhone and iPad, add this page to your Home Screen instead: Share → Add to Home Screen.</p>' : ''}
+      </div>`;
+  }
+
   let spWebLinked = null;
   function spotifyPanel() {
     const sp = S().settings.spotify;
@@ -185,6 +199,7 @@ Q.views.settings = (() => {
 
         <section class="panel">
           <div class="panel-title">${I('gear')} App</div>
+          ${P.isWeb ? getApps() : ''}
           ${P.isApp && !P.isPhone ? `<label class="toggle-row"><span><b>Start with Windows</b><span class="small muted">Launches quietly into the tray</span></span><input type="checkbox" class="switch" data-change="autostart" ${autostartOn ? 'checked' : ''}></label>` : ''}
           ${P.isPhone || !P.isApp ? '' : toggle('settings.closeToTray', 'Close button hides to tray', 'Keeps reminders working. Quit from the tray menu.')}
           ${toggle('settings.confirmDelete', 'Undo bar after deleting')}
