@@ -18,7 +18,15 @@ Q.views.home = (() => {
     const rows = [];
     for (const d of G.todaysDailies()) rows.push({ t: d.time ? G.dueAt(d, day).getTime() : null, kind: 'daily', html: C.dailyRow(d, { compact: true }) });
     for (const r of st.reminders) {
-      if (r.done ? r.doneAt >= dayStart.getTime() && r.due && r.due < dayEnd.getTime() : r.due && r.due < dayEnd.getTime()) {
+      if (!r.due) continue;
+      if (G.remAllDay(r)) {
+        // All-day: today's go under "Any time today"; earlier ones are overdue.
+        const d = G.remDay(r);
+        const show = r.done ? r.doneAt >= dayStart.getTime() && d <= day : d <= day;
+        if (show) rows.push({ t: d < day && !r.done ? dayStart.getTime() - 1 : null, kind: 'reminder', html: C.reminderRow(r, { compact: true }) });
+        continue;
+      }
+      if (r.done ? r.doneAt >= dayStart.getTime() && r.due < dayEnd.getTime() : r.due < dayEnd.getTime()) {
         rows.push({ t: r.due < dayStart.getTime() ? dayStart.getTime() - 1 : r.due, kind: 'reminder', html: C.reminderRow(r, { compact: true }) });
       }
     }
@@ -55,7 +63,7 @@ Q.views.home = (() => {
     const st = S();
     const now = Date.now();
     const tomorrowEnd = U.addDays(U.startOfDay(new Date()), 2).getTime();
-    const list = st.reminders.filter((r) => !r.done && r.due && r.due >= tomorrowEnd - 86400000 && r.due >= now).sort((a, b) => a.due - b.due).slice(0, 4);
+    const list = st.reminders.filter((r) => !r.done && r.due && r.due >= tomorrowEnd - 86400000 && (G.remAllDay(r) || r.due >= now)).sort((a, b) => a.due - b.due).slice(0, 4);
     const nodate = st.reminders.filter((r) => !r.done && !r.due).length;
     return `<section class="panel upcoming">
       <div class="panel-title">${I('bell')} Coming up <button class="link" data-act="go" data-view="reminders">All reminders</button></div>

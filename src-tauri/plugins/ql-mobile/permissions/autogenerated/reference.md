@@ -1,12 +1,13 @@
 ## Default Permission
 
-Lets the page trigger haptics, colour the Android system bars, turn the screen (focus mode) and feed the home-screen widget.
+Lets the page trigger haptics, colour the Android system bars, turn the screen and use the whole screen in focus mode, and feed the home-screen widget.
 
 #### This default permission set includes the following:
 
 - `allow-haptic`
 - `allow-set-bars`
 - `allow-set-orientation`
+- `allow-set-immersive`
 - `allow-widget-update`
 - `allow-widget-take`
 
@@ -67,6 +68,32 @@ Enables the set_bars command without any pre-configured scope.
 <td>
 
 Denies the set_bars command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`ql-mobile:allow-set-immersive`
+
+</td>
+<td>
+
+Enables the set_immersive command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`ql-mobile:deny-set-immersive`
+
+</td>
+<td>
+
+Denies the set_immersive command without any pre-configured scope.
 
 </td>
 </tr>

@@ -209,6 +209,71 @@ Q.game = (() => {
     revertDrop(g.drop);
   }
 
+  /* ----------------------------------------------------- reminder due times */
+  // All-day reminders (r.allDay) keep `due` at midnight of their date and can be
+  // done any time that day; they only become overdue when the game day ends.
+  const remAllDay = (r) => !!(r && r.allDay && r.due);
+  const remDay = (r) => U.ymd(new Date(r.due));
+  function remDeadline(r) {
+    if (!r || !r.due) return null;
+    if (!remAllDay(r)) return r.due;
+    const e = U.at(remDay(r), '00:00'); e.setHours((S().settings.dayStart || 0) + 24, 0, 0, 0);
+    return e.getTime();
+  }
+  const remOverdue = (r, now = Date.now()) => !!(r && !r.done && r.due && now > remDeadline(r));
+  const remWhen = (r) => (!r.due ? 'No date' : remAllDay(r) ? `${U.fmtDay(new Date(r.due))} · Any time` : `${U.fmtDay(new Date(r.due))} · ${U.fmtTime(new Date(r.due))}`);
+
+  /* ------------------------------------------------------------ time budgets */
+  // A daily or reminder can have a time budget in minutes ("study for 2 h").
+  // Focus sessions on it and time you log add up; reaching the budget ticks it off.
+  const budgetOf = (t) => Math.max(0, Math.round(+(t && t.budget) || 0));
+  /** Minutes spent: today's for a daily, the running total for a reminder. */
+  const spentOn = (kind, t, day = today()) => Math.round(kind === 'daily' ? ((t.spent || {})[day] || 0) : (+t.spent || 0));
+  /** Longer tasks pay more when you finish them: +1 base per 6 minutes, up to +30. */
+  const budgetBonus = (t) => Math.min(30, Math.round(budgetOf(t) / 6));
+  function logTime(kind, id, minutes, source = 'manual') {
+    const st = S();
+    minutes = Math.round(minutes);
+    if (!(minutes > 0)) return null;
+    const t = (kind === 'daily' ? st.dailies : st.reminders).find((x) => x.id === id);
+    if (!t) return null;
+    const day = today();
+    if (kind === 'daily') {
+      t.spent = t.spent || {};
+      t.spent[day] = (t.spent[day] || 0) + minutes;
+      const keys = Object.keys(t.spent).sort();
+      while (keys.length > 60) delete t.spent[keys.shift()];
+    } else t.spent = (+t.spent || 0) + minutes;
+    const b = budgetOf(t); const spent = spentOn(kind, t, day);
+    if (source === 'manual') Q.store.log(`Logged ${U.fmtDuration(minutes)} on ${t.title}`, 'focus');
+    let completed = false;
+    if (b && spent >= b && spent - minutes < b) {
+      push({ type: 'budgetDone', title: t.title, minutes: b });
+      if (kind === 'daily' && !isDone(t)) { toggleDaily(id); completed = true; }
+      else if (kind === 'reminder' && !t.done) { completeReminder(id); completed = true; }
+    }
+    if (!completed) afterAction();
+    return { spent, budget: b, completed };
+  }
+
+  /**
+   * Set the time spent (today's for a daily, the total for a reminder) to an
+   * exact amount, e.g. "I did 2 h of 3". Going up works like logging time;
+   * going down just corrects the number (a task already ticked off stays done).
+   */
+  function setTime(kind, id, minutes) {
+    const st = S();
+    const t = (kind === 'daily' ? st.dailies : st.reminders).find((x) => x.id === id);
+    if (!t) return null;
+    minutes = Math.max(0, Math.round(minutes));
+    const cur = spentOn(kind, t);
+    if (minutes > cur) return logTime(kind, id, minutes - cur);
+    if (kind === 'daily') { t.spent = t.spent || {}; t.spent[today()] = minutes; } else t.spent = minutes;
+    if (minutes < cur) Q.store.log(`Set time on ${t.title} to ${U.fmtDuration(minutes)}`, 'focus');
+    afterAction();
+    return { spent: minutes, budget: budgetOf(t), completed: false };
+  }
+
   /* --------------------------------------------------------------- dailies */
   function toggleDaily(id) {
     const st = S();
@@ -230,7 +295,7 @@ Q.game = (() => {
       d.streak = (d.streak || 0) + 1;
       d.best = Math.max(d.best || 0, d.streak);
       st.counters.maxStreak = Math.max(st.counters.maxStreak, d.streak);
-      const g = grant({ base: 10, diff: d.difficulty, category: d.category, onTime, streak: d.streak, kind: 'daily' });
+      const g = grant({ base: 10 + budgetBonus(d), diff: d.difficulty, category: d.category, onTime, streak: d.streak, kind: 'daily' });
       g.at = Date.now();
       if (onTime) g.onTime = true;
       d.done[day] = g;
@@ -311,8 +376,8 @@ Q.game = (() => {
     const r = st.reminders.find((x) => x.id === id);
     if (!r || r.done) return;
     Q.store.snapshot();
-    const onTime = r.due ? Date.now() <= r.due + 30 * 60000 : true;
-    const g = grant({ base: 12, diff: r.difficulty, category: r.category, onTime: onTime && !!r.due, kind: 'reminder' });
+    const onTime = r.due ? Date.now() <= (remAllDay(r) ? remDeadline(r) : r.due + 30 * 60000) : true;
+    const g = grant({ base: 12 + budgetBonus(r), diff: r.difficulty, category: r.category, onTime: onTime && !!r.due, kind: 'reminder' });
     st.counters.completions++;
     st.counters.remindersDone++;
     Q.quests.noteReminder(r.id);
@@ -320,7 +385,7 @@ Q.game = (() => {
     const next = r.due && r.repeat && r.repeat !== 'none' ? nextOccurrence(r) : null;
     if (next) {
       // Repeating reminders roll forward instead of piling up.
-      r.due = next; r.snoozedUntil = null; r.gcalDirty = true;
+      r.due = next; r.snoozedUntil = null; r.gcalDirty = true; r.spent = 0;
     } else {
       r.done = true; r.doneAt = Date.now();
     }
@@ -514,7 +579,7 @@ Q.game = (() => {
       d.streak = (d.streak || 0) + 1;
       d.best = Math.max(d.best || 0, d.streak);
       d.done = d.done || {};
-      d.done[day] = grant({ base: 10, diff: d.difficulty, category: d.category, streak: d.streak, kind: 'daily' });
+      d.done[day] = grant({ base: 10 + budgetBonus(d), diff: d.difficulty, category: d.category, streak: d.streak, kind: 'daily' });
       st.counters.completions++;
     }
     const missed = review.missed.filter((d) => !tickedIds.includes(d.id));
@@ -585,7 +650,8 @@ Q.game = (() => {
     const st = S();
     minutes = Math.round(minutes);
     if (minutes < 5) return null;
-    const linked = taskId && (st.dailies.find((d) => d.id === taskId) || st.reminders.find((r) => r.id === taskId));
+    const linkedDaily = taskId && st.dailies.find((d) => d.id === taskId);
+    const linked = linkedDaily || (taskId && st.reminders.find((r) => r.id === taskId));
     const g = grant({ base: minutes * 0.8 * mult, diff: 'easy', category: linked ? linked.category : 'study', kind: 'focus' });
     if (bonusItem) {
       st.inventory[bonusItem] = (st.inventory[bonusItem] || 0) + 1;
@@ -596,6 +662,8 @@ Q.game = (() => {
     const day = today();
     st.dayLog[day] = Object.assign(st.dayLog[day] || {}, { f: ((st.dayLog[day] || {}).f || 0) + minutes, fs: ((st.dayLog[day] || {}).fs || 0) + 1 });
     Q.quests.onFocus(minutes);
+    // Time spent on a task with a time budget counts toward it.
+    if (linked && budgetOf(linked)) logTime(linkedDaily ? 'daily' : 'reminder', linked.id, minutes, 'focus');
     const comboTxt = mult > 1 ? ` (combo ×${mult.toFixed(2)})` : '';
     Q.store.log(`Focused for ${minutes} min${linked ? ` on ${linked.title}` : ''}${comboTxt}`, 'focus', { xp: g.xp, gold: g.gold });
     afterAction();
@@ -825,6 +893,7 @@ Q.game = (() => {
 
   return {
     DIFF, STATS, SHOP, ACH, rewardText, isRestDay,
+    remAllDay, remDay, remDeadline, remOverdue, remWhen, budgetOf, spentOn, logTime, setTime,
     ensureDailyBoss, BOSS, upgradeLevel, upgradePrice, upgradeText, buyUpgrade,
     xpToNext, statLevel, maxHp, title, today, isScheduled, scheduleLabel, dueAt, isDone, todaysDailies,
     toggleDaily, toggleCheckItem, checklistState, habit, completeReminder, reopenReminder, nextOccurrence,

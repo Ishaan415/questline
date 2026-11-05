@@ -319,6 +319,18 @@
           "markdownDescription": "Denies the set_bars command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_immersive command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-immersive",
+          "markdownDescription": "Enables the set_immersive command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_immersive command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-immersive",
+          "markdownDescription": "Denies the set_immersive command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_orientation command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-orientation",
@@ -355,10 +367,10 @@
           "markdownDescription": "Denies the widget_update command without any pre-configured scope."
         },
         {
-          "description": "Lets the page trigger haptics, colour the Android system bars, turn the screen (focus mode) and feed the home-screen widget.\n#### This default permission set includes:\n\n- `allow-haptic`\n- `allow-set-bars`\n- `allow-set-orientation`\n- `allow-widget-update`\n- `allow-widget-take`",
+          "description": "Lets the page trigger haptics, colour the Android system bars, turn the screen and use the whole screen in focus mode, and feed the home-screen widget.\n#### This default permission set includes:\n\n- `allow-haptic`\n- `allow-set-bars`\n- `allow-set-orientation`\n- `allow-set-immersive`\n- `allow-widget-update`\n- `allow-widget-take`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Lets the page trigger haptics, colour the Android system bars, turn the screen (focus mode) and feed the home-screen widget.\n#### This default permission set includes:\n\n- `allow-haptic`\n- `allow-set-bars`\n- `allow-set-orientation`\n- `allow-widget-update`\n- `allow-widget-take`"
+          "markdownDescription": "Lets the page trigger haptics, colour the Android system bars, turn the screen and use the whole screen in focus mode, and feed the home-screen widget.\n#### This default permission set includes:\n\n- `allow-haptic`\n- `allow-set-bars`\n- `allow-set-orientation`\n- `allow-set-immersive`\n- `allow-widget-update`\n- `allow-widget-take`"
         }
       ]
     }

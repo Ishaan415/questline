@@ -67,7 +67,7 @@ Q.quests = (() => {
   /** Overdue reminders at the start of the day (for "clear all overdue"). */
   function overdueIds(day) {
     const start = U.at(day, '00:00').getTime() + (S().settings.dayStart || 0) * 3600000;
-    return S().reminders.filter((r) => !r.done && r.due && r.due < start).map((r) => r.id).slice(0, 5);
+    return S().reminders.filter((r) => Q.game.remOverdue(r, start)).map((r) => r.id).slice(0, 5);
   }
 
   function ensureBounties() {

@@ -477,6 +477,21 @@ kbd {
 .bt-foot { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 2px dashed var(--grid); }
 .bt-foot .ico { width: 15px; height: 15px; color: var(--accent); }
 .bt-foot.good { color: var(--done-fg); font-weight: 700; }
+.is-hidden { display: none !important; }
+/* Time budgets */
+.chip-budget { position: relative; isolation: isolate; overflow: hidden; border: 1.5px solid var(--line-soft); cursor: pointer; font-family: inherit; color: var(--ink); }
+.chip-budget::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); background: color-mix(in srgb, var(--accent) 30%, transparent); z-index: -1; }
+.chip-budget.met { border-color: var(--ok); }
+.log-opts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0 6px; }
+.tm-set { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 10px 0 6px; }
+.tm-step { width: 46px; height: 46px; padding: 0; font-size: 24px; font-weight: 800; justify-content: center; }
+.tm-val { display: flex; flex-direction: column; align-items: center; min-width: 9em; text-align: center; }
+.tm-val b { font-family: var(--f-display); font-size: 30px; line-height: 1.1; }
+.tm-slide { position: relative; margin: 6px 0 4px; padding: 0 2px; }
+.modal .tm-range, .tm-range { display: block; width: 100%; max-width: none; min-height: 28px; accent-color: var(--accent); margin: 0; }
+.tm-range.met { accent-color: var(--ok); }
+/* A tick on the slider where the goal is. */
+.tm-goal { position: absolute; top: 2px; bottom: 2px; width: 3px; margin-left: -1.5px; background: var(--ink); opacity: .55; border-radius: 2px; pointer-events: none; }
 .bounty-card.cleared { border-color: color-mix(in srgb, var(--ok) 60%, var(--line)); }
 .exp-loot { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 4px 0 12px; }
 .exp-loot span { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: var(--chip); border: 2px solid var(--line-soft); font-weight: 700; font-size: 13px; }
@@ -949,11 +964,29 @@ img.defeated { filter: grayscale(.6); transform: rotate(90deg); }
 .fx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
 .fx-ui {
   position: relative; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 12px;
-  padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); overflow-y: auto;
+  /* --ql-inset-*: the camera cutout on Android in full screen (set by the app). */
+  padding-block: max(16px, env(safe-area-inset-top, 0px), var(--ql-inset-t, 0px)) max(16px, env(safe-area-inset-bottom, 0px), var(--ql-inset-b, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px), var(--ql-inset-l, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px), var(--ql-inset-r, 0px)); overflow-y: auto;
 }
-.fx-top { width: 100%; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; transition: opacity .4s; }
-.fx-scenes, .fx-top-right { display: flex; gap: 6px; flex-wrap: wrap; }
+.fx-top { position: relative; width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; transition: opacity .4s; z-index: 2; }
+.fx-top-right { display: flex; gap: 6px; flex: none; }
+.fx-top .fx-now { flex: 1; min-width: 0; text-align: center; font-family: var(--f-ui); font-weight: var(--w-ui); font-size: 13px; color: #FFFDF4; text-shadow: 0 1px 0 rgba(0, 0, 0, .45), 0 0 6px rgba(0, 0, 0, .35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fx-scene-btn { max-width: 46%; }
+.fx-scene-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-scene-btn .ico { width: 12px; height: 12px; }
+.fx-thumb { flex: none; display: inline-block; width: 26px; height: 16px; border-radius: 4px; border: 1.5px solid #2F4858; }
+.fx-scene-pick { position: absolute; top: calc(100% + 6px); left: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px; width: min(420px, 100%);
+  background: rgba(255, 253, 244, .96); border: 3px solid #2F4858; border-radius: 14px; box-shadow: 0 6px 0 #2F4858, 0 16px 40px rgba(0, 0, 0, .3); }
+.fx-sc { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px; border: 2px solid transparent; border-radius: 10px; background: none; color: #23343B; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; }
+.fx-sc .fx-thumb { width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 6px; }
+.fx-sc.on { border-color: #2F4858; background: #EAF0E2; }
+.fx-sc:disabled { opacity: .55; cursor: not-allowed; }
+.fx-sc small { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; color: #5A6E73; }
+.fx-sc small .ico { width: 10px; height: 10px; }
+.fx-goal { width: 100%; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: #3A4C52; }
+.fx-goal span { display: flex; align-items: center; gap: 5px; justify-content: center; text-align: center; }
+.fx-goal .ico { width: 13px; height: 13px; color: var(--fx-accent); flex: none; }
+.fx-goal i { display: block; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--fx-accent) var(--p), #DDE3D3 var(--p)); border: 1.5px solid #2F4858; }
 .fx-pill {
   display: inline-flex; align-items: center; gap: 6px; border: 2px solid #2F4858; border-radius: 999px; padding: 4px 12px;
   background: rgba(255, 253, 244, .82); color: #23343B; font-family: var(--f-ui); font-weight: var(--w-ui); font-size: 13.5px; backdrop-filter: blur(3px);
@@ -998,13 +1031,13 @@ img.defeated { filter: grayscale(.6); transform: rotate(90deg); }
 .focus.idle .fx-top, .focus.idle .fx-bottom, .focus.idle .fx-ctrl, .focus.idle .fx-modes, .focus.idle .fx-task, .focus.idle .fx-presets, .focus.idle .fx-note { opacity: 0; pointer-events: none; }
 .focus.idle .fx-card { background: rgba(255, 253, 244, .55); box-shadow: none; }
 .fx-ctrl, .fx-modes, .fx-task, .fx-presets, .fx-note { transition: opacity .4s; }
+@media (max-width: 560px) { .fx-lbl { display: none; } .fx-top .fx-now { font-size: 12px; } .fx-scene-btn { max-width: 52%; } }
+body.phone .fx-pill { min-height: 34px; }
 /* Phone turned sideways (focus mode's Landscape button): timer left, controls right. */
 @media (orientation: landscape) and (max-height: 520px) {
-  .fx-ui { justify-content: flex-start; gap: 8px; padding-block: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-bottom, 0px)); }
-  .fx-top { flex-wrap: nowrap; align-items: center; }
-  .fx-scenes { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; min-width: 0; }
-  .fx-top-right { flex-wrap: nowrap; flex: none; }
+  .fx-ui { justify-content: flex-start; gap: 6px; padding-block: max(8px, env(safe-area-inset-top, 0px), var(--ql-inset-t, 0px)) max(6px, env(safe-area-inset-bottom, 0px), var(--ql-inset-b, 0px)); }
   .fx-pill { padding: 3px 10px; font-size: 12.5px; white-space: nowrap; }
+  .fx-scene-pick { grid-template-columns: repeat(5, minmax(0, 1fr)); width: min(620px, 100%); }
   .fx-card { width: min(820px, 100%); margin: auto 0; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-rows: auto auto; align-items: center; gap: 6px 22px; padding: 10px 18px; }
   /* Timer group on the left spanning both rows; mode switch top right, controls below it. */
   .fx-main, .fx-side { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
@@ -1017,7 +1050,26 @@ img.defeated { filter: grayscale(.6); transform: rotate(90deg); }
   .fx-now { font-size: 12px; }
   .fx-combo { padding: 5px 8px; gap: 2px; }
   .fx-next { font-size: 12px; }
-  .fx-bottom { display: none; }
+  /* Music: one slim row under the card. */
+  .fx-bottom { width: min(620px, 100%); }
+  .spotify-focus { padding: 4px 10px; gap: 10px; border-width: 2px; border-radius: 12px; }
+  .spotify-focus .sp-art { width: 36px; height: 36px; }
+  .spotify-focus .sp-main { flex-direction: row; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+  .spotify-focus .sp-meta { text-align: left; }
+  .fx-sc .fx-thumb { aspect-ratio: 2.2 / 1; }
+  .fx-sc { padding: 4px; }
+  .spotify-focus .sp-meta { flex: 1; min-width: 0; }
+  .spotify-focus .sp-title { font-size: 13px; }
+  .spotify-focus .sp-artist, .spotify-focus .sp-device { font-size: 11.5px; }
+  .spotify-focus .sp-progress, .spotify-focus .sp-vol { display: none; }
+  .spotify-focus .sp-controls { flex: none; }
+  .spotify-focus .sp-play { width: 32px; height: 32px; }
+  .spotify-focus .icon-btn { min-height: 32px; min-width: 32px; }
+  .spotify-focus .sp-empty { flex-wrap: nowrap; gap: 10px; }
+  .spotify-focus .sp-art-empty { width: 36px; height: 36px; }
+  .spotify-focus .sp-empty .sp-artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .spotify-focus .btn { min-height: 32px; padding: 3px 10px; font-size: 13px; }
+  .fx-goal { font-size: 12px; }
   /* Phone touch sizes are taller than this screen allows. */
   .fx-card .btn { min-height: 38px; padding: 5px 14px; }
   .fx-card .seg-btn { min-height: 34px; padding: 4px 12px; }

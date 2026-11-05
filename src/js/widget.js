@@ -30,9 +30,11 @@ Q.widget = (() => {
       return { kind: 'daily', id: d.id, title: d.title, time: d.time ? U.fmtTime(d.time) : '', done: G().isDone(d, day), late: !!due && !G().isDone(d, day) && now > due.getTime() + 30 * 60000 };
     });
     const dayStartTs = end.getTime() - 86400000;
-    const rems = st.reminders.filter((r) => !r.done && r.due && r.due < end.getTime()).sort((a, b) => a.due - b.due).slice(0, 12);
+    const rems = st.reminders.filter((r) => !r.done && r.due && (G().remAllDay(r) ? G().remDay(r) <= day : r.due < end.getTime())).sort((a, b) => a.due - b.due).slice(0, 12);
     for (const r of rems) {
-      items.push({ kind: 'reminder', id: r.id, title: r.title, time: r.due < dayStartTs ? 'Overdue' : U.fmtTime(new Date(r.due)), done: false, late: r.due < now });
+      const over = G().remOverdue(r, now) || (G().remAllDay(r) && G().remDay(r) < day);
+      const time = over && (G().remAllDay(r) || r.due < dayStartTs) ? 'Overdue' : G().remAllDay(r) ? 'Today' : U.fmtTime(new Date(r.due));
+      items.push({ kind: 'reminder', id: r.id, title: r.title, time, done: false, late: over || (!G().remAllDay(r) && r.due < now) });
     }
     const done = dailies.filter((d) => G().isDone(d, day)).length;
     return {

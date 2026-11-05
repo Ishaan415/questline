@@ -117,6 +117,11 @@ Q.platform = (() => {
     if (isAndroid) { invoke('plugin:ql-mobile|haptic', { kind }).catch(() => {}); return; }
     if (phonePreview && navigator.vibrate) { try { navigator.vibrate(kind === 'tap' ? 6 : kind === 'error' ? [20, 40, 20] : 18); } catch (e) { /* ignore */ } }
   }
+  /** Android focus mode: hide the system bars and use the whole screen, cutout included. */
+  function setImmersive(on) {
+    if (isAndroid) invoke('plugin:ql-mobile|set_immersive', { on: !!on }).catch(() => {});
+    if (!on) document.documentElement.style.removeProperty('--ql-inset-l');
+  }
   /** Hold the screen in 'portrait' or 'landscape' (focus mode); 'auto' follows the phone. */
   function setOrientation(mode) {
     if (isAndroid) { invoke('plugin:ql-mobile|set_orientation', { mode }).catch(() => {}); return; }
@@ -136,7 +141,7 @@ Q.platform = (() => {
   };
 
   return {
-    isApp, isAndroid, isPhone, deviceName, haptic, setBars, setOrientation, invoke, listen, load, save, loadExtra, saveExtra, clearBrowserSave, win: w, setAlarms, setNotifyPause, askNotifyPermission,
+    isApp, isAndroid, isPhone, deviceName, haptic, setBars, setOrientation, setImmersive, invoke, listen, load, save, loadExtra, saveExtra, clearBrowserSave, win: w, setAlarms, setNotifyPause, askNotifyPermission,
     openExternal, autostart,
     ready: () => (isApp ? invoke('app_ready') : Promise.resolve()),
     setCloseToTray: (on) => isApp && invoke('set_close_to_tray', { enabled: !!on }),

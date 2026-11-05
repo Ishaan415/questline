@@ -58,7 +58,8 @@ Q.sync = (() => {
       for (const r of st.reminders) {
         if (!r.due || (r.done && !st.settings.showCompletedReminders && r.doneAt < from)) continue;
         if (r.due >= from && r.due <= to) {
-          out.push({ id: `r:${r.id}`, reminderId: r.id, source: 'reminder', title: r.title, start: r.due, end: r.due + 30 * 60000, allDay: false, color: REMINDER_COLOR, done: r.done, editable: true });
+          const allDay = Q.game.remAllDay(r);
+          out.push({ id: `r:${r.id}`, reminderId: r.id, source: 'reminder', title: r.title, start: r.due, end: r.due + (allDay ? 86400000 : 30 * 60000), allDay, color: REMINDER_COLOR, done: r.done, editable: true });
         }
       }
     }
@@ -188,7 +189,8 @@ Q.sync = (() => {
       for (const r of st.reminders) {
         if (!r.due || (r.gcalId && !r.gcalDirty)) continue;
         if (r.done && !r.gcalId) continue;
-        await upsert(r, body((r.done ? '✓ ' : '') + r.title, r.due, r.due + 30 * 60000, false, 'Reminder from Questline', `rem:${r.id}`));
+        const allDay = Q.game.remAllDay(r);
+        await upsert(r, body((r.done ? '✓ ' : '') + r.title, r.due, r.due + (allDay ? 86400000 : 30 * 60000), allDay, 'Reminder from Questline', `rem:${r.id}`));
       }
     }
     // Deletions queued while offline or before connecting.

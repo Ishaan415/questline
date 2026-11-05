@@ -112,7 +112,7 @@ Q.app = (() => {
     const root = document.getElementById('view');
     const list = G.todaysDailies().sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
     const now = Date.now();
-    const rem = S().reminders.filter((r) => !r.done && r.due && r.due < now + 36 * 3600000).sort((a, b) => a.due - b.due);
+    const rem = S().reminders.filter((r) => !r.done && r.due && (G.remAllDay(r) ? G.remDay(r) <= G.today() : r.due < now + 36 * 3600000)).sort((a, b) => a.due - b.due);
     root.innerHTML = `<div class="mini">
       <div class="mini-hud">${Q.comp.hpBar(true)}${Q.comp.xpBar(true)}</div>
       <div class="mini-list">${list.map((d) => Q.comp.dailyRow(d, { compact: true })).join('')}
@@ -290,6 +290,7 @@ Q.app = (() => {
       Q.ui.toast(rolled ? `Done! Next one: ${U.fmtDay(new Date(r.due))}` : 'Reminder done', { actions: [{ label: 'Undo', fn: () => Q.store.undo() }] });
     });
     on('rem-reopen', (el) => G.reopenReminder(el.dataset.id));
+    on('log-time', (el) => Q.editors.logTimeSheet(el.dataset.kind, el.dataset.id));
     on('habit', (el) => { G.habit(el.dataset.id, +el.dataset.dir); flushGame(); });
     on('use-item', (el) => useItem(el.dataset.item));
     on('toggle-inn', toggleInn);

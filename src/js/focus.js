@@ -394,7 +394,7 @@ Q.focus = (() => {
     const root = document.getElementById('focus');
     const tEl = root.querySelector('.fx-time'); if (!tEl) return;
     const nowEl = root.querySelector('.fx-now');
-    if (nowEl) { const d = new Date(); const txt = `${U.fmtTime(d)} · ${U.DAYS[d.getDay()]} ${d.getDate()} ${U.MONTHS[d.getMonth()]}`; if (nowEl.textContent !== txt) nowEl.textContent = txt; }
+    if (nowEl) { const d = new Date(); const txt = window.innerWidth < 560 ? U.fmtTime(d) : `${U.fmtTime(d)} · ${U.DAYS[d.getDay()]} ${d.getDate()} ${U.MONTHS[d.getMonth()]}`; if (nowEl.textContent !== txt) nowEl.textContent = txt; }
     const secs = f.mode === 'stop' ? elapsedSw() : f.remaining;
     tEl.textContent = U.fmtClock(secs);
     const frac = f.mode === 'stop' ? (secs % 3600) / 3600 : 1 - f.remaining / Math.max(1, f.total);
@@ -405,6 +405,17 @@ Q.focus = (() => {
   }
 
   /* ---------------------------------------------------------- render */
+  /** The picked task's time goal ("Study AI courses · 45m of 2h today"). */
+  function goalLine() {
+    const G = Q.game; const st = S();
+    const d = f.taskId && st.dailies.find((x) => x.id === f.taskId);
+    const t = d || (f.taskId && st.reminders.find((x) => x.id === f.taskId));
+    if (!t || !G.budgetOf(t)) return '';
+    const kind = d ? 'daily' : 'reminder';
+    const s = G.spentOn(kind, t); const b = G.budgetOf(t);
+    return `<div class="fx-goal"><span>${I('hourglass')} <b>${U.esc(t.title)}</b> · ${U.fmtDuration(s)} of ${U.fmtDuration(b)}${d ? ' today' : ''}</span><i style="--p:${Math.min(100, (s / b) * 100)}%"></i></div>`;
+  }
+
   function comboHtml() {
     const done = f.combo;
     const mult = comboMult(done);
@@ -421,8 +432,13 @@ Q.focus = (() => {
   function taskOptions() {
     const st = S();
     const opts = ['<option value="">No specific task</option>'];
-    for (const d of Q.game.todaysDailies().filter((x) => !Q.game.isDone(x))) opts.push(`<option value="${d.id}" ${f.taskId === d.id ? 'selected' : ''}>Daily · ${esc(d.title)}</option>`);
-    for (const r of st.reminders.filter((x) => !x.done).slice(0, 15)) opts.push(`<option value="${r.id}" ${f.taskId === r.id ? 'selected' : ''}>Reminder · ${esc(r.title)}</option>`);
+    const G = Q.game;
+    const goal = (kind, t) => (G.budgetOf(t) ? ` (${U.fmtDuration(G.spentOn(kind, t))} / ${U.fmtDuration(G.budgetOf(t))})` : '');
+    // Tasks with a time goal first: they're the ones focus time counts toward.
+    const dailies = G.todaysDailies().filter((x) => !G.isDone(x)).sort((a, b) => G.budgetOf(b) - G.budgetOf(a));
+    const rems = st.reminders.filter((x) => !x.done).sort((a, b) => G.budgetOf(b) - G.budgetOf(a)).slice(0, 15);
+    for (const d of dailies) opts.push(`<option value="${d.id}" ${f.taskId === d.id ? 'selected' : ''}>Daily · ${esc(d.title)}${goal('daily', d)}</option>`);
+    for (const r of rems) opts.push(`<option value="${r.id}" ${f.taskId === r.id ? 'selected' : ''}>Reminder · ${esc(r.title)}${goal('reminder', r)}</option>`);
     return opts.join('');
   }
 
@@ -433,26 +449,28 @@ Q.focus = (() => {
     const phaseName = f.mode === 'pomo' ? { work: 'Focus', short: 'Short break', long: 'Long break' }[f.phase] : f.mode === 'timer' ? 'Timer' : 'Stopwatch';
     root.querySelector('.fx-ui').innerHTML = `
       <div class="fx-top">
-        <div class="fx-scenes">${Object.keys(Q.game.SHOP.scenes).map((k) => {
-          const owned = st.owned.scenes.includes(k);
-          return `<button class="fx-pill ${fs.scene === k ? 'on' : ''}" data-act="fx-scene" data-k="${k}" ${owned ? '' : 'disabled title="Unlock in the Shop"'}>${owned ? '' : I('lock')}${Q.game.SHOP.scenes[k].name}</button>`;
-        }).join('')}</div>
+        <button class="fx-pill fx-scene-btn ${f.scenePick ? 'on' : ''}" data-act="fx-scenes" aria-expanded="${!!f.scenePick}" title="Change the scene"><i class="fx-thumb scene-${fs.scene}"></i><span>${Q.game.SHOP.scenes[fs.scene]?.name || 'Scene'}</span>${I('down')}</button>
+        <div class="fx-now" title="Current time"></div>
         <div class="fx-top-right">
-          <button class="fx-pill ${fs.rain ? 'on' : ''}" data-act="fx-rain" title="Soft rain sound">${I('note')} Rain sound</button>
-          ${Q.platform.isPhone ? `<button class="fx-pill" data-act="fx-rotate" title="Turn the screen">${I('sync')} ${fs.orientation === 'landscape' ? 'Portrait' : 'Landscape'}</button>` : ''}
-          <button class="fx-pill" data-act="fx-close" title="Exit (Esc)">${I('close')} Exit</button>
+          <button class="fx-pill ${fs.rain ? 'on' : ''}" data-act="fx-rain" title="Soft rain sound" aria-label="Rain sound">${I('note')}<span class="fx-lbl">Rain</span></button>
+          ${Q.platform.isPhone ? `<button class="fx-pill" data-act="fx-rotate" title="Turn the screen" aria-label="Turn the screen">${I('sync')}<span class="fx-lbl">${fs.orientation === 'landscape' ? 'Portrait' : 'Landscape'}</span></button>` : ''}
+          <button class="fx-pill" data-act="fx-close" title="Exit (Esc)" aria-label="Exit">${I('close')}<span class="fx-lbl">Exit</span></button>
         </div>
+        ${f.scenePick ? `<div class="fx-scene-pick" role="menu">${Object.keys(Q.game.SHOP.scenes).map((k) => {
+          const owned = st.owned.scenes.includes(k);
+          return `<button class="fx-sc ${fs.scene === k ? 'on' : ''}" data-act="fx-scene" data-k="${k}" ${owned ? '' : 'disabled'} role="menuitem"><i class="fx-thumb scene-${k}"></i><span>${Q.game.SHOP.scenes[k].name}</span>${owned ? '' : `<small>${I('lock')} Shop</small>`}</button>`;
+        }).join('')}</div>` : ''}
       </div>
       <div class="fx-card ${f.mode === 'pomo' && f.phase !== 'work' ? 'is-break' : ''}">
         <div class="fx-side">
         <div class="seg seg-small fx-modes">${[['pomo', 'Pomodoro'], ['timer', 'Timer'], ['stop', 'Stopwatch']].map(([k, n]) => `<button class="seg-btn ${f.mode === k ? 'on' : ''}" data-act="fx-mode" data-m="${k}" ${f.running ? 'disabled' : ''}>${n}</button>`).join('')}</div>
         </div>
         <div class="fx-main">
-        <div class="fx-now" title="Current time"></div>
         <div class="fx-phase">${phaseName}${f.mode === 'pomo' ? ` <span>· round ${f.round} of ${fs.rounds}</span>` : ''}</div>
         <div class="fx-time" aria-live="off">00:00</div>
         <div class="fx-bar">${Array.from({ length: 24 }, () => '<i class="fx-cell"></i>').join('')}</div>
         ${f.mode === 'pomo' ? comboHtml() : ''}
+        ${goalLine()}
         ${st.expedition ? `<div class="fx-exp"><img class="px" src="${Q.pals.url(st.expedition.id, Q.pals.stage(st.expedition.id))}" width="28" height="28" alt=""><span><b>${U.esc(Q.pals.name(st.expedition.id))}</b> is exploring · ${Math.floor(st.expedition.progress)}/${st.expedition.need} min</span></div>` : ''}
         </div>
         <div class="fx-side">
@@ -494,13 +512,20 @@ Q.focus = (() => {
     tickT = setInterval(tick, 250);
     Q.platform.win.setFullscreen(true);
     if (Q.platform.isPhone) Q.platform.setOrientation(st.focus.orientation === 'landscape' ? 'landscape' : 'portrait');
+    // Android: hide the status and navigation bars and draw under the camera cutout.
+    Q.platform.setImmersive(true);
     Q.scheduler.setFocus(true);
     if (st.focus.rain) Q.sfx.ambientRain(true);
     root.addEventListener('mousemove', wake);
     root.addEventListener('pointerdown', wake);
+    root.addEventListener('pointerdown', pickAway);
     wake();
     if (opts.autostart && !f.running) start();
     document.body.classList.add('in-focus');
+  }
+  /** Tapping outside the scene picker closes it. */
+  function pickAway(e) {
+    if (f.scenePick && !e.target.closest('.fx-top')) { f.scenePick = false; render(); }
   }
   function wake() {
     const root = document.getElementById('focus');
@@ -517,6 +542,8 @@ Q.focus = (() => {
     root.hidden = true; root.innerHTML = '';
     Q.platform.win.setFullscreen(false);
     if (Q.platform.isPhone) Q.platform.setOrientation('auto');
+    Q.platform.setImmersive(false);
+    f.scenePick = false;
     Q.scheduler.setFocus(false);
     Q.sfx.ambientRain(false);
     document.title = 'Questline';
@@ -546,7 +573,8 @@ Q.focus = (() => {
     on('fx-finish', () => { const min = elapsedSw() / 60; f.running = false; if (min >= 5) finishWork(min); else Q.ui.toast('Sessions under 5 minutes don\'t earn XP.'); f.swAcc = 0; render(); });
     on('fx-mode', (el) => { f.mode = el.dataset.m; f.phase = 'work'; f.round = 1; f.combo = 0; resetPhase(); render(); });
     on('fx-tmin', (el) => { f.timerMin = +el.dataset.m; resetPhase(); render(); });
-    on('fx-scene', (el) => { S().focus.scene = el.dataset.k; Q.store.commit('focus-scene'); setScene(el.dataset.k); render(); if (S().settings.reducedMotion) { ctx.drawImage(bg, 0, 0); f.scene.draw(ctx, 0, 0); } });
+    on('fx-scenes', () => { f.scenePick = !f.scenePick; render(); });
+    on('fx-scene', (el) => { f.scenePick = false; S().focus.scene = el.dataset.k; Q.store.commit('focus-scene'); setScene(el.dataset.k); render(); if (S().settings.reducedMotion) { ctx.drawImage(bg, 0, 0); f.scene.draw(ctx, 0, 0); } });
     on('fx-rotate', () => {
       const fs = S().focus;
       fs.orientation = fs.orientation === 'landscape' ? 'portrait' : 'landscape';
@@ -555,7 +583,7 @@ Q.focus = (() => {
       render();
     });
     on('fx-rain', () => { const st = S(); st.focus.rain = !st.focus.rain; Q.sfx.ambientRain(st.focus.rain); Q.store.commit('focus'); render(); });
-    Q.ui.onChange('fx-task', (el) => { f.taskId = el.value || null; S().focus.lastTaskId = f.taskId; Q.store.commit('focus'); });
+    Q.ui.onChange('fx-task', (el) => { f.taskId = el.value || null; S().focus.lastTaskId = f.taskId; Q.store.commit('focus'); render(); });
     Q.ui.onChange('fx-len', (el) => { const st = S(); st.focus[el.dataset.k] = U.clamp(+el.value || 1, +el.min, +el.max); Q.store.commit('focus'); resetPhase(); render(); });
     Q.ui.onChange('fx-tmin-in', (el) => { f.timerMin = U.clamp(+el.value || 1, 1, 600); resetPhase(); render(); });
   }

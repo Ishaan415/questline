@@ -26,7 +26,7 @@ Q.nlp = (() => {
 
   function parse(input, now = new Date()) {
     let s = ` ${input.trim()} `;
-    const out = { type: null, title: '', date: null, time: null, endTime: null, schedule: null, repeat: 'none', difficulty: null, category: null, explicitType: false };
+    const out = { type: null, title: '', date: null, time: null, endTime: null, schedule: null, repeat: 'none', difficulty: null, category: null, budget: null, explicitType: false };
     const take = (re, fn) => { const m = s.match(re); if (m) { s = s.replace(m[0], ' '); fn(m); return true; } return false; };
 
     // type markers
@@ -44,6 +44,13 @@ Q.nlp = (() => {
       const q = m[1].toLowerCase().replace('-', '');
       const cats = Q.store.CATEGORIES;
       out.category = Object.keys(cats).find((k) => k.startsWith(q) || cats[k].name.toLowerCase().replace('-', '').startsWith(q)) || null;
+    });
+
+    // time budget: "for 2 hours", "for 90 min", "for 1.5h", "for an hour", "for half an hour"
+    take(/\sfor\s+(\d+(?:\.\d+)?|an?|one|half\s+an?)\s*(h|hrs?|hours?|m|mins?|minutes?)\b/i, (m) => {
+      const n = /^half/i.test(m[1]) ? 0.5 : /^(a|an|one)$/i.test(m[1]) ? 1 : Number(m[1]);
+      const mins = Math.round(m[2][0].toLowerCase() === 'h' ? n * 60 : n);
+      if (mins > 0 && mins <= 720) out.budget = mins;
     });
 
     // recurring (dailies)
@@ -144,6 +151,8 @@ Q.nlp = (() => {
     if (p.schedule) chips.push({ k: 'repeat', v: Q.game.scheduleLabel({ schedule: p.schedule }) });
     if (p.date && p.type !== 'daily') chips.push({ k: 'date', v: U.fmtDay(p.date) });
     if (p.time) chips.push({ k: 'time', v: U.fmtTime(p.time) + (p.endTime ? ` – ${U.fmtTime(p.endTime)}` : '') });
+    else if (p.date && p.type === 'reminder') chips.push({ k: 'time', v: 'Any time' });
+    if (p.budget && p.type !== 'event') chips.push({ k: 'budget', v: `${U.fmtDuration(p.budget)} goal` });
     if (p.repeat && p.repeat !== 'none') chips.push({ k: 'repeat', v: p.repeat[0].toUpperCase() + p.repeat.slice(1) });
     if (p.difficulty) chips.push({ k: 'diff', v: Q.game.DIFF[p.difficulty].label });
     if (p.category) chips.push({ k: 'cat', v: Q.store.CATEGORIES[p.category].name });

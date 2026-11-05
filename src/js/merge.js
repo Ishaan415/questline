@@ -123,7 +123,7 @@
   const RULES = [
     ['dailies', byId], ['habits', byId], ['reminders', byId], ['events', byId], ['rewards', byId],
     ['dailies.*.done', (b, l, r, p, c) => unionMap(b, l, r, p, c, (bb, ll, rr) => clone(bb !== undefined && eq(ll, bb) ? rr : ll))],
-    ['dailies.*.streak', max], ['dailies.*.best', max], ['upgrades.*', max], ['bossLog.*.met', max], ['bossLog.*.beat', max], ['bossLog.*.last', max],
+    ['dailies.*.streak', max], ['dailies.*.best', max], ['dailies.*.spent.*', delta], ['reminders.*.spent', delta], ['upgrades.*', max], ['bossLog.*.met', max], ['bossLog.*.beat', max], ['bossLog.*.last', max],
     ['hero.gold', delta], ['hero.hp', delta], ['hero.totalXp', delta],
     ['stats.*', delta], ['counters.*', delta], ['inventory.*', delta],
     ['achievements', (b, l, r, p, c) => unionMap(b, l, r, p, c, (bb, ll, rr) => Math.min(num(ll) || num(rr), num(rr) || num(ll)))],

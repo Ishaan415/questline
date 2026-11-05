@@ -34,7 +34,7 @@ server in between.
 
 | Step | What happens |
 |---|---|
-| **1. Add your day** | Type it the way you'd say it: `gym mon wed fri 7pm`, `dentist fri 3pm`, `pay rent tomorrow !h`. Questline works out the date, time and repeat. |
+| **1. Add your day** | Type it the way you'd say it: `gym mon wed fri 7pm`, `dentist fri 3pm`, `pay rent tomorrow !h`, `study AI courses every day for 2 hours`. Questline works out the date, time, repeat and how long you want to spend on it. |
 | **2. Get it done** | Tick things off for XP, gold and loot. Doing a task within 30 minutes of its time pays an on-time bonus; streaks pay more. |
 | **3. Grow your team** | Your three pals share every bit of EXP you earn and evolve as they level up. Win new ones from the Capsule Machine: 50 to collect, three of them legendary. |
 | **4. Chase bounties** | Three small goals every day ("finish 2 dailies before noon", "focus for 50 minutes"). Each pays gold; clear all three for a Capsule Ticket. Pals waiting in storage can go on expeditions while you focus and come back with loot. |
@@ -78,9 +78,10 @@ opens Quick add.
 ## Features at a glance
 
 - **Weekly review**: every new week starts with how the last one went: completion rate, best and toughest day, focus time, the boss result, and which dailies keep slipping. Plus a perfect-week bonus and a streak calendar.
-- **Planner**: timed dailies with checklists, habits (+/−), one-off and repeating reminders, events, snooze, and a full-page calendar.
+- **Planner**: timed dailies with checklists, habits (+/−), one-off and repeating reminders (with a time, or any time that day), events, snooze, and a full-page calendar.
+- **Time goals**: give a daily or reminder a time to spend ("work on the project for 3 hours"). Focus sessions on it and time you log fill it up; reaching it ticks the task off, and longer goals pay more.
 - **Game**: XP, gold, HP, levels and titles; 50 pals across 9 types with abilities and team synergy; a daily foe and a weekly boss with a boss log; three daily bounties; pal expeditions; permanent upgrades; 41 achievements; loot drops; a shop for your own real-life rewards.
-- **Focus**: full-screen Pomodoro, timer and stopwatch with ambient pixel scenes, rain sounds and Spotify controls; landscape mode on phones.
+- **Focus**: full-screen Pomodoro, timer and stopwatch with ambient pixel scenes, rain sounds and Spotify controls; true full screen and a landscape layout on phones.
 - **Sync & backups**: sign in with Google to sync PC and phone, with daily backups in a normal `Questline` folder in your Drive. Restore any backup in two taps.
 - **Calendar**: optional two-way Google Calendar, plus read-only iCal feeds (holidays, timetables, Outlook).
 - **Spotify**: see and control what's playing from Home, focus mode or the mini window.
@@ -125,9 +126,9 @@ the [privacy policy](https://ishaan415.github.io/questline/privacy.html).
 |---|---|
 | **Home** | Trainer card (level, HP, XP, gold), your lead pal with a dialog box (teammates beside it), today's timeline merging timed dailies, reminders and events with a "now" line, today's bounties, today's foe and the weekly boss, Spotify player, what's coming up. |
 | **Dailies** | Recurring chores with an optional time of day, grouped Morning / Afternoon / Evening / Night. Schedules: every day, certain weekdays, every N days, monthly. Difficulty, category, checklist steps, heads-up notification, streaks. Habits (+/−) live here too. |
-| **Reminders** | One-off or repeating tasks with a date and time ("Book tickets for the show, Fri 10:00 AM"). Overdue / Today / Tomorrow / Next 7 days / Later / No date. Snooze 10 min, 1 hour, tonight, tomorrow, next week. |
+| **Reminders** | One-off or repeating tasks with a date and time ("Book tickets for the show, Fri 10:00 AM"), a date only (any time that day, with one nudge at 9 AM), or no date. Optional time goal. Overdue / Today / Tomorrow / Next 7 days / Later / No date. Snooze 10 min, 1 hour, tonight, tomorrow, next week. |
 | **Calendar** | A full page, not a corner widget. Month, week (time grid) and agenda views; click a day for its details; click an empty hour in week view to add an event. Shows your events and reminders, **never dailies**. |
-| **Focus** | Full-screen Pomodoro, countdown timer or stopwatch over a slow pixel scene (meadow, rain, firefly camp, seaside, snow, autumn grove, blossom garden, desert oasis, aurora peak), optional soft rain sound, Spotify controls only. Controls fade out while it runs. Sessions earn XP. |
+| **Focus** | Full-screen Pomodoro, countdown timer or stopwatch over a slow pixel scene (meadow, rain, firefly camp, seaside, snow, autumn grove, blossom garden, desert oasis, aurora peak), optional soft rain sound, Spotify controls only. Pick the task you're working on to fill its time goal. Controls fade out while it runs. Sessions earn XP. |
 | **Shop** | Your own real-life rewards priced in gold, items (Potions, Streak Shields, Lucky Charm), permanent upgrades, town themes (8 light and 8 dark; preview any theme across the whole app before buying), 11 trainer outfits and 9 focus scenes. |
 | **Pals** | Your team of 3, team presets, the Capsule Machine, expeditions, the boss log, and the Paldex of all 50 pals (silhouettes for the ones you haven't caught). Click any pal for its evolution line, level, ability and lore. |
 | **Journey** | Trainer card with 8 badges, five stats with perks, your team, last week's review, a month-by-month streak calendar (all dailies or one at a time), 20-week heatmap, 14-day chart, 41 achievements with rewards, adventure log. |
@@ -135,7 +136,8 @@ the [privacy policy](https://ishaan415.github.io/questline/privacy.html).
 ### Quality-of-life features
 
 - **Natural-language quick add** from anywhere with `Ctrl+Alt+Q`, or `N` inside the
-  app: `dentist fri 3pm`, `water plants every mon thu 8:30am`,
+  app: `dentist fri 3pm`, `water plants every mon thu 8:30am`, `pay rent tomorrow` (any time that day),
+  `read every day for 30 min` (time goal),
   `event: project review thu 2-3pm`, `pay rent tomorrow 6pm !h #errands`,
   `call the bank in 2 hours`, `12/11` (DD/MM) or `nov 12`. `Tab` switches the type.
 - **Command palette** `Ctrl+K`: jump anywhere, search tasks, use items, pause notifications.

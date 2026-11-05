@@ -46,6 +46,12 @@ Q.scheduler = (() => {
         add(`r:${r.id}:snz:${r.snoozedUntil}`, r.snoozedUntil, `Reminder: ${r.title}`, `Snoozed reminder · due ${U.fmtDay(new Date(r.due))} ${U.fmtTime(new Date(r.due))}`);
         continue;
       }
+      if (Q.game.remAllDay(r)) {
+        // All-day: one nudge in the morning of that day.
+        const at = U.at(Q.game.remDay(r), st.settings.allDayAt || '09:00').getTime();
+        add(`r:${r.id}:${r.due}:day`, at, `Today: ${r.title}`, r.notes ? r.notes.slice(0, 90) : 'Any time today. Tick it off for XP and gold.');
+        continue;
+      }
       const lead = r.lead ?? st.settings.defaultLead;
       if (lead > 0) add(`r:${r.id}:${r.due}:${lead}`, r.due - lead * 60000, `Soon: ${r.title}`, `Due at ${U.fmtTime(new Date(r.due))}`);
       add(`r:${r.id}:${r.due}:0`, r.due, `Reminder: ${r.title}`, r.notes ? r.notes.slice(0, 90) : 'Mark it done to collect your reward.');

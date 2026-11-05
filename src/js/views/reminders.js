@@ -15,10 +15,12 @@ Q.views.reminders = (() => {
     const day = 86400000;
     const open = st.reminders.filter((r) => !r.done);
     const weekEnd = U.addDays(U.startOfDay(now), 7).getTime();
+    const G = Q.game;
+    const over = (r) => G.remOverdue(r, now.getTime());
     const groups = [
-      ['Overdue', 'late', open.filter((r) => r.due && r.due < now.getTime())],
-      ['Today', '', open.filter((r) => r.due && r.due >= now.getTime() && r.due < t0 + day)],
-      ['Tomorrow', '', open.filter((r) => r.due && r.due >= t0 + day && r.due < t0 + 2 * day)],
+      ['Overdue', 'late', open.filter((r) => over(r))],
+      ['Today', '', open.filter((r) => r.due && !over(r) && (G.remAllDay(r) ? G.remDay(r) <= G.today() : r.due < t0 + day))],
+      ['Tomorrow', '', open.filter((r) => r.due && !over(r) && !(G.remAllDay(r) && G.remDay(r) <= G.today()) && r.due >= t0 + day && r.due < t0 + 2 * day)],
       ['Next 7 days', '', open.filter((r) => r.due && r.due >= t0 + 2 * day && r.due < weekEnd)],
       ['Later', '', open.filter((r) => r.due && r.due >= weekEnd)],
       ['No date', '', open.filter((r) => !r.due)],
@@ -76,7 +78,12 @@ Q.views.reminders = (() => {
     const tonight = new Date(now); tonight.setHours(20, 0, 0, 0);
     const tmrw = U.addDays(U.startOfDay(now), 1); tmrw.setHours(9, 0, 0, 0);
     const nextWeek = U.addDays(U.startOfDay(now), 7); nextWeek.setHours(9, 0, 0, 0);
-    const opts = [
+    const allDay = Q.game.remAllDay(r);
+    const day0 = (n) => U.addDays(U.startOfDay(now), n).getTime();
+    const opts = allDay ? [
+      ['1 hour', 'snooze', Date.now() + 3600000],
+      ['Tomorrow', 'moveday', day0(1)], ['In 2 days', 'moveday', day0(2)], ['Next week', 'moveday', day0(7)],
+    ] : [
       ['10 minutes', 'snooze', Date.now() + 10 * 60000], ['1 hour', 'snooze', Date.now() + 3600000],
       ...(tonight > now ? [['Tonight 8 PM', 'move', tonight.getTime()]] : []),
       ['Tomorrow 9 AM', 'move', tmrw.getTime()], ['Next week', 'move', nextWeek.getTime()],
@@ -84,7 +91,7 @@ Q.views.reminders = (() => {
     Q.ui.modal({
       title: 'Snooze', cls: 'modal-small',
       body: `<p class="dialog-text">${U.esc(r.title)}</p><div class="snooze-opts">${opts.map(([l, k, t], i) =>
-        `<button class="btn" data-i="${i}"><b>${l}</b><span class="small muted">${k === 'snooze' ? 'ping again' : 'move due date'} · ${U.fmtDay(new Date(t))} ${U.fmtTime(new Date(t))}</span></button>`).join('')}</div>`,
+        `<button class="btn" data-i="${i}"><b>${l}</b><span class="small muted">${k === 'snooze' ? 'ping again' : 'move due date'} · ${U.fmtDay(new Date(t))}${k === 'moveday' ? ' · all day' : ` ${U.fmtTime(new Date(t))}`}</span></button>`).join('')}</div>`,
       onMount(m, close) {
         m.querySelectorAll('[data-i]').forEach((b) => b.addEventListener('click', () => {
           const [, kind, t] = opts[+b.dataset.i];
@@ -107,7 +114,7 @@ Q.views.reminders = (() => {
     Q.ui.on('rem-bulk-tomorrow', () => {
       const st = S(); const now = Date.now();
       Q.store.snapshot();
-      for (const r of st.reminders) if (!r.done && r.due && r.due < now) {
+      for (const r of st.reminders) if (Q.game.remOverdue(r, now)) {
         const d = new Date(r.due); const t = U.addDays(U.startOfDay(new Date()), 1); t.setHours(d.getHours(), d.getMinutes());
         r.due = t.getTime(); r.snoozedUntil = null; r.gcalDirty = true;
       }

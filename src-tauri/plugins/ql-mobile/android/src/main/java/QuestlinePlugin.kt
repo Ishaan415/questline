@@ -10,12 +10,14 @@ import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.Window
+import android.view.WindowManager
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -51,6 +53,11 @@ class OrientationArgs {
 }
 
 @InvokeArg
+class ImmersiveArgs {
+  var on: Boolean = false
+}
+
+@InvokeArg
 class AuthArgs {
   var scopes: List<String> = listOf()
   var interactive: Boolean = true
@@ -82,6 +89,8 @@ class QlFileProvider : FileProvider()
 class QuestlinePlugin(private val activity: Activity) : Plugin(activity) {
   private var webView: WebView? = null
   private var backAdded = false
+  /** Focus mode: system bars hidden, page drawn edge to edge (cutout included). */
+  private var immersive = false
 
   override fun load(webView: WebView) {
     this.webView = webView
@@ -140,14 +149,64 @@ class QuestlinePlugin(private val activity: Activity) : Plugin(activity) {
     WindowCompat.setDecorFitsSystemWindows(activity.window, false)
     val content = activity.findViewById<View>(android.R.id.content) ?: return
     ViewCompat.setOnApplyWindowInsetsListener(content) { v, insets ->
-      val types = WindowInsetsCompat.Type.systemBars() or
-        WindowInsetsCompat.Type.displayCutout() or
-        WindowInsetsCompat.Type.ime()
-      val i = insets.getInsets(types)
-      v.setPadding(i.left, i.top, i.right, i.bottom)
+      if (immersive) {
+        // The page fills the whole screen; it keeps its buttons clear of the cutout itself.
+        v.setPadding(0, 0, 0, insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
+        pushSafeArea(insets.getInsets(WindowInsetsCompat.Type.displayCutout()))
+      } else {
+        val types = WindowInsetsCompat.Type.systemBars() or
+          WindowInsetsCompat.Type.displayCutout() or
+          WindowInsetsCompat.Type.ime()
+        val i = insets.getInsets(types)
+        v.setPadding(i.left, i.top, i.right, i.bottom)
+      }
       WindowInsetsCompat.CONSUMED
     }
     ViewCompat.requestApplyInsets(content)
+  }
+
+  /** Tells the page (in CSS pixels) where the camera cutout is, as --ql-inset-* variables. */
+  private fun pushSafeArea(i: Insets) {
+    val d = activity.resources.displayMetrics.density
+    fun px(v: Int) = (v / d).toInt()
+    val js = "(function(s){s.setProperty('--ql-inset-l','${px(i.left)}px');s.setProperty('--ql-inset-r','${px(i.right)}px');" +
+      "s.setProperty('--ql-inset-t','${px(i.top)}px');s.setProperty('--ql-inset-b','${px(i.bottom)}px')})(document.documentElement.style)"
+    webView?.evaluateJavascript(js, null)
+  }
+
+  private fun applyImmersive() {
+    val w = activity.window
+    val ctl = WindowInsetsControllerCompat(w, w.decorView)
+    if (immersive) {
+      ctl.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+      ctl.hide(WindowInsetsCompat.Type.systemBars())
+    } else {
+      ctl.show(WindowInsetsCompat.Type.systemBars())
+    }
+    if (Build.VERSION.SDK_INT >= 28) {
+      val lp = w.attributes
+      lp.layoutInDisplayCutoutMode =
+        if (immersive) WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        else WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+      w.attributes = lp
+    }
+    activity.findViewById<View>(android.R.id.content)?.let { ViewCompat.requestApplyInsets(it) }
+  }
+
+  /** Focus mode on phones: true full screen (no status bar, navigation bar or side gaps). */
+  @Command
+  fun setImmersive(invoke: Invoke) {
+    val args = invoke.parseArgs(ImmersiveArgs::class.java)
+    activity.runOnUiThread {
+      immersive = args.on
+      applyImmersive()
+      invoke.resolve()
+    }
+  }
+
+  /** Coming back to the app can bring the bars back; hide them again in focus mode. */
+  override fun onResume() {
+    if (immersive) activity.runOnUiThread { applyImmersive() }
   }
 
   /** Back button: let the page close a dialog or go back a page first; otherwise leave the app running. */

@@ -157,6 +157,14 @@ Q.comp = (() => {
   const stars = (diff) => `<span class="stars" title="${G.DIFF[diff]?.label}">${'★'.repeat(G.DIFF[diff]?.stars || 2)}</span>`;
   const catDot = (k) => { const c = Q.store.CATEGORIES[k] || Q.store.CATEGORIES.home; return `<span class="cat" style="--c:${c.color}">${c.name}</span>`; };
 
+  /** "45m / 2h" chip for tasks with a time budget; tap it to log time. */
+  function budgetChip(kind, t) {
+    const b = G.budgetOf(t);
+    if (!b) return '';
+    const s = G.spentOn(kind, t);
+    return `<button class="chip chip-budget ${s >= b ? 'met' : ''}" data-act="log-time" data-kind="${kind}" data-id="${t.id}" style="--p:${Math.min(100, (s / b) * 100)}%" title="Time spent of ${U.fmtDuration(b)}. Tap to log time or focus on it.">${I('hourglass')}${s ? U.fmtDuration(s) : '0m'} / ${U.fmtDuration(b)}</button>`;
+  }
+
   function dailyRow(d, { compact = false, notToday = false } = {}) {
     const done = !notToday && G.isDone(d);
     const cl = G.checklistState(d);
@@ -170,6 +178,7 @@ Q.comp = (() => {
           ${d.streak ? `<span class="streak" title="Streak (best ${d.best || d.streak})">${I('flame')}${d.streak}</span>` : ''}
           ${compact ? '' : stars(d.difficulty) + catDot(d.category)}
           ${cl.length ? `<span class="chip chip-cl">${clDone}/${cl.length}</span>` : ''}
+          ${notToday ? '' : budgetChip('daily', d)}
         </div>
       </div>
       ${cl.length && !compact && !notToday ? `<div class="checklist">${cl.map((c) => `<button class="cl-item ${c.done ? 'on' : ''}" data-act="cl-toggle" data-id="${d.id}" data-item="${c.id}"><span class="cl-box">${c.done ? I('check') : ''}</span>${esc(c.text)}</button>`).join('')}</div>` : ''}
@@ -178,17 +187,20 @@ Q.comp = (() => {
 
   function reminderRow(r, { compact = false } = {}) {
     const now = Date.now();
-    const overdue = !r.done && r.due && r.due < now;
+    const overdue = G.remOverdue(r, now);
+    const allDay = G.remAllDay(r);
     const snoozed = r.snoozedUntil && r.snoozedUntil > now;
-    const dueTxt = r.due ? `${U.fmtDay(new Date(r.due))} · ${U.fmtTime(new Date(r.due))}` : 'No date';
+    const dueTxt = G.remWhen(r);
+    const rel = !r.due || r.done ? '' : allDay ? (overdue ? ` · ${U.rel(new Date(G.remDeadline(r)))}` : '') : ` · ${U.rel(new Date(r.due))}`;
     return `<div class="task reminder ${r.done ? 'is-done' : ''} ${overdue ? 'overdue' : ''}" data-id="${r.id}">
       <button class="cbox round ${r.done ? 'on' : ''}" data-act="${r.done ? 'rem-reopen' : 'rem-done'}" data-id="${r.id}" aria-label="${r.done ? 'Mark not done' : 'Complete'} ${esc(r.title)}">${I('check')}</button>
       <div class="task-main" data-act="edit" data-type="reminder" data-id="${r.id}">
         <div class="task-title">${esc(r.title)}</div>
         <div class="task-meta">
-          <span class="chip ${overdue ? 'chip-late' : 'chip-time'}">${I('bell')}${dueTxt}${r.due && !r.done ? ` · ${U.rel(new Date(r.due))}` : ''}</span>
+          <span class="chip ${overdue ? 'chip-late' : 'chip-time'}">${I(allDay ? 'calendar' : 'bell')}${dueTxt}${rel}</span>
           ${snoozed ? `<span class="chip chip-snz">${I('snooze')}until ${U.fmtTime(new Date(r.snoozedUntil))}</span>` : ''}
           ${r.repeat && r.repeat !== 'none' ? `<span class="chip chip-any">${I('repeat')}${r.repeat}</span>` : ''}
+          ${r.done ? '' : budgetChip('reminder', r)}
           ${compact ? '' : stars(r.difficulty) + catDot(r.category)}
           ${r.gcalId ? `<span class="synced" title="Synced to Google Calendar">${I('sync')}</span>` : ''}
         </div>
@@ -208,5 +220,5 @@ Q.comp = (() => {
 
   const empty = (title, text, btn = '') => `<div class="empty"><div class="empty-art">${Q.sprites.companion(56)}</div><b>${title}</b><p>${text}</p>${btn}</div>`;
 
-  return { hpBar, xpBar, gold, trainerCard, companionBox, bossCard, dailyBossCard, bountyCard, dailyRow, reminderRow, eventRow, dueChip, stars, catDot, empty, typeChip, rarityChip, palExpBar };
+  return { budgetChip, hpBar, xpBar, gold, trainerCard, companionBox, bossCard, dailyBossCard, bountyCard, dailyRow, reminderRow, eventRow, dueChip, stars, catDot, empty, typeChip, rarityChip, palExpBar };
 })();

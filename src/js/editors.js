@@ -14,6 +14,13 @@ Q.editors = (() => {
     `<label class="cat-opt" style="--c:${c.color}"><input type="radio" name="category" value="${k}" ${k === val ? 'checked' : ''}><span>${c.name}</span></label>`).join('')}</div>`;
   const leadSelect = (val, name = 'lead') => `<select name="${name}">${[['', 'Default'], ['0', 'At the time only'], ['5', '5 min before'], ['10', '10 min before'], ['15', '15 min before'], ['30', '30 min before'], ['60', '1 hour before'], ['1440', '1 day before']]
     .map(([v, l]) => `<option value="${v}" ${String(val ?? '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+  /** Time budget picker: how long you want to spend on it ("study for 2 h"). */
+  const BUDGETS = [15, 30, 45, 60, 90, 120, 150, 180, 240, 300, 360, 480];
+  const budgetSelect = (val) => {
+    const v = Math.round(+val || 0);
+    const list = v && !BUDGETS.includes(v) ? [...BUDGETS, v].sort((a, b) => a - b) : BUDGETS;
+    return `<select name="budget"><option value="">No time goal</option>${list.map((m) => `<option value="${m}" ${m === v ? 'selected' : ''}>${U.fmtDuration(m)}</option>`).join('')}</select>`;
+  };
   const form = (m) => {
     const f = m.querySelector('form');
     const fd = new FormData(f);
@@ -39,6 +46,8 @@ Q.editors = (() => {
           ${field('Heads-up', leadSelect(v.lead))}
         </div>
         <p class="hint">Leave time empty for an any-time chore. Finishing within 30 minutes of the time gives a 20% on-time bonus.</p>
+        ${field('Time to spend', budgetSelect(v.budget))}
+        <p class="hint">For things like “study for 2 hours”. Focus sessions on it and time you log count toward it each day; reaching it ticks it off. Longer goals pay more.</p>
         ${field('Repeats', `<select name="stype" data-stype>
           <option value="daily" ${sch.type === 'daily' ? 'selected' : ''}>Every day</option>
           <option value="weekly" ${sch.type === 'weekly' ? 'selected' : ''}>On certain days</option>
@@ -74,7 +83,7 @@ Q.editors = (() => {
             title: get('title').trim(), time: get('time') || null, lead: get('lead') === '' ? null : +get('lead'), schedule,
             difficulty: get('difficulty') || 'easy', category: get('category') || 'home', notes: get('notes').trim(),
             checklist: texts.map((t) => old.find((c) => c.text === t) || { id: U.uid(), text: t, done: false }),
-            paused: !!get('paused'),
+            paused: !!get('paused'), budget: +get('budget') || null,
           };
           if (d) Object.assign(d, data);
           else st.dailies.push(Object.assign({ id: U.uid(), createdAt: Date.now(), streak: 0, best: 0, done: {}, order: st.dailies.length }, data));
@@ -102,6 +111,7 @@ Q.editors = (() => {
     const r = id ? st.reminders.find((x) => x.id === id) : null;
     const due = r ? (r.due ? new Date(r.due) : null) : preset.due ? new Date(preset.due) : U.addMinutes(new Date(), 60);
     const v = r || Object.assign({ title: '', notes: '', repeat: 'none', difficulty: 'easy', category: 'errands', lead: null }, preset);
+    const allDay = !!(v.allDay && due);
     Q.ui.modal({
       title: r ? 'Edit reminder' : 'New reminder', cls: 'modal-form',
       body: `<form autocomplete="off">
@@ -109,12 +119,14 @@ Q.editors = (() => {
         <label class="check-line"><input type="checkbox" name="nodate" ${due ? '' : 'checked'} data-nodate> No date (a to-do for whenever)</label>
         <div class="row2" data-datefields ${due ? '' : 'hidden'}>
           ${field('Date', `<input type="date" name="date" value="${due ? U.ymd(due) : Q.game.today()}">`, 'grow')}
-          ${field('Time', `<input type="time" name="time" value="${due ? `${U.pad(due.getHours())}:${U.pad(due.getMinutes())}` : '09:00'}">`, 'grow')}
+          ${field('Time', `<input type="time" name="time" value="${due && !allDay ? `${U.pad(due.getHours())}:${U.pad(due.getMinutes())}` : '09:00'}">`, `grow ${allDay ? 'is-hidden' : ''}" data-timefield="`)}
         </div>
+        <label class="check-line" data-datefields ${due ? '' : 'hidden'}><input type="checkbox" name="allday" ${allDay ? 'checked' : ''} data-allday> No time: any time that day (one nudge at 9 AM)</label>
         <div class="row2" data-datefields ${due ? '' : 'hidden'}>
-          ${field('Notify', leadSelect(v.lead), 'grow')}
+          ${field('Notify', leadSelect(v.lead), `grow ${allDay ? 'is-hidden' : ''}" data-timefield="`)}
           ${field('Repeat', `<select name="repeat">${['none', 'daily', 'weekly', 'monthly', 'yearly'].map((x) => `<option value="${x}" ${v.repeat === x ? 'selected' : ''}>${x === 'none' ? 'Does not repeat' : x[0].toUpperCase() + x.slice(1)}</option>`).join('')}</select>`, 'grow')}
         </div>
+        ${field('Time to spend', budgetSelect(v.budget))}
         ${field('Difficulty', diffPicker(v.difficulty))}
         ${field('Category', catPicker(v.category))}
         ${field('Notes', `<textarea name="notes" rows="2" maxlength="800">${esc(v.notes || '')}</textarea>`)}
@@ -123,19 +135,22 @@ Q.editors = (() => {
       onMount(m, close) {
         const nd = m.querySelector('[data-nodate]');
         nd.onchange = () => m.querySelectorAll('[data-datefields]').forEach((el) => { el.hidden = nd.checked; });
+        const ad = m.querySelector('[data-allday]');
+        ad.onchange = () => m.querySelectorAll('[data-timefield]').forEach((el) => el.classList.toggle('is-hidden', ad.checked));
         m.querySelector('form').onsubmit = (e) => {
           e.preventDefault();
           const { get } = form(m);
-          const dueMs = get('nodate') ? null : U.at(get('date'), get('time') || '09:00').getTime();
+          const allDayOn = !get('nodate') && !!get('allday');
+          const dueMs = get('nodate') ? null : U.at(get('date'), allDayOn ? '00:00' : get('time') || '09:00').getTime();
           const data = {
-            title: get('title').trim(), notes: get('notes').trim(), due: dueMs, repeat: dueMs ? get('repeat') : 'none',
+            title: get('title').trim(), notes: get('notes').trim(), due: dueMs, allDay: allDayOn, budget: +get('budget') || null, repeat: dueMs ? get('repeat') : 'none',
             lead: get('lead') === '' || get('lead') == null ? null : +get('lead'), difficulty: get('difficulty') || 'easy', category: get('category') || 'errands',
           };
           if (r) { if (r.due !== data.due) r.snoozedUntil = null; Object.assign(r, data, { gcalDirty: true }); }
           else st.reminders.push(Object.assign({ id: U.uid(), createdAt: Date.now(), done: false, gcalDirty: true }, data));
           Q.store.commit('reminder');
           close();
-          Q.ui.toast(r ? 'Reminder saved' : `Reminder set${dueMs ? ` for ${U.fmtDay(new Date(dueMs))} ${U.fmtTime(new Date(dueMs))}` : ''}`, { kind: 'ok' });
+          Q.ui.toast(r ? 'Reminder saved' : `Reminder set${dueMs ? ` for ${U.fmtDay(new Date(dueMs))}${allDayOn ? ' (any time)' : ` ${U.fmtTime(new Date(dueMs))}`}` : ''}`, { kind: 'ok' });
         };
         const del = m.querySelector('[data-del]');
         if (del) del.onclick = () => removeWithUndo('reminders', r.id, r.title, close);
@@ -286,7 +301,7 @@ Q.editors = (() => {
     const st = S();
     let item;
     if (p.type === 'daily') {
-      item = { id: U.uid(), createdAt: Date.now(), title: p.title, time: p.time, lead: null, schedule: p.schedule || { type: 'daily' }, difficulty: p.difficulty || 'easy', category: p.category || 'home', checklist: [], notes: '', streak: 0, best: 0, done: {}, order: st.dailies.length };
+      item = { id: U.uid(), createdAt: Date.now(), title: p.title, time: p.time, lead: null, schedule: p.schedule || { type: 'daily' }, difficulty: p.difficulty || 'easy', category: p.category || 'home', checklist: [], notes: '', streak: 0, best: 0, done: {}, order: st.dailies.length, budget: p.budget || null };
       st.dailies.push(item);
       Q.game.ensureBoss();
       Q.ui.toast(`Daily added: ${p.title}`, { kind: 'ok' });
@@ -299,14 +314,71 @@ Q.editors = (() => {
       st.events.push(item);
       Q.ui.toast(`Event added for ${U.fmtDay(new Date(s))}`, { kind: 'ok' });
     } else {
-      const due = p.date ? U.at(U.ymd(p.date), p.time || '09:00').getTime() : null;
-      item = { id: U.uid(), createdAt: Date.now(), title: p.title, notes: '', due, repeat: due ? p.repeat || 'none' : 'none', lead: null, difficulty: p.difficulty || 'easy', category: p.category || 'errands', done: false, gcalDirty: true };
+      // A date without a time: due any time that day.
+      const allDay = !!p.date && !p.time;
+      const due = p.date ? U.at(U.ymd(p.date), p.time || '00:00').getTime() : null;
+      item = { id: U.uid(), createdAt: Date.now(), title: p.title, notes: '', due, allDay, budget: p.budget || null, repeat: due ? p.repeat || 'none' : 'none', lead: null, difficulty: p.difficulty || 'easy', category: p.category || 'errands', done: false, gcalDirty: true };
       st.reminders.push(item);
-      Q.ui.toast(due ? `Reminder set for ${U.fmtDay(new Date(due))} ${U.fmtTime(new Date(due))}` : `Added: ${p.title}`, { kind: 'ok' });
+      Q.ui.toast(due ? `Reminder set for ${U.fmtDay(new Date(due))}${allDay ? ' (any time)' : ` ${U.fmtTime(new Date(due))}`}` : `Added: ${p.title}`, { kind: 'ok' });
     }
     Q.store.commit('add');
     if ((p.type !== 'daily') && Q.sync.calendarActive()) Q.sync.syncAll();
     return item;
+  }
+
+  /**
+   * How much of a time goal is done: set it exactly in 15-minute steps
+   * ("2 h of 3 h"), mark it finished, or go and focus on it.
+   */
+  function logTimeSheet(kind, id) {
+    const G = Q.game;
+    const t = (kind === 'daily' ? S().dailies : S().reminders).find((x) => x.id === id);
+    if (!t) return;
+    const b = G.budgetOf(t); const start = G.spentOn(kind, t);
+    const STEP = 15;
+    const max = Math.ceil(Math.max(b + 60, start + STEP) / STEP) * STEP;
+    let val = start;
+    const done = kind === 'daily' ? G.isDone(t) : t.done;
+    Q.ui.modal({
+      title: 'Time on this task', cls: 'modal-small modal-time',
+      body: `<p class="dialog-text"><b>${esc(t.title)}</b><br><span class="small muted">Goal: ${U.fmtDuration(b)}${kind === 'daily' ? ' today' : ''}${done ? ' · already ticked off' : ''}</span></p>
+        <div class="tm-set">
+          <button type="button" class="btn tm-step" data-step="-${STEP}" aria-label="15 minutes less">−</button>
+          <div class="tm-val"><b data-val></b><span class="small muted" data-of></span></div>
+          <button type="button" class="btn tm-step" data-step="${STEP}" aria-label="15 minutes more">+</button>
+        </div>
+        <div class="tm-slide"><input type="range" class="tm-range" min="0" max="${max}" step="${STEP}" value="${val}" aria-label="Time spent">
+          <span class="tm-goal" style="left:${(b / max) * 100}%" title="Goal: ${U.fmtDuration(b)}"></span></div>
+        <div class="log-opts">${[15, 30, 60].map((mm) => `<button type="button" class="btn btn-small" data-add="${mm}">+${U.fmtDuration(mm)}</button>`).join('')}
+          <button type="button" class="btn btn-small" data-full>${I('check')} Finished</button></div>
+        <p class="small muted">Set how long you've worked on it. Reaching the goal ticks it off. Focus sessions on it fill it in by themselves and also earn XP and gold.</p>
+        <div class="modal-actions"><button class="btn" data-focus>${I('hourglass')} Focus on it</button><span class="spacer"></span>
+          <button class="btn" data-close>Cancel</button><button class="btn btn-primary" data-save>Save</button></div>`,
+      onMount(m, close) {
+        const range = m.querySelector('.tm-range');
+        const paint = () => {
+          range.value = val;
+          m.querySelector('[data-val]').textContent = val ? U.fmtDuration(val) : '0m';
+          m.querySelector('[data-of]').textContent = `of ${U.fmtDuration(b)}${val >= b ? ' · goal reached' : ` · ${U.fmtDuration(b - val)} to go`}`;
+          range.classList.toggle('met', val >= b);
+          m.querySelector('[data-save]').textContent = val === start ? 'Close' : 'Save';
+        };
+        const set = (v) => { val = U.clamp(Math.round(v / STEP) * STEP, 0, Math.max(max, v)); if (val > +range.max) range.max = val; paint(); };
+        range.addEventListener('input', () => set(+range.value));
+        m.querySelectorAll('[data-step]').forEach((btn) => btn.addEventListener('click', () => set(val + +btn.dataset.step)));
+        m.querySelectorAll('[data-add]').forEach((btn) => btn.addEventListener('click', () => set(val + +btn.dataset.add)));
+        m.querySelector('[data-full]').onclick = () => set(Math.max(val, b));
+        m.querySelector('[data-save]').onclick = () => {
+          close();
+          if (val === start) return;
+          const r = G.setTime(kind, id, val);
+          Q.app.flushGame();
+          if (r && !r.completed) Q.ui.toast(`${U.fmtDuration(r.spent || 0) || '0m'} of ${U.fmtDuration(r.budget)} on ${t.title}`, { kind: 'ok', icon: I('hourglass') });
+        };
+        m.querySelector('[data-focus]').onclick = () => { close(); Q.focus.open({ taskId: id }); };
+        paint();
+      },
+    });
   }
 
   function open(type, id, preset) {
@@ -317,5 +389,5 @@ Q.editors = (() => {
     if (type === 'reward') return rewardForm(id);
   }
 
-  return { open, createFromParsed, EVENT_COLORS };
+  return { logTimeSheet, open, createFromParsed, EVENT_COLORS };
 })();
