@@ -32,14 +32,14 @@ Q.app = (() => {
     document.getElementById('app').innerHTML = `
       <header class="titlebar" data-tauri-drag-region>
         <div class="tb-brand" data-tauri-drag-region><img class="px" src="${Q.sprites.render('sprigg')}" width="20" height="20" alt="">Questline</div>
-        ${P.isApp ? '' : '<span class="tb-demo" title="This web preview uses sample data. The desktop app starts fresh.">Preview · sample data</span>'}
+        ${P.isDemo ? '<span class="tb-demo" title="This web preview uses sample data. The desktop app starts fresh.">Preview · sample data</span>' : ''}
         <div class="tb-clock" data-tauri-drag-region id="tb-clock"></div>
         <div class="tb-actions">
           <button class="tb-btn" data-act="quick-add" title="Quick add (N)" aria-label="Quick add">${I('plus')}</button>
           <button class="tb-btn" data-act="palette" title="Command palette (Ctrl+K)" aria-label="Command palette">${I('search')}</button>
           <button class="tb-btn tb-cloud cloud-off" id="tb-cloud" data-act="cloud-sync" hidden aria-label="Sync with Google Drive">${I('cloud')}</button>
           <button class="tb-btn" data-act="toggle-mode" id="tb-mode" title="Switch light / dark (D)" aria-label="Switch light or dark mode">${I('moon')}</button>
-          <button class="tb-btn" data-act="mini-toggle" title="Mini window" aria-label="Mini window">${I('mini')}</button>
+          ${P.isWeb ? '' : `<button class="tb-btn" data-act="mini-toggle" title="Mini window" aria-label="Mini window">${I('mini')}</button>`}
           ${P.isApp ? `<span class="tb-sep"></span>
           <button class="tb-btn" data-act="win-min" aria-label="Minimize">${I('min')}</button>
           <button class="tb-btn" data-act="win-max" aria-label="Maximize">${I('max')}</button>
@@ -226,6 +226,18 @@ Q.app = (() => {
       catch (e) { Q.ui.toast(String(e), { kind: 'error' }); }
       return;
     }
+    // The web app: a normal download.
+    if (P.isWeb) {
+      try {
+        const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+        const link = document.createElement('a');
+        link.href = url; link.download = `questline-${stamp}.json`;
+        document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        Q.ui.toast('Backup downloaded', { kind: 'ok' });
+        return;
+      } catch (e) { /* fall back to the copy box */ }
+    }
     Q.ui.modal({
       title: 'Export backup', cls: 'modal-form',
       body: `<p class="small muted">Copy this text and save it as a .json file. Import it later in Settings.</p><textarea class="export-box" rows="10" readonly>${esc(json)}</textarea>
@@ -338,7 +350,9 @@ Q.app = (() => {
 
   /* ---------------------------------------------------------- boot */
   async function boot() {
+    if (P.isWeb && Q.web.leaving) return; // on the way to Google to renew the sign-in
     await Q.store.init();
+    if (P.isWeb) await Q.web.boot();
     if (!S().onboarded && window.QUESTLINE_DEMO) Q.onboarding.demo();
     G.ensureBoss();
     applySettings();
@@ -357,8 +371,12 @@ Q.app = (() => {
 
     // Pull other devices' progress before settling yesterday, so a day is never
     // settled twice (checkDay waits for Q.cloud.ready()).
-    Q.cloud.start().finally(() => { if (S().onboarded) checkDay(); });
-    if (!S().onboarded) Q.onboarding.start();
+    // Just signed in on a fresh browser: the first sync may bring your progress
+    // in, so the welcome only shows if it doesn't.
+    const waitForDrive = P.isWeb && Q.web.justSignedIn && !S().onboarded;
+    Q.cloud.start().finally(() => { if (S().onboarded) checkDay(); else if (waitForDrive) Q.onboarding.start(); });
+    if (!S().onboarded && !waitForDrive) Q.onboarding.start();
+    if (P.isWeb) Q.web.afterStart();
     Q.scheduler.refresh();
     Q.spotify.start();
     Q.updates.init();

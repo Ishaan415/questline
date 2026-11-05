@@ -14,3 +14,4 @@ code { background: rgba(0, 0, 0, .07); padding: 1px 5px; border-radius: 5px; fon
 footer { max-width: 720px; margin: 18px auto 0; color: var(--soft); font-size: 14px; text-align: center; }
 
 .shot { display: block; width: 100%; height: auto; margin: 28px 0 8px; border-radius: 12px; }
+.note { color: var(--soft); font-size: 15px; margin: 14px 0 0; }

@@ -72,9 +72,9 @@ Q.updates = (() => {
   }
 
   async function init() {
-    try { version = P.isApp ? await P.invoke('plugin:app|version') : `${window.QUESTLINE_VERSION || 'dev'} (web preview)`; } catch (e) { version = '?'; }
-    if (!P.isApp) return;
-    P.listen('update-progress', onProgress);
+    try { version = P.isApp ? await P.invoke('plugin:app|version') : P.isWeb ? `${window.QUESTLINE_VERSION || 'dev'}` : `${window.QUESTLINE_VERSION || 'dev'} (web preview)`; } catch (e) { version = '?'; }
+    if (P.isDemo) return;
+    if (P.isApp) P.listen('update-progress', onProgress);
     // One "Updated to vX" note after an update (not on a fresh install).
     const seen = ls.get(SEEN_KEY);
     ls.set(SEEN_KEY, version);
@@ -86,7 +86,35 @@ Q.updates = (() => {
     setInterval(() => { if (S().settings.autoUpdate) check(); }, 6 * 3600000);
   }
 
+  /** The web app: compare with the version the site serves now; a reload brings it in. */
+  async function checkWeb(manual) {
+    checking = true; lastError = null; rerender();
+    try {
+      const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+      const live = r.ok ? String((await r.json()).version || '') : '';
+      S().settings.lastUpdateCheck = Date.now();
+      Q.store.commit('update-check');
+      if (live && live !== version) {
+        available = { version: live, web: true };
+        if (manual || offeredVersion !== live) {
+          offeredVersion = live;
+          Q.ui.toast(`Questline v${live} is out.`, { kind: 'badge', icon: I('star'), timeout: 0, actions: [{ label: 'Reload to update', fn: reloadWeb }] });
+        }
+      } else if (manual) Q.ui.toast(`You're on the latest version (v${version}).`, { kind: 'ok' });
+    } catch (e) {
+      lastError = navigator.onLine === false ? 'you\'re offline' : String(e);
+      if (manual) Q.ui.toast(`Couldn't check for updates: ${lastError}`, { kind: 'error' });
+    } finally { checking = false; rerender(); }
+    return available;
+  }
+  function reloadWeb() {
+    if (Q.focus.isRunning()) { Q.ui.toast('Finish or stop the focus timer first, then reload.'); return; }
+    Q.store.saveNow();
+    location.reload();
+  }
+
   async function check({ manual = false } = {}) {
+    if (P.isWeb) return checkWeb(manual);
     if (!P.isApp) {
       if (manual) Q.ui.toast('Updates are checked in the desktop app.');
       return null;
@@ -168,15 +196,16 @@ Q.updates = (() => {
     const st = S();
     const last = st.settings.lastUpdateCheck;
     let status;
-    if (!P.isApp) status = 'The app checks GitHub for new versions.';
+    if (P.isWeb) status = checking ? 'Checking…' : available ? `<b>v${U.esc(available.version)} is out.</b> Reload the page to get it.` : 'The web version updates when you reload the page.';
+    else if (!P.isApp) status = 'The app checks GitHub for new versions.';
     else if (checking) status = 'Checking…';
     else if (available) status = `<b>v${U.esc(available.version)} is available.</b>`;
     else if (lastError) status = `<span class="err">Last check failed: ${U.esc(lastError)}</span>`;
     else status = last ? `Up to date · checked ${U.rel(new Date(last))}` : 'Not checked yet';
     return `
       <div class="toggle-row"><span><b>Version ${U.esc(version)}</b><span class="small muted">${status}</span></span>
-        ${available ? `<button class="btn btn-small btn-primary" data-act="upd-install">Update now</button>` : `<button class="btn btn-small" data-act="upd-check" ${checking || !P.isApp ? 'disabled' : ''}>${I('sync')} Check now</button>`}</div>
-      <label class="toggle-row"><span><b>Check automatically</b><span class="small muted">On start and every 6 hours. Nothing installs without your ${P.isPhone ? 'tap' : 'click'}.</span></span>
+        ${available ? `<button class="btn btn-small btn-primary" data-act="upd-install">${available.web ? 'Reload' : 'Update now'}</button>` : `<button class="btn btn-small" data-act="upd-check" ${checking || P.isDemo ? 'disabled' : ''}>${I('sync')} Check now</button>`}</div>
+      <label class="toggle-row"><span><b>Check automatically</b><span class="small muted">${P.isWeb ? 'On start and every 6 hours, with a message when a new version is out.' : `On start and every 6 hours. Nothing installs without your ${P.isPhone ? 'tap' : 'click'}.`}</span></span>
         <input type="checkbox" class="switch" data-change="set" data-path="settings.autoUpdate" ${st.settings.autoUpdate ? 'checked' : ''}></label>
  ${current ? `<details class="whats-new"><summary><b>What's new in v${U.esc(current.version)}</b>${current.date ? `<span class="small muted"> · ${U.esc(new Date(current.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }))}</span>` : ''}</summary>
         <div class="update-notes">${notesHtml(current.notes)}</div></details>` : ''}
@@ -185,7 +214,7 @@ Q.updates = (() => {
 
   function bind() {
     Q.ui.on('upd-check', () => check({ manual: true }));
-    Q.ui.on('upd-install', () => (available ? notes(available) : null));
+    Q.ui.on('upd-install', () => (available && available.web ? reloadWeb() : available ? notes(available) : null));
     Q.ui.on('upd-releases', () => P.openExternal(RELEASES_URL));
   }
 

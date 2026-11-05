@@ -7,10 +7,11 @@
 ### Your to-do list, as a cozy pixel RPG.
 
 Dailies, reminders, a calendar and a focus timer, where getting things done levels you up,<br>
-grows a team of pixel pals, clears daily bounties and knocks down a daily foe and a weekly boss. For **Windows** and **Android**.
+grows a team of pixel pals, clears daily bounties and knocks down a daily foe and a weekly boss. For **Windows**, **Android** and **any browser** (iPhone too).
 
 [![Download for Windows](https://img.shields.io/badge/Download-Windows-2F4858?style=for-the-badge)](https://github.com/Ishaan415/questline/releases/latest)
 [![Download for Android](https://img.shields.io/badge/Download-Android-3E9E5A?style=for-the-badge)](https://github.com/Ishaan415/questline/releases/latest/download/Questline-android.apk)
+[![Open in your browser](https://img.shields.io/badge/Open-in_browser-3C82C8?style=for-the-badge)](https://ishaan415.github.io/questline/app/)
 <br>
 [![Latest release](https://img.shields.io/github/v/release/Ishaan415/questline?style=flat-square&label=latest&color=3E9E5A)](https://github.com/Ishaan415/questline/releases)
 [![Homepage](https://img.shields.io/badge/homepage-ishaan415.github.io%2Fquestline-3C82C8?style=flat-square)](https://ishaan415.github.io/questline/)
@@ -26,9 +27,9 @@ reminders and events; tick them off and you earn **XP and gold**, your **pals** 
 EXP and evolve, and **today's foe** and the **weekly boss** take damage. Skip things and you lose a bit
 of HP. It's never punishing, just enough to make "I'll do it tomorrow" sting.
 
-It runs on your PC (quietly, from the system tray) and on your Android phone, and keeps
-both in sync through **your own Google Drive**. There's no account to create and no
-server in between.
+It runs on your PC (quietly, from the system tray), on your Android phone and in any
+web browser, and keeps them in sync through **your own Google Drive**. There's no
+account to create and no server in between.
 
 ## How it works
 
@@ -54,6 +55,30 @@ opens Quick add.
 <img src="docs/screenshots/phones.png" alt="Questline on Android: dailies, quick add, the More menu and dark mode" width="100%">
 
 <img src="docs/screenshots/quests.png" alt="On Android: today's bounties, a pal on an expedition, and the streak calendar" width="100%">
+
+## In your browser
+
+[**ishaan415.github.io/questline/app**](https://ishaan415.github.io/questline/app/) is the
+same Questline, nothing to install: on a work computer, a Mac, a Chromebook or an
+**iPhone or iPad**. Sign in with the same Google account and it shares your progress
+with the Windows and Android apps. It works offline after the first visit, and you can
+install it like an app (Chrome or Edge: the install icon in the address bar; iPhone:
+**Share → Add to Home Screen**).
+
+A browser can't do everything the apps can:
+
+- **Notifications** only arrive while Questline is open in a tab. On iPhone, add it to
+  your Home Screen first.
+- **No home-screen widget, tray icon or global shortcuts.**
+- **Google sign-in lasts an hour at a time** (browsers don't get Google's long-lived
+  sign-in). Questline renews it by itself when you open or come back to the page; if you
+  use it for over an hour straight, a message asks you to tap **Renew**.
+- **Spotify** works once you connect your account (Premium); there's no desktop Spotify
+  app to follow in a browser.
+- **iCal feeds** only load if their server allows web pages to read them; many don't.
+  Google Calendar works fully.
+- **Your data** is kept in that browser. Browsers can clear site data, so sign in with
+  Google to keep a copy in your Drive. Use Questline in one tab at a time.
 
 ## A look around
 
@@ -86,6 +111,7 @@ opens Quick add.
 - **Calendar**: optional two-way Google Calendar, plus read-only iCal feeds (holidays, timetables, Outlook).
 - **Spotify**: see and control what's playing from Home, focus mode or the mini window.
 - **Desktop niceties**: tray icon, quick add from any app (`Ctrl+Alt+Q`), command palette (`Ctrl+K`), notifications with the window closed, mini window, start with Windows.
+- **In any browser**: the same app at [ishaan415.github.io/questline/app](https://ishaan415.github.io/questline/app/), synced with the others, installable and offline-ready.
 - **Updates itself**: new versions arrive from GitHub on both PC and phone; nothing installs without your OK.
 
 ## Get started
@@ -94,12 +120,14 @@ opens Quick add.
 
 **Android**: open [Questline-android.apk](https://github.com/Ishaan415/questline/releases/latest/download/Questline-android.apk) on your phone and install it (Android asks you to allow installs from your browser once).
 
+**Browser** (any computer, iPhone, iPad): open [ishaan415.github.io/questline/app](https://ishaan415.github.io/questline/app/). Already use Questline on another device? Tap **Sign in with Google** on the welcome screen and your progress comes along.
+
 **Then**: pick your starter pal, choose a few starter packs or add your own tasks, and you're playing. To use more than one device, go to **Settings → Google account → Sign in with Google** on each one.
 
 ## Your data stays yours
 
-Questline has **no servers**. Everything is saved on your device and, if you sign in,
-in your own Google Drive, where Questline can only see the files it created (Google's
+Questline has **no servers**. Everything is saved on your device (or in your browser)
+and, if you sign in, in your own Google Drive, where Questline can only see the files it created (Google's
 `drive.file` permission). Nothing is sent to the developer, sold or used for ads. Read
 the [privacy policy](https://ishaan415.github.io/questline/privacy.html).
 
@@ -253,7 +281,7 @@ Signing in is optional. Questline works fully offline without it.
 
 1. Open **Settings → Google account** and press **Sign in with Google**.
 2. Pick your account. On Windows this happens in your browser; on Android, in Google's
-   own account picker.
+   own account picker; in the browser version, the page goes to Google and comes back.
 3. Allow access. Questline asks only for your name and email, and for access to the
    files *it creates* in your Drive. It can't see anything else in your Drive.
 
@@ -315,7 +343,8 @@ account. This needs **Spotify Premium** and takes about five minutes, once:
 1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
    and log in with your Spotify account.
 2. Press **Create app**. Give it any name and description. Under **Redirect URIs**, add
-   exactly `http://127.0.0.1:43821/callback`. Tick **Web API**, accept the terms and save.
+   exactly `http://127.0.0.1:43821/callback`. Using the browser version too? Also add
+   `https://ishaan415.github.io/questline/app/`. Tick **Web API**, accept the terms and save.
 3. Open the app's **Settings** and copy the **Client ID**.
 4. In Questline: **Settings → Spotify**, paste the Client ID and press
    **Connect Spotify account**, then approve in the browser.
@@ -344,9 +373,12 @@ installs without your OK. On Windows the app closes, updates and reopens by itse
 Android, the system installer asks you to confirm. After an update, **Settings → Updates →
 What's new** shows that version's release notes.
 
+**Browser**: nothing to install. The page always loads the newest version; if one comes
+out while it's open, a message offers to reload.
+
 **Your data**: saved on your device (Windows: `%APPDATA%\com.questline.app`, reachable
-via **Settings → Open data folder**; Android: the app's private storage), plus your
-Google Drive if you sign in.
+via **Settings → Open data folder**; Android: the app's private storage; browser: that
+browser's storage for the site), plus your Google Drive if you sign in.
 
 **Lightweight**: Questline is built with [Tauri](https://tauri.app), so the Windows
 installer is a few MB and the app idles at roughly 0% CPU and 60–120 MB of RAM.
@@ -365,6 +397,10 @@ installer is a few MB and the app idles at roughly 0% CPU and 60–120 MB of RAM
   other devices, connect your Spotify account (section 4).
 - **Google sign-in or sync shows an error**: check your internet connection and try
   **Sync now**. If it keeps failing, sign out and sign in again.
+- **Browser: "Your Google sign-in timed out"**: tap **Renew** in the message, or reload
+  the page. If Google asks you to sign in again, your Google session in that browser ended.
+- **Browser: "Questline is open in another tab"**: only one tab saves at a time. Press
+  **Use Questline here** in the tab you want to keep.
 - **Android won't install the update**: allow Questline to install apps when Android
   asks (Settings → Apps → Questline → Install unknown apps).
 
@@ -391,4 +427,5 @@ installer is a few MB and the app idles at roughly 0% CPU and 60–120 MB of RAM
 <sub>Want to build it yourself? Questline is a Tauri 2 app (Rust shell, plain
 HTML/CSS/JS interface in `src/`). With Node.js, Rust and
 [Tauri's prerequisites](https://tauri.app/start/prerequisites/) installed:
-`npm install` then `npm run dev`.</sub>
+`npm install` then `npm run dev`. The browser version is built from the same `src/` with
+`node scripts/build-web.mjs` (see `.github/workflows/pages.yml`).</sub>

@@ -92,6 +92,7 @@ Q.onboarding = (() => {
             box.innerHTML = `<div class="ob-hero">${Q.sprites.trainer('classic', 96, 'bounce')}</div>
               <div class="textbox"><p>Welcome to <b>Questline</b>! Here, chores and plans become quests. Finish them to earn XP, gold and badges. What should we call you?</p></div>
               <label class="field"><span class="field-label">Your name</span><input id="ob-name" maxlength="24" placeholder="Trainer" value="${esc(S().profile.name === 'Trainer' ? '' : S().profile.name)}"></label>
+              ${Q.platform.isWeb && Q.web.googleReady() ? `<p class="small muted ob-signin">Already use Questline on another device? <button class="link" type="button" data-ob-google>Sign in with Google</button> to bring your progress here.</p>` : ''}
               <div class="modal-actions"><span class="spacer"></span><button class="btn btn-primary" data-next>Next</button></div>`;
           } else if (step === 1) {
             box.innerHTML = `<div class="textbox"><p>Every trainer needs a partner pal. Pals earn EXP from every task you finish and evolve as they grow. You can collect 49 more later. Pick your first:</p></div>
@@ -108,6 +109,7 @@ Q.onboarding = (() => {
           const sp = e.target.closest('[data-sp]');
           if (sp) { species = sp.dataset.sp; draw(); return; }
           if (e.target.closest('[data-back]')) { step--; draw(); return; }
+          if (e.target.closest('[data-ob-google]')) { Q.sync.connectGoogle().catch((err) => Q.ui.toast(String(err), { kind: 'error' })); return; }
           if (!e.target.closest('[data-next]')) return;
           if (step === 0) { const v = box.querySelector('#ob-name').value.trim(); S().profile.name = v || 'Trainer'; }
           if (step === 2) {

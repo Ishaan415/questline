@@ -172,7 +172,7 @@ Q.views.calendar = (() => {
     const c = st.calCache;
     if (Q.sync.isSyncing()) return 'Syncing…';
     if (c.error) return `<span class="err" title="${esc(c.error)}">Sync failed</span>`;
-    if (!Q.sync.calendarActive() && !st.settings.ics.length) return Q.platform.isApp ? '<button class="link" data-act="go" data-view="settings" data-anchor="sync">Connect a calendar</button>' : 'Sample data';
+    if (!Q.sync.calendarActive() && !st.settings.ics.length) return !Q.platform.isDemo ? '<button class="link" data-act="go" data-view="settings" data-anchor="sync">Connect a calendar</button>' : 'Sample data';
     return c.syncedAt ? `Synced ${U.rel(new Date(c.syncedAt))}` : 'Not synced yet';
   }
 

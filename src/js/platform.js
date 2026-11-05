@@ -1,24 +1,36 @@
 'use strict';
 /*
  * Platform bridge. Inside the app (Tauri, on Windows or Android) this calls the
- * Rust side; in a plain browser (the web preview) it falls back to localStorage,
- * the Notification API and a demo Spotify player, so the same UI runs in both.
- * Add ?phone to the preview's address to see the phone layout.
+ * Rust side. In a browser it falls back to localStorage and the Notification
+ * API; the web app (GitHub Pages) also gets Google, Drive and Spotify from
+ * web.js, while the preview (sample data) gets a demo Spotify player instead.
+ * Add ?phone to the address to see the phone layout.
  */
 
 Q.platform = (() => {
   const T = window.__TAURI__;
   const isApp = !!(T && T.core && T.core.invoke);
   const isAndroid = isApp && /Android/i.test(navigator.userAgent);
+  /** The browser version on GitHub Pages: real data, Google sign-in through web.js. */
+  const isWeb = !isApp && !!(Q.web && Q.web.on);
+  /** The preview with sample data (neither the app nor the web app). */
+  const isDemo = !isApp && !isWeb;
   let phonePreview = false;
   try { phonePreview = !isApp && (/[?&#]phone\b/.test(location.search + location.hash) || !!window.QUESTLINE_PHONE); } catch (e) { /* sandboxed */ }
-  /** Phone layout: the Android app, or the preview with ?phone. */
-  const isPhone = isAndroid || phonePreview;
+  // The web app on a phone (or a small window on a touch screen) gets the phone layout.
+  let webPhone = false;
+  try {
+    const short = Math.min(screen.width, screen.height);
+    webPhone = isWeb && (matchMedia('(max-width: 700px)').matches || (matchMedia('(pointer: coarse)').matches && short < 600));
+  } catch (e) { /* no matchMedia */ }
+  /** Phone layout: the Android app, a phone browser, or ?phone. */
+  const isPhone = isAndroid || phonePreview || webPhone;
+  const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   /** What to call this device in messages. */
-  const deviceName = isPhone ? 'phone' : 'PC';
+  const deviceName = isPhone ? 'phone' : isWeb ? 'browser' : 'PC';
   const LS_KEY = 'questline-save-v1';
 
-  const invoke = (cmd, args = {}) => (isApp ? T.core.invoke(cmd, args) : Promise.reject(new Error('Only available in the desktop app')));
+  const invoke = (cmd, args = {}) => (isApp ? T.core.invoke(cmd, args) : isWeb ? Q.web.invoke(cmd, args) : Promise.reject(new Error('Only available in the desktop app')));
   const listen = (ev, cb) => (isApp ? T.event.listen(ev, (e) => cb(e.payload)) : Promise.resolve(() => {}));
   const win = () => (isApp && T.window ? T.window.getCurrentWindow() : null);
 
@@ -27,9 +39,14 @@ Q.platform = (() => {
     if (isApp) return invoke('load_state');
     try { return localStorage.getItem(LS_KEY); } catch (e) { return null; }
   }
+  let storageWarned = false;
   async function save(json, day) {
     if (isApp) return invoke('save_state', { json, day });
-    try { localStorage.setItem(LS_KEY, json); } catch (e) { /* storage unavailable: session-only */ }
+    if (isWeb && Q.web.paused) return; // another tab has Questline now
+    try { localStorage.setItem(LS_KEY, json); } catch (e) {
+      // Storage full or blocked: say so once (the preview just runs for this session).
+      if (isWeb && !storageWarned && Q.ui && Q.ui.toast) { storageWarned = true; Q.ui.toast('This browser won\'t let Questline save. Free up space or leave private browsing, and sign in with Google so Drive keeps a copy.', { kind: 'error', timeout: 15000 }); }
+    }
   }
   /** Side files next to the save (only fixed names, e.g. 'sync-base'). */
   async function loadExtra(name) {
@@ -38,6 +55,7 @@ Q.platform = (() => {
   }
   async function saveExtra(name, json) {
     if (isApp) return invoke('save_extra', { name, json });
+    if (isWeb && Q.web.paused) return;
     try { localStorage.setItem(`questline-${name}`, json); } catch (e) { /* ignore */ }
   }
   function clearBrowserSave() { try { localStorage.removeItem(LS_KEY); } catch (e) { /* ignore */ } }
@@ -81,14 +99,22 @@ Q.platform = (() => {
           if (a.at <= now && !fired.has(a.id)) {
             fired.add(a.id);
             if (now - a.at > 15 * 60000) continue;
-            if (!a.silent && now > pausedUntil && 'Notification' in window && Notification.permission === 'granted') {
-              try { new Notification(a.title, { body: a.body }); } catch (e) { /* ignore */ }
-            }
+            if (isWeb && Q.web.paused) continue;
+            if (!a.silent && now > pausedUntil && 'Notification' in window && Notification.permission === 'granted') browserNotify(a.title, a.body);
             Q.app && Q.app.onAlarm(a);
           }
         }
       }, 10000);
     }
+  }
+  /** Phone browsers only show notifications through the service worker. */
+  function browserNotify(title, body) {
+    const icon = 'icon-192.png';
+    if (isWeb && navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((r) => r.showNotification(title, { body, icon, tag: `ql-${title}` })).catch(() => {});
+      return;
+    }
+    try { new Notification(title, { body }); } catch (e) { /* ignore */ }
   }
   function setNotifyPause(untilMs) {
     pausedUntil = untilMs;
@@ -115,7 +141,7 @@ Q.platform = (() => {
   /** Vibration feedback: 'tap' (light), 'success', 'error', 'heavy'. */
   function haptic(kind = 'tap') {
     if (isAndroid) { invoke('plugin:ql-mobile|haptic', { kind }).catch(() => {}); return; }
-    if (phonePreview && navigator.vibrate) { try { navigator.vibrate(kind === 'tap' ? 6 : kind === 'error' ? [20, 40, 20] : 18); } catch (e) { /* ignore */ } }
+    if ((phonePreview || webPhone) && navigator.vibrate) { try { navigator.vibrate(kind === 'tap' ? 6 : kind === 'error' ? [20, 40, 20] : 18); } catch (e) { /* ignore */ } }
   }
   /** Android focus mode: hide the system bars and use the whole screen, cutout included. */
   function setImmersive(on) {
@@ -130,9 +156,11 @@ Q.platform = (() => {
       else if (screen.orientation && screen.orientation.lock) screen.orientation.lock(mode).catch(() => {});
     } catch (e) { /* browsers only allow this in full screen */ }
   }
-  /** Colour Android's status and navigation bars to match the theme. */
+  /** Colour Android's status and navigation bars (or the browser's bar) to match the theme. */
   function setBars(color, dark) {
     if (isAndroid) invoke('plugin:ql-mobile|set_bars', { color, dark: !!dark }).catch(() => {});
+    // The web app: the browser's own bar (and an installed app's title bar) takes the colour too.
+    if (isWeb && color) { const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = color; }
   }
 
   const autostart = {
@@ -141,7 +169,7 @@ Q.platform = (() => {
   };
 
   return {
-    isApp, isAndroid, isPhone, deviceName, haptic, setBars, setOrientation, setImmersive, invoke, listen, load, save, loadExtra, saveExtra, clearBrowserSave, win: w, setAlarms, setNotifyPause, askNotifyPermission,
+    isApp, isAndroid, isWeb, isDemo, isIos, isPhone, deviceName, haptic, setBars, setOrientation, setImmersive, invoke, listen, load, save, loadExtra, saveExtra, clearBrowserSave, win: w, setAlarms, setNotifyPause, askNotifyPermission,
     openExternal, autostart,
     ready: () => (isApp ? invoke('app_ready') : Promise.resolve()),
     setCloseToTray: (on) => isApp && invoke('set_close_to_tray', { enabled: !!on }),

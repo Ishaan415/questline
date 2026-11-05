@@ -35,8 +35,11 @@ Q.views.settings = (() => {
   let ownClient = false;     // advanced: use your own client instead
   function google() {
     const st = S(); const g = st.settings.google;
-    if (!P.isApp) {
-      return `<p class="small muted">Google sign-in, Drive sync and Calendar run in the desktop app. The calendar here shows sample events.</p>`;
+    if (P.isDemo) {
+      return `<p class="small muted">Google sign-in, Drive sync and Calendar run in the app. The calendar here shows sample events.</p>`;
+    }
+    if (P.isWeb && !Q.web.googleReady() && !g.connected) {
+      return `<p class="small muted">Google sign-in isn't set up for this web version yet. It works in the Windows and Android apps.</p>`;
     }
     if (g.connected) {
       const acc = Q.cloud.account();
@@ -76,6 +79,11 @@ Q.views.settings = (() => {
         <div class="row-btns"><button class="btn btn-small btn-primary" data-act="g-calendar-on">${I('calendar')} Turn on Google Calendar</button></div>`}
         <div class="row-btns acct-out"><button class="btn btn-small btn-danger-ghost" data-act="g-disconnect">Sign out of Google</button></div>`;
     }
+    if (P.isWeb) {
+      return `<p class="small">Sign in to <b>sync Questline between your devices</b> and keep <b>daily backups in your Google Drive</b>. You can add <b>Google Calendar</b> afterwards.</p>
+        <button class="btn btn-primary btn-google" data-act="g-connect">${I('cloud')} Sign in with Google</button>
+        <p class="small muted">This page goes to Google's sign-in and comes back. Questline can only see the files it creates in your Drive, never the rest. Already use Questline on your PC or phone? Sign in with the same account and your progress comes here.</p>`;
+    }
     if (builtin === null) { builtin = false; P.invoke('google_builtin').then((v) => { builtin = !!v; Q.app.render(); }).catch(() => {}); }
     const own = !builtin || ownClient;
     return `<p class="small">Sign in to <b>sync Questline between your devices</b> and keep <b>daily backups in your Google Drive</b>. You can add <b>Google Calendar</b> afterwards.</p>
@@ -90,15 +98,15 @@ Q.views.settings = (() => {
   let spWebLinked = null;
   function spotifyPanel() {
     const sp = S().settings.spotify;
-    if (!P.isApp) return '<p class="small muted">The desktop app shows the official Spotify app automatically, and can also follow Spotifast or your phone after you connect your account.</p>';
+    if (P.isDemo) return '<p class="small muted">The desktop app shows the official Spotify app automatically, and can also follow Spotifast or your phone after you connect your account.</p>';
     if (spWebLinked === null) P.invoke('spotify_web_status').then((v) => { spWebLinked = !!v; if (sp.webConnected !== spWebLinked) { sp.webConnected = spWebLinked; Q.store.commit('settings'); } Q.app.render(); }).catch(() => { spWebLinked = false; });
-    const intro = '<p class="small">The <b>official Spotify app</b> is picked up automatically, instantly and offline. To also see and control <b>Spotifast, your phone or the web player</b>, connect your Spotify account (Premium). Questline switches between the two by itself.</p>';
+    const intro = P.isWeb ? '<p class="small">Connect your Spotify account (Premium) to see and control what plays in <b>Spotify, Spotifast or on your phone</b>, right here and in focus mode.</p>' : '<p class="small">The <b>official Spotify app</b> is picked up automatically, instantly and offline. To also see and control <b>Spotifast, your phone or the web player</b>, connect your Spotify account (Premium). Questline switches between the two by itself.</p>';
     if (sp.webConnected) {
       return `${intro}<div class="sync-ok">${I('check')} Spotify account connected</div>
-        <p class="small muted">When the desktop app isn't playing, Questline follows whatever your account plays and shows the device, like "on Spotifast".</p>
+        <p class="small muted">${P.isWeb ? 'Questline follows whatever your account plays and shows the device, like "on Spotifast".' : 'When the desktop app isn\'t playing, Questline follows whatever your account plays and shows the device, like "on Spotifast".'}</p>
         <div class="row-btns"><button class="btn btn-small btn-danger-ghost" data-act="sp-web-disconnect">Disconnect</button></div>`;
     }
-    const redirect = 'http://127.0.0.1:43821/callback';
+    const redirect = P.isWeb ? Q.web.spotifyRedirect : 'http://127.0.0.1:43821/callback';
     return `${intro}
       <ol class="small steps">
         <li>Open <button class="link" data-act="sp-dashboard">developer.spotify.com/dashboard</button> and log in with your Spotify account.</li>
@@ -117,7 +125,8 @@ Q.views.settings = (() => {
       <button class="icon-btn" data-act="ics-del" data-i="${i}" aria-label="Remove feed">${I('trash')}</button></div>`).join('')}
       <form class="ics-add" data-ics-form><input name="name" placeholder="Name (e.g. Holidays)" maxlength="40" required><input name="url" placeholder="https://… or webcal://… .ics link" required spellcheck="false">
       <button class="btn btn-small">${I('plus')} Add feed</button></form>
-      <p class="small muted">Works with Google's "secret address in iCal format", Outlook "Publish calendar", iCloud public calendars, university timetables and holiday calendars. Read-only.</p>`;
+      <p class="small muted">Works with Google's "secret address in iCal format", Outlook "Publish calendar", iCloud public calendars, university timetables and holiday calendars. Read-only.</p>
+      ${P.isWeb ? '<p class="small muted">In the browser, only feeds whose server allows web pages to read them can load; many don\'t (Google\'s secret address doesn\'t). For those, use Google Calendar above or the apps.</p>' : ''}`;
   }
 
   function render(root) {
@@ -143,7 +152,7 @@ Q.views.settings = (() => {
 
         <section class="panel">
           <div class="panel-title">${I('bell')} Notifications</div>
-          ${toggle('settings.notifications', P.isPhone ? 'Notifications' : 'Desktop notifications', P.isPhone ? 'Dailies, reminders and events, even when Questline is closed' : 'Dailies, reminders and events, even with the window closed')}
+          ${toggle('settings.notifications', P.isPhone || P.isWeb ? 'Notifications' : 'Desktop notifications', P.isWeb ? 'Dailies, reminders and events while Questline is open in a tab. The apps also notify when closed.' : P.isPhone ? 'Dailies, reminders and events, even when Questline is closed' : 'Dailies, reminders and events, even with the window closed')}
           ${select('settings.defaultLead', 'Default heads-up', [[0, 'At the time only'], [5, '5 min before'], [10, '10 min before'], [15, '15 min before'], [30, '30 min before'], [60, '1 hour before']])}
           ${toggle('settings.quietOn', 'Quiet hours', 'Notifications still show inside the app, silently')}
           <div class="row2 ${s.quietOn ? '' : 'dim'}"><label class="field"><span class="field-label">From</span><input type="time" data-change="set" data-path="settings.quietFrom" value="${s.quietFrom}"></label>
@@ -162,7 +171,7 @@ Q.views.settings = (() => {
         <section class="panel">
           <div class="panel-title">${I('sun')} Look & sound</div>
           <div class="mode-row"><span><b>Mode</b><span class="small muted">${P.isPhone ? 'Also under More at the bottom right' : 'Press <kbd>D</kbd> or the moon/sun button in the title bar to switch quickly'}</span></span>
-            <div class="seg seg-small" role="radiogroup" aria-label="Light or dark mode">${[['light', 'Light'], ['dark', 'Dark'], ['auto', P.isPhone ? 'Match phone' : 'Match Windows']].map(([k, n]) => `<button class="seg-btn ${s.themeMode === k ? 'on' : ''}" data-act="set-mode" data-mode="${k}">${n}</button>`).join('')}</div></div>
+            <div class="seg seg-small" role="radiogroup" aria-label="Light or dark mode">${[['light', 'Light'], ['dark', 'Dark'], ['auto', P.isPhone ? 'Match phone' : P.isWeb ? 'Match device' : 'Match Windows']].map(([k, n]) => `<button class="seg-btn ${s.themeMode === k ? 'on' : ''}" data-act="set-mode" data-mode="${k}">${n}</button>`).join('')}</div></div>
           ${['light', 'dark'].map((mode) => `<div class="theme-group"><span class="field-label">${mode === 'light' ? 'Light theme' : 'Dark theme'}</span>
             <div class="skin-row">${st.owned.skins.filter((k) => Q.game.SHOP.skins[k] && Q.game.SHOP.skins[k].mode === mode).map((k) => { const sk = Q.game.SHOP.skins[k]; const on = (mode === 'dark' ? s.darkSkin : s.skin) === k; return `<button class="skin-pick ${on ? 'on' : ''}" data-act="equip-skin" data-key="${k}" title="${sk.name}">${sk.sw.map((c) => `<i style="background:${c}"></i>`).join('')}<span>${sk.name}</span></button>`; }).join('')}
               <button class="skin-pick more" data-act="go-shop-looks">${I('bag')}<span>More in Shop</span></button></div></div>`).join('')}
@@ -177,11 +186,11 @@ Q.views.settings = (() => {
         <section class="panel">
           <div class="panel-title">${I('gear')} App</div>
           ${P.isApp && !P.isPhone ? `<label class="toggle-row"><span><b>Start with Windows</b><span class="small muted">Launches quietly into the tray</span></span><input type="checkbox" class="switch" data-change="autostart" ${autostartOn ? 'checked' : ''}></label>` : ''}
-          ${P.isPhone ? '' : toggle('settings.closeToTray', 'Close button hides to tray', 'Keeps reminders working. Quit from the tray menu.')}
+          ${P.isPhone || !P.isApp ? '' : toggle('settings.closeToTray', 'Close button hides to tray', 'Keeps reminders working. Quit from the tray menu.')}
           ${toggle('settings.confirmDelete', 'Undo bar after deleting')}
           ${P.isPhone ? '' : `<div class="keys"><b>Shortcuts</b>
-            <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Q</kbd> quick add from anywhere${P.isApp ? '' : ' (desktop app)'}</div>
-            <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> focus mode · <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> show/hide</div>
+            ${P.isWeb ? '' : `<div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Q</kbd> quick add from anywhere${P.isApp ? '' : ' (desktop app)'}</div>
+            <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> focus mode · <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> show/hide</div>`}
             <div><kbd>N</kbd> quick add · <kbd>Ctrl</kbd>+<kbd>K</kbd> command palette · <kbd>1</kbd>–<kbd>9</kbd> pages · <kbd>F</kbd> focus · <kbd>?</kbd> help</div>
           </div>`}
         </section>
@@ -198,7 +207,7 @@ Q.views.settings = (() => {
 
         <section class="panel">
           <div class="panel-title">${I('chest')} Your data</div>
-          <p class="small muted">${P.isApp ? `Saved on this ${P.deviceName} with a daily backup (last 14 days kept).` : 'The preview keeps data in this browser only.'}</p>
+          <p class="small muted">${P.isApp ? `Saved on this ${P.deviceName} with a daily backup (last 14 days kept).` : P.isWeb ? `Saved in this browser. Browsers can clear site data, so sign in with Google to keep a copy in your Drive${P.isIos ? ', and on iPhone add Questline to your Home Screen' : ''}.` : 'The preview keeps data in this browser only.'}</p>
           <div class="row-btns">
             <button class="btn btn-small" data-act="export">${I('down')} Export backup</button>
             <label class="btn btn-small file-btn">${I('up')} Import backup<input type="file" accept=".json,application/json" data-change="import" hidden></label>
@@ -313,7 +322,7 @@ Q.views.settings = (() => {
     });
     on('test-notify', async () => {
       const ok = await P.askNotifyPermission();
-      if (!ok && !P.isApp) return Q.ui.toast('Notifications are blocked here. In the desktop app they always work.', { kind: 'error' });
+      if (!ok && !P.isApp) return Q.ui.toast(P.isWeb && P.isIos ? 'On iPhone, add Questline to your Home Screen first (Share → Add to Home Screen), then turn notifications on there.' : 'Notifications are blocked for this page. Allow them in your browser\'s site settings. The apps always show them.', { kind: 'error', timeout: 9000 });
       Q.scheduler.setExtra([{ id: `test:${Date.now()}`, at: Date.now() + 3000, title: 'Questline test', body: 'Notifications are working. Nice!', silent: false }]);
       Q.ui.toast('A test notification arrives in a few seconds');
     });

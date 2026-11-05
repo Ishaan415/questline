@@ -26,7 +26,7 @@ Q.spotify = (() => {
   let volWanted = null;
   let volTimer = null;
   let lastVol = 60;           // restored when you un-mute
-  const webOn = () => P.isApp && Q.store.state.settings.spotify && Q.store.state.settings.spotify.webConnected;
+  const webOn = () => !P.isDemo && Q.store.state.settings.spotify && Q.store.state.settings.spotify.webConnected;
 
   /* ---------- demo player (preview only) ---------- */
   const DEMO = [
@@ -68,7 +68,7 @@ Q.spotify = (() => {
   /* ---------- polling ---------- */
   async function fetchState(forceWeb = false) {
     lastFetch = Date.now();
-    if (!P.isApp) { state = demoState(); source = 'demo'; }
+    if (P.isDemo) { state = demoState(); source = 'demo'; }
     else {
       let local;
       try { local = await P.invoke('spotify_state'); } catch (e) { local = { available: false }; }
@@ -90,7 +90,7 @@ Q.spotify = (() => {
     const key = `${source}|${state.art_key}`;
     if (state.available && key !== artKey) {
       artKey = key;
-      if (!P.isApp) art = demoArt(DEMO[demo.i]);
+      if (P.isDemo) art = demoArt(DEMO[demo.i]);
       else { try { art = await P.invoke(source === 'web' ? 'spotify_web_art' : 'spotify_art'); } catch (e) { art = null; } }
     }
     render();
@@ -107,7 +107,7 @@ Q.spotify = (() => {
   function start() {
     if (pollTimer) return;
     fetchState();
-    pollTimer = setInterval(() => { if (document.visibilityState === 'visible' && document.querySelector('[data-spotify]')) fetchState(); }, P.isApp ? 1500 : 1000);
+    pollTimer = setInterval(() => { if (document.visibilityState === 'visible' && document.querySelector('[data-spotify]')) fetchState(); }, P.isDemo ? 1000 : 1500);
     tickTimer = setInterval(tickProgress, 500);
   }
   function stop() { clearInterval(pollTimer); clearInterval(tickTimer); pollTimer = tickTimer = null; }
@@ -120,7 +120,7 @@ Q.spotify = (() => {
     document.querySelectorAll('[data-spotify]').forEach(tickOne);
     clearTimeout(volTimer);
     const send = async () => {
-      if (!P.isApp) return demoControl('volume', v);
+      if (P.isDemo) return demoControl('volume', v);
       try { await P.invoke('spotify_web_control', { action: 'volume', value: v }); }
       catch (e) { Q.ui.toast(String(e), { kind: 'error' }); }
     };
@@ -130,7 +130,7 @@ Q.spotify = (() => {
 
   async function control(action, value) {
     Q.sfx.click();
-    if (!P.isApp) demoControl(action, value);
+    if (P.isDemo) demoControl(action, value);
     else if (source === 'web') {
       const a = action === 'toggle' ? (state.playing ? 'pause' : 'play') : action;
       // Show the change right away; the next poll confirms it.
@@ -160,7 +160,7 @@ Q.spotify = (() => {
           <div class="sp-empty">
             <div class="sp-art sp-art-empty">${Q.sprites.icon('note')}</div>
             <div class="sp-meta"><div class="sp-title">Nothing playing</div>
-            <div class="sp-artist">${!P.isApp ? 'Spotify control works in the desktop app.' : webOn() ? 'Press play in Spotify, Spotifast or on your phone.' : 'Press play in the Spotify app. Using Spotifast or your phone? Connect your account in Settings.'}</div></div>
+            <div class="sp-artist">${P.isDemo ? 'Spotify control works in the desktop app.' : P.isWeb && !webOn() ? 'Connect your Spotify account in Settings to see and control what\'s playing.' : webOn() ? 'Press play in Spotify, Spotifast or on your phone.' : 'Press play in the Spotify app. Using Spotifast or your phone? Connect your account in Settings.'}</div></div>
             <button class="btn btn-small" data-act="sp-open">Open Spotify</button>
           </div>`;
         return;
@@ -209,7 +209,7 @@ Q.spotify = (() => {
     }
   }
   function tickProgress() {
-    if (!P.isApp && state.available) state = demoState();
+    if (P.isDemo && state.available) state = demoState();
     document.querySelectorAll('[data-spotify]').forEach((el) => state.available && tickOne(el));
     if (Date.now() - lastFetch > 4000 && document.visibilityState === 'visible') fetchState();
   }

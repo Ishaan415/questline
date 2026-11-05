@@ -41,8 +41,8 @@ Q.cloud = (() => {
   let status = { state: 'off', msg: '' };
   let ready = false;             // first pull finished (or skipped)
 
-  const deviceName = () => (P.isApp ? (/android/i.test(navigator.userAgent) ? 'Android phone' : 'Windows PC') : 'Web preview');
-  const canDrive = () => P.isApp && G().connected && account && account.connected && account.drive;
+  const deviceName = () => (P.isApp ? (/android/i.test(navigator.userAgent) ? 'Android phone' : 'Windows PC') : P.isWeb ? (P.isPhone ? 'phone browser' : 'web browser') : 'Web preview');
+  const canDrive = () => !P.isDemo && G().connected && account && account.connected && account.drive;
   const syncOn = () => canDrive() && G().syncOn !== false;
 
   /* ------------------------------------------------------------ helpers */
@@ -345,7 +345,7 @@ Q.cloud = (() => {
 
   /* ----------------------------------------------------------- account */
   async function refreshAccount() {
-    if (!P.isApp || !G().connected) { account = null; setStatus('off'); return null; }
+    if (P.isDemo || !G().connected) { account = null; setStatus('off'); return null; }
     try { account = await P.invoke('google_account'); } catch (e) { account = null; }
     if (account && !account.connected) { G().connected = false; Q.store.commit('cloud'); }
     // Sign-ins from before Calendar became optional already allowed it: keep it on.
@@ -372,7 +372,7 @@ Q.cloud = (() => {
       G().editedAt = Date.now();
       schedule();
     });
-    if (!P.isApp) return;
+    if (P.isDemo) return;
     await refreshAccount();
     setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, EVERY);
     document.addEventListener('visibilitychange', () => {

@@ -1,0 +1,73 @@
+# Publishes the website to GitHub Pages: the homepage (docs/) at
+# https://ishaan415.github.io/questline/ and the browser version of Questline at
+# https://ishaan415.github.io/questline/app/ (built from src/ by scripts/build-web.mjs).
+#
+# Runs:
+#   - after every successful "Build and release" run, so the browser version gets
+#     the same code and version number as the new Windows and Android release;
+#   - when only the homepage or the web files change (no release needed);
+#   - by hand from the Actions tab.
+#
+# One-time setup:
+#   1. Settings → Pages → Build and deployment → Source: GitHub Actions.
+#   2. Settings → Secrets and variables → Actions → Variables → New repository
+#      variable GOOGLE_WEB_CLIENT_ID = the Client ID of the Google OAuth client of type
+#      "Web application" (a variable, not a secret: browsers see it anyway).
+#      Without it the browser version works, just without Google sign-in.
+name: Website
+
+on:
+  workflow_run:
+    workflows: ['Build and release']
+    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'web/**'
+      - 'scripts/build-web.mjs'
+      - 'scripts/bundle.mjs'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # release tags give the version number
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build the website
+        env:
+          QUESTLINE_GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+        run: node scripts/build-web.mjs dist-web
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}app/
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

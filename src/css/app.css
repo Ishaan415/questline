@@ -1558,3 +1558,9 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
 }
 .boot-error { padding: 24px; }
 .boot-error pre { white-space: pre-wrap; font-size: 12px; }
+
+/* Web app: another tab took over */
+.web-paused { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; padding: 16px; background: rgba(20, 32, 38, .6); }
+.web-paused-card { display: grid; gap: 10px; max-width: 360px; padding: 22px 24px; text-align: center; color: var(--ink); background: var(--panel); border: 3px solid var(--line); border-radius: 14px; box-shadow: 0 6px 0 var(--line); }
+.web-paused-card p { margin: 0; color: var(--ink-soft); }
+.ob-signin { margin: 8px 0 0; }

@@ -104,9 +104,9 @@ Q.mobile = (() => {
     P.haptic(kind);
   }
 
-  /** Status and navigation bars take the colour of the top bar. */
+  /** Status and navigation bars (or the browser's bar, on the web) take the colour of the top bar. */
   function syncBars() {
-    if (!P.isAndroid) return;
+    if (!P.isAndroid && !P.isWeb) return;
     const css = getComputedStyle(document.documentElement);
     const color = (css.getPropertyValue('--panel') || '').trim();
     if (/^#[0-9a-f]{6}$/i.test(color)) P.setBars(color, document.documentElement.dataset.mode === 'dark');

@@ -249,8 +249,8 @@ Q.sync = (() => {
 
   /* ---------------------------------------------------------------- sync */
   async function syncAll(manual = false) {
-    if (!P.isApp) {
-      if (manual) Q.ui.toast('Calendar sync runs in the desktop app. The preview shows sample events.', { kind: 'info' });
+    if (P.isDemo) {
+      if (manual) Q.ui.toast('Calendar sync runs in the app. The preview shows sample events.', { kind: 'info' });
       return;
     }
     if (syncing) return;
